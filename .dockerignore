@@ -1,0 +1,18 @@
+# Build output and local state — the image builds these itself.
+/gotracks
+/dist/
+*.db
+*.db-shm
+*.db-wal
+/uploads/
+.env
+.env.local
+
+/ui/node_modules/
+/ui/dist/
+
+.git/
+.github/
+example/
+docs/
+*.md

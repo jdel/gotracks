@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v[0-9]+\.[0-9]+\.[0-9]+
+      - v[0-9]+\.[0-9]+\.[0-9]+-preview\.[0-9]+
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Build UI
+        run: cd ui && npm ci && npm run build
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Lint
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: amd64, arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          platforms: amd64, arm64
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: release --clean --skip=before
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,22 @@
+# gotracks with SQLite — the simplest deployment.
+#
+#   cp .env.example .env    # then set GOTRACKS_AUTH_JWT_SECRET
+#   docker compose up -d
+#
+# For Postgres instead, see docker-compose.postgres.yml in this directory.
+services:
+  gotracks:
+    image: ghcr.io/jdel/gotracks:latest
+    # Or build from a checkout:
+    # build:
+    #   context: ../..
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file: .env
+    volumes:
+      # The database and uploaded attachments.
+      - gotracks-data:/data
+
+volumes:
+  gotracks-data:
