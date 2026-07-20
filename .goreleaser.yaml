@@ -1,0 +1,79 @@
+version: 2
+
+project_name: gotracks
+
+before:
+  hooks:
+    - sh -c "cd ui && npm ci && npm run build"
+
+builds:
+  - main: .
+    id: gotracks
+    binary: gotracks
+    ldflags:
+      - "-s"
+      - "-w"
+      - "-X"
+      - "main.version={{ .Version }}"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm
+      - arm64
+      - "386"
+    goarm:
+      - "7"
+    ignore:
+      - goos: darwin
+        goarch: arm
+      - goos: darwin
+        goarch: "386"
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+      - goos: windows
+        goarch: "386"
+
+archives:
+  - name_template: "gotracks-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "SHA256SUMS"
+  algorithm: sha256
+
+release:
+  github:
+    owner: jdel
+    name: gotracks
+  name_template: "Release {{ .Version }}"
+  draft: true
+  prerelease: auto
+
+dockers_v2:
+  - id: gotracks
+    dockerfile: Dockerfile.goreleaser
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    images:
+      - "ghcr.io/jdel/gotracks"
+    tags:
+      - "{{ .Tag }}"
+      - "latest"
+    flags:
+      - "--pull"

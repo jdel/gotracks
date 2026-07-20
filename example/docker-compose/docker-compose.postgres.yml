@@ -1,0 +1,39 @@
+# gotracks backed by Postgres.
+#
+#   cp .env.example .env    # then set GOTRACKS_AUTH_JWT_SECRET
+#   docker compose -f docker-compose.postgres.yml up -d
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gotracks
+      POSTGRES_PASSWORD: gotracks
+      POSTGRES_DB: gotracks
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gotracks"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  gotracks:
+    image: ghcr.io/jdel/gotracks:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      # Overrides the SQLite default baked into the image.
+      GOTRACKS_DB_URL: "postgres://gotracks:gotracks@db:5432/gotracks?sslmode=disable"
+    volumes:
+      # Attachments still live on disk even when the database is Postgres.
+      - gotracks-data:/data
+
+volumes:
+  pgdata:
+  gotracks-data:

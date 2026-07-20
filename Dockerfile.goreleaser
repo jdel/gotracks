@@ -1,0 +1,17 @@
+# Runtime image for goreleaser, which supplies an already-built binary.
+# GoReleaser (dockers_v2) stages the binary under ${TARGETPLATFORM}/ in the
+# build context, so the COPY must reference that path.
+FROM alpine:3.21
+RUN apk add --no-cache ca-certificates
+
+ARG TARGETPLATFORM
+COPY ${TARGETPLATFORM}/gotracks /gotracks
+
+# Data lives outside the image so a container restart keeps it.
+ENV GOTRACKS_DB_URL=sqlite:/data/gotracks.db \
+    GOTRACKS_STORAGE_UPLOADS=/data/uploads
+VOLUME /data
+EXPOSE 8080
+
+ENTRYPOINT ["/gotracks"]
+CMD ["serve"]

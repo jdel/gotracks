@@ -1,0 +1,2313 @@
+basePath: /
+definitions:
+  api.adminUser:
+    properties:
+      createdAt:
+        type: string
+      email:
+        description: |-
+          Email is the account identity: unique, required, and stored lower-cased.
+          There is no separate username — one fewer thing to choose, to remember,
+          and to have to police for impersonation.
+        type: string
+      emailVerifiedAt:
+        description: |-
+          EmailVerifiedAt is nil until the address is proven. Nullable, so it can
+          be added to a populated table.
+        type: string
+      id:
+        type: integer
+      isAdmin:
+        type: boolean
+      twoFactorEnabled:
+        type: boolean
+      updatedAt:
+        type: string
+    type: object
+  api.authResponse:
+    properties:
+      tokens:
+        $ref: '#/definitions/service.TokenPair'
+      twoFactor:
+        $ref: '#/definitions/service.Challenge'
+      user:
+        $ref: '#/definitions/domain.User'
+    type: object
+  api.changePasswordRequest:
+    properties:
+      currentPassword:
+        type: string
+      newPassword:
+        type: string
+      passkeyResponse:
+        items:
+          type: integer
+        type: array
+      passkeySessionId:
+        description: |-
+          PasskeySessionID and PasskeyResponse are the alternative proof. The
+          response is left raw: it is the browser's credential object, which does
+          not survive a strict decode.
+        type: string
+    type: object
+  api.contextInUseBody:
+    properties:
+      error:
+        type: string
+      recurring:
+        type: integer
+      todos:
+        type: integer
+    type: object
+  api.contextRequest:
+    properties:
+      name:
+        type: string
+      position:
+        type: integer
+      state:
+        type: string
+    type: object
+  api.createUserRequest:
+    properties:
+      email:
+        type: string
+      isAdmin:
+        type: boolean
+      password:
+        type: string
+    type: object
+  api.disableRequest:
+    properties:
+      code:
+        type: string
+      password:
+        type: string
+    type: object
+  api.emailRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  api.enrolFinishRequest:
+    properties:
+      code:
+        type: string
+      enrolmentId:
+        type: string
+    type: object
+  api.errorBody:
+    properties:
+      error:
+        type: string
+    type: object
+  api.instanceSettingsRequest:
+    properties:
+      allowRegister:
+        type: boolean
+      usageReportAtMinute:
+        description: UsageReportAtMinute is a pointer so "absent" is distinct from
+          midnight.
+        type: integer
+    type: object
+  api.loginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  api.noteRequest:
+    properties:
+      body:
+        type: string
+      clearProject:
+        description: |-
+          ClearProject detaches an existing note from its project. A nil
+          ProjectID alone cannot mean that: it is also what "leave unchanged"
+          looks like on update.
+        type: boolean
+      projectId:
+        type: integer
+      projectName:
+        description: |-
+          ProjectName lets a client name a project instead of supplying an id —
+          an unknown name is created on the fly, the same "#project" behaviour a
+          todo or a recurring pattern gets. Ignored if ProjectID is also set.
+        type: string
+    type: object
+  api.passkeyFinishRequest:
+    properties:
+      name:
+        type: string
+      response:
+        items:
+          type: integer
+        type: array
+      sessionId:
+        type: string
+    type: object
+  api.passkeyLoginBeginRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  api.passwordRequest:
+    properties:
+      password:
+        type: string
+    type: object
+  api.preferenceRequest:
+    properties:
+      autoDeleteAttachments:
+        type: boolean
+      dateFormat:
+        type: string
+      locale:
+        type: string
+      reviewPeriod:
+        type: integer
+      theme:
+        type: string
+      timeZone:
+        type: string
+      weekStart:
+        type: integer
+    type: object
+  api.projectRequest:
+    properties:
+      defaultContextId:
+        type: integer
+      description:
+        type: string
+      name:
+        type: string
+      position:
+        type: integer
+      state:
+        type: string
+    type: object
+  api.recurringRequest:
+    properties:
+      contextId:
+        type: integer
+      contextName:
+        type: string
+      dayOfMonth:
+        type: integer
+      description:
+        type: string
+      endDate:
+        type: string
+      everyN:
+        type: integer
+      monthOfYear:
+        type: integer
+      notes:
+        type: string
+      period:
+        type: string
+      projectId:
+        type: integer
+      projectName:
+        type: string
+      showFromDays:
+        type: integer
+      startFrom:
+        type: string
+      state:
+        type: string
+      weekdays:
+        type: string
+    type: object
+  api.refreshRequest:
+    properties:
+      refreshToken:
+        type: string
+    type: object
+  api.registerRequest:
+    properties:
+      email:
+        type: string
+      locale:
+        description: |-
+          Locale is the language picked on the form. Optional: an absent or
+          unsupported value leaves the account on the default.
+        type: string
+      password:
+        type: string
+    type: object
+  api.reorderRequest:
+    properties:
+      position:
+        type: integer
+    type: object
+  api.resetPasswordRequest:
+    properties:
+      newPassword:
+        type: string
+      token:
+        type: string
+    type: object
+  api.todoRequest:
+    properties:
+      contextId:
+        type: integer
+      contextName:
+        description: 'Names are an alternative to ids: an unknown name is created
+          automatically.'
+        type: string
+      description:
+        type: string
+      due:
+        type: string
+      notes:
+        type: string
+      projectId:
+        type: integer
+      projectName:
+        type: string
+      showFrom:
+        type: string
+      starred:
+        type: boolean
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  api.tokenRequest:
+    properties:
+      token:
+        type: string
+    type: object
+  api.twoFactorVerifyRequest:
+    properties:
+      challengeId:
+        type: string
+      code:
+        type: string
+    type: object
+  api.updateUserRequest:
+    properties:
+      email:
+        type: string
+      isAdmin:
+        type: boolean
+      password:
+        type: string
+    type: object
+  domain.Attachment:
+    properties:
+      contentType:
+        type: string
+      createdAt:
+        type: string
+      fileName:
+        type: string
+      id:
+        type: integer
+      size:
+        type: integer
+      todoId:
+        type: integer
+    type: object
+  domain.AttachmentWithTodo:
+    properties:
+      contentType:
+        type: string
+      createdAt:
+        type: string
+      fileName:
+        type: string
+      id:
+        type: integer
+      size:
+        type: integer
+      todoDescription:
+        type: string
+      todoId:
+        type: integer
+      todoState:
+        type: string
+    type: object
+  domain.Context:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      position:
+        type: integer
+      state:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  domain.Credential:
+    properties:
+      createdAt:
+        type: string
+      credentialId:
+        description: CredentialID is the raw WebAuthn credential id, base64url encoded.
+        type: string
+      id:
+        type: integer
+      lastUsedAt:
+        type: string
+      name:
+        type: string
+    type: object
+  domain.InstanceSettings:
+    properties:
+      allowRegister:
+        type: boolean
+      updatedAt:
+        type: string
+      usageReportAtMinute:
+        description: |-
+          UsageReportAtMinute is the UTC time of day the usage report is rebuilt,
+          as minutes since midnight (e.g. 90 = 01:30). The interval is fixed at
+          once a day; only the start time is configurable. It can still be run on
+          demand regardless of the schedule.
+        type: integer
+      usageReportRunAt:
+        type: string
+    type: object
+  domain.Note:
+    properties:
+      body:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: integer
+      projectId:
+        type: integer
+      updatedAt:
+        type: string
+    type: object
+  domain.Preference:
+    properties:
+      autoDeleteAttachments:
+        description: |-
+          AutoDeleteAttachments is a pointer because this column was added to a
+          table that already had rows: schema sync adds new columns nullable with
+          no default (see addMissingColumns), so a plain bool would fail to scan
+          an existing row's NULL. Nil reads as off, same as false.
+        type: boolean
+      dateFormat:
+        type: string
+      locale:
+        type: string
+      reviewPeriod:
+        type: integer
+      theme:
+        description: light | dark | system
+        type: string
+      timeZone:
+        type: string
+      updatedAt:
+        type: string
+      weekStart:
+        description: 0 = Sunday
+        type: integer
+    type: object
+  domain.Project:
+    properties:
+      completedAt:
+        type: string
+      createdAt:
+        type: string
+      defaultContextId:
+        type: integer
+      description:
+        type: string
+      id:
+        type: integer
+      lastReviewed:
+        type: string
+      name:
+        type: string
+      position:
+        type: integer
+      state:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  domain.RecurringTodo:
+    properties:
+      completedAt:
+        type: string
+      contextId:
+        type: integer
+      createdAt:
+        type: string
+      dayOfMonth:
+        description: monthly/yearly
+        type: integer
+      description:
+        type: string
+      endDate:
+        type: string
+      everyN:
+        type: integer
+      id:
+        type: integer
+      lastSpawnedAt:
+        type: string
+      monthOfYear:
+        description: yearly (1-12)
+        type: integer
+      notes:
+        type: string
+      period:
+        description: Pattern. EveryN applies to the chosen period (every 2 weeks,
+          every 3 months…).
+        type: string
+      projectId:
+        type: integer
+      showFromDays:
+        description: ShowFromDays makes the spawned action appear this many days before
+          it is due.
+        type: integer
+      startFrom:
+        type: string
+      state:
+        type: string
+      updatedAt:
+        type: string
+      weekdays:
+        description: 'weekly: "1,3,5" (Sunday=0)'
+        type: string
+    type: object
+  domain.Tag:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  domain.Todo:
+    properties:
+      completedAt:
+        type: string
+      contextId:
+        type: integer
+      createdAt:
+        type: string
+      description:
+        type: string
+      due:
+        type: string
+      id:
+        type: integer
+      notes:
+        type: string
+      position:
+        type: integer
+      projectId:
+        type: integer
+      recurringTodoId:
+        type: integer
+      showFrom:
+        type: string
+      starred:
+        type: boolean
+      state:
+        type: string
+      tags:
+        description: Tags is populated on read; not a stored column.
+        items:
+          type: string
+        type: array
+      updatedAt:
+        type: string
+    type: object
+  domain.User:
+    properties:
+      createdAt:
+        type: string
+      email:
+        description: |-
+          Email is the account identity: unique, required, and stored lower-cased.
+          There is no separate username — one fewer thing to choose, to remember,
+          and to have to police for impersonation.
+        type: string
+      emailVerifiedAt:
+        description: |-
+          EmailVerifiedAt is nil until the address is proven. Nullable, so it can
+          be added to a populated table.
+        type: string
+      id:
+        type: integer
+      isAdmin:
+        type: boolean
+      updatedAt:
+        type: string
+    type: object
+  service.AccountUsage:
+    properties:
+      contextPercent:
+        type: integer
+      contexts:
+        type: integer
+      email:
+        type: string
+      generatedAt:
+        type: string
+      isAdmin:
+        description: |-
+          Admin and TwoFactor are carried so the report can be filtered the same
+          way the user list is, without joining back to it.
+        type: boolean
+      notePercent:
+        type: integer
+      notes:
+        type: integer
+      projectPercent:
+        type: integer
+      projects:
+        type: integer
+      recurring:
+        type: integer
+      recurringPercent:
+        type: integer
+      storageBytes:
+        type: integer
+      storagePercent:
+        type: integer
+      tagPercent:
+        type: integer
+      tags:
+        type: integer
+      todoPercent:
+        type: integer
+      todos:
+        type: integer
+      twoFactorEnabled:
+        type: boolean
+      userId:
+        type: integer
+      worstPercent:
+        description: |-
+          WorstPercent is the highest of the above: how close this account is to
+          whichever limit it is nearest. Over 100 means it is past one — possible
+          because limits are enforced when something is created, not retroactively
+          when a limit is lowered.
+        type: integer
+    type: object
+  service.Challenge:
+    properties:
+      challengeId:
+        type: string
+      expiresAt:
+        type: string
+    type: object
+  service.ContextCount:
+    properties:
+      contextId:
+        type: integer
+      name:
+        type: string
+      open:
+        type: integer
+    type: object
+  service.ImportResult:
+    properties:
+      contexts:
+        type: integer
+      notes:
+        type: integer
+      projects:
+        type: integer
+      recurring:
+        type: integer
+      todos:
+        type: integer
+    type: object
+  service.MonthCount:
+    properties:
+      count:
+        type: integer
+      month:
+        description: YYYY-MM
+        type: string
+    type: object
+  service.Quotas:
+    properties:
+      contexts:
+        type: integer
+      notes:
+        type: integer
+      projects:
+        type: integer
+      recurring:
+        type: integer
+      storageBytes:
+        format: int64
+        type: integer
+      tags:
+        type: integer
+      tagsPerTodo:
+        description: |-
+          TagsPerTodo bounds one request rather than the account total. Tags are
+          created implicitly from an action's tag list, so without this a single
+          action can mint thousands of rows while costing one against the action
+          allowance — the amplifier the other limits do not catch.
+        type: integer
+      todos:
+        type: integer
+    type: object
+  service.Report:
+    properties:
+      accounts:
+        items:
+          $ref: '#/definitions/service.AccountUsage'
+        type: array
+      generatedAt:
+        type: string
+      limits:
+        $ref: '#/definitions/service.Quotas'
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+      usageReportAtMinute:
+        type: integer
+    type: object
+  service.Stats:
+    properties:
+      active:
+        type: integer
+      avgCompletionDays:
+        type: number
+      completed:
+        type: integer
+      completedLast30:
+        type: integer
+      completedLast365:
+        type: integer
+      completionRate:
+        type: number
+      deferred:
+        type: integer
+      oldestOpenDays:
+        type: integer
+      perContext:
+        items:
+          $ref: '#/definitions/service.ContextCount'
+        type: array
+      perMonth:
+        items:
+          $ref: '#/definitions/service.MonthCount'
+        type: array
+      projectsActive:
+        type: integer
+      projectsCompleted:
+        type: integer
+      projectsHidden:
+        type: integer
+      totalActions:
+        type: integer
+    type: object
+  service.TokenPair:
+    properties:
+      accessToken:
+        type: string
+      expiresAt:
+        type: string
+      refreshToken:
+        type: string
+    type: object
+  service.Usage:
+    properties:
+      contextLimit:
+        type: integer
+      contexts:
+        type: integer
+      noteLimit:
+        type: integer
+      notes:
+        type: integer
+      projectLimit:
+        type: integer
+      projects:
+        type: integer
+      recurring:
+        type: integer
+      recurringLimit:
+        type: integer
+      storageBytes:
+        type: integer
+      storageLimit:
+        type: integer
+      tagLimit:
+        type: integer
+      tags:
+        type: integer
+      todoLimit:
+        type: integer
+      todos:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: 'A GTD web application: actions, contexts, projects and the tickler.'
+  title: gotracks API
+  version: "1.0"
+paths:
+  /api/v1/2fa:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Two-factor status
+      tags:
+      - twofactor
+  /api/v1/2fa/disable:
+    post:
+      parameters:
+      - description: Current password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.disableRequest'
+      responses:
+        "204":
+          description: disabled
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Disable two-factor
+      tags:
+      - twofactor
+  /api/v1/2fa/enrol/begin:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Begin two-factor enrolment
+      tags:
+      - twofactor
+  /api/v1/2fa/enrol/finish:
+    post:
+      parameters:
+      - description: Confirmation code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.enrolFinishRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Finish two-factor enrolment
+      tags:
+      - twofactor
+  /api/v1/2fa/recovery/regenerate:
+    post:
+      parameters:
+      - description: Current password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.passwordRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Regenerate recovery codes
+      tags:
+      - twofactor
+  /api/v1/admin/reports/usage:
+    get:
+      parameters:
+      - description: Search
+        in: query
+        name: q
+        type: string
+      - description: Page
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.Report'
+      security:
+      - BearerAuth: []
+      summary: Get the instance usage report
+      tags:
+      - admin
+  /api/v1/admin/reports/usage/run:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Rebuild the usage report
+      tags:
+      - admin
+  /api/v1/admin/settings:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.InstanceSettings'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Get instance settings
+      tags:
+      - admin
+    put:
+      parameters:
+      - description: Settings
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.instanceSettingsRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.InstanceSettings'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Update instance settings
+      tags:
+      - admin
+  /api/v1/admin/users:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.adminUser'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - admin
+    post:
+      parameters:
+      - description: User
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.createUserRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Create a user
+      tags:
+      - admin
+  /api/v1/admin/users/{id}:
+    delete:
+      parameters:
+      - description: User id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: deleted
+        "409":
+          description: last admin or self-delete
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Delete a user
+      tags:
+      - admin
+    put:
+      parameters:
+      - description: User id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to change
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.updateUserRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Update a user
+      tags:
+      - admin
+  /api/v1/admin/users/{id}/2fa/reset:
+    post:
+      parameters:
+      - description: User id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: reset
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Reset a user's two-factor
+      tags:
+      - admin
+  /api/v1/admin/users/{id}/usage:
+    get:
+      parameters:
+      - description: User id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.Usage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Get a user's quota usage
+      tags:
+      - admin
+  /api/v1/attachments:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.AttachmentWithTodo'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List all attachments
+      tags:
+      - attachments
+  /api/v1/attachments/{id}:
+    delete:
+      parameters:
+      - description: Attachment id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: deleted
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Delete an attachment
+      tags:
+      - attachments
+    get:
+      parameters:
+      - description: Attachment id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Download an attachment
+      tags:
+      - attachments
+  /api/v1/auth/2fa/verify:
+    post:
+      parameters:
+      - description: Challenge id and code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.twoFactorVerifyRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.authResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      summary: Complete a two-factor sign-in
+      tags:
+      - auth
+  /api/v1/auth/email/resend:
+    post:
+      parameters:
+      - description: Email address
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.emailRequest'
+      responses:
+        "204":
+          description: accepted
+      summary: Resend the verification email
+      tags:
+      - auth
+  /api/v1/auth/email/verify:
+    post:
+      parameters:
+      - description: Mailed token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.tokenRequest'
+      responses:
+        "204":
+          description: verified
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      summary: Verify an email address
+      tags:
+      - auth
+  /api/v1/auth/login:
+    post:
+      parameters:
+      - description: Credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.loginRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.authResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      summary: Sign in with email and password
+      tags:
+      - auth
+  /api/v1/auth/logout:
+    post:
+      parameters:
+      - description: Refresh token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.refreshRequest'
+      responses:
+        "204":
+          description: signed out
+      summary: Sign out (revoke a refresh token)
+      tags:
+      - auth
+  /api/v1/auth/oidc/callback:
+    get:
+      parameters:
+      - description: Authorization code
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: CSRF state
+        in: query
+        name: state
+        required: true
+        type: string
+      responses:
+        "302":
+          description: redirect to the app with tokens in the fragment
+      summary: OIDC redirect callback
+      tags:
+      - oidc
+  /api/v1/auth/oidc/start:
+    get:
+      responses:
+        "302":
+          description: redirect to the identity provider
+      summary: Begin OIDC sign-in
+      tags:
+      - oidc
+  /api/v1/auth/oidc/status:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: OIDC capability status
+      tags:
+      - oidc
+  /api/v1/auth/passkey/login/begin:
+    post:
+      parameters:
+      - description: Email
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.passkeyLoginBeginRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Begin passkey sign-in
+      tags:
+      - passkeys
+  /api/v1/auth/passkey/login/finish:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.authResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      summary: Finish passkey sign-in
+      tags:
+      - passkeys
+  /api/v1/auth/passkey/status:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Passkey capability status
+      tags:
+      - passkeys
+  /api/v1/auth/password/forgot:
+    post:
+      parameters:
+      - description: Email address
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.emailRequest'
+      responses:
+        "204":
+          description: accepted
+      summary: Request a password-reset email
+      tags:
+      - auth
+  /api/v1/auth/password/reset:
+    post:
+      parameters:
+      - description: Token and new password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.resetPasswordRequest'
+      responses:
+        "204":
+          description: password changed
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      summary: Reset a password from a mailed link
+      tags:
+      - auth
+  /api/v1/auth/refresh:
+    post:
+      parameters:
+      - description: Refresh token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.refreshRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.TokenPair'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      summary: Rotate a refresh token
+      tags:
+      - auth
+  /api/v1/auth/register:
+    post:
+      parameters:
+      - description: Email, password and optional locale
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.registerRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.authResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+        "403":
+          description: registration disabled
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      summary: Register a new account
+      tags:
+      - auth
+  /api/v1/config:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Public capabilities
+      tags:
+      - meta
+  /api/v1/contexts:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Context'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List contexts
+      tags:
+      - contexts
+    post:
+      parameters:
+      - description: Context
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.contextRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Context'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Create a context
+      tags:
+      - contexts
+  /api/v1/contexts/{id}:
+    delete:
+      parameters:
+      - description: Context id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Delete even if it holds actions
+        in: query
+        name: force
+        type: boolean
+      responses:
+        "204":
+          description: deleted
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.contextInUseBody'
+      security:
+      - BearerAuth: []
+      summary: Delete a context
+      tags:
+      - contexts
+    get:
+      parameters:
+      - description: Context id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Context'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Get a context
+      tags:
+      - contexts
+    put:
+      parameters:
+      - description: Context id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Context
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.contextRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Context'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Update a context
+      tags:
+      - contexts
+  /api/v1/export:
+    get:
+      parameters:
+      - description: json (default), yaml, xml or csv
+        in: query
+        name: format
+        type: string
+      produces:
+      - application/json
+      - application/yaml
+      - application/xml
+      - text/csv
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Export my data
+      tags:
+      - transfer
+  /api/v1/import:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ImportResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Import data
+      tags:
+      - transfer
+  /api/v1/me:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.User'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Get the current account
+      tags:
+      - account
+  /api/v1/me/password:
+    post:
+      parameters:
+      - description: New password plus proof of identity
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.changePasswordRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.TokenPair'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Change my password
+      tags:
+      - account
+  /api/v1/me/reauth/passkey/begin:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Begin a passkey re-authentication
+      tags:
+      - account
+  /api/v1/notes:
+    get:
+      parameters:
+      - description: Filter by project id
+        in: query
+        name: project
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Note'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List notes
+      tags:
+      - notes
+    post:
+      parameters:
+      - description: Note
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.noteRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Note'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Create a note
+      tags:
+      - notes
+  /api/v1/notes/{id}:
+    delete:
+      parameters:
+      - description: Note id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: deleted
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Delete a note
+      tags:
+      - notes
+    put:
+      parameters:
+      - description: Note id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Note
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.noteRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Note'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Update a note
+      tags:
+      - notes
+  /api/v1/passkeys:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Credential'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List my passkeys
+      tags:
+      - passkeys
+  /api/v1/passkeys/{id}:
+    delete:
+      parameters:
+      - description: Passkey id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: deleted
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Delete a passkey
+      tags:
+      - passkeys
+  /api/v1/passkeys/register/begin:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Begin passkey enrolment
+      tags:
+      - passkeys
+  /api/v1/passkeys/register/finish:
+    post:
+      parameters:
+      - description: Attestation
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.passkeyFinishRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Credential'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Finish passkey enrolment
+      tags:
+      - passkeys
+  /api/v1/preferences:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Preference'
+      security:
+      - BearerAuth: []
+      summary: Get preferences
+      tags:
+      - preferences
+    put:
+      parameters:
+      - description: Preferences
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.preferenceRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Preference'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Update preferences
+      tags:
+      - preferences
+  /api/v1/projects:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Project'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List projects
+      tags:
+      - projects
+    post:
+      parameters:
+      - description: Project
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.projectRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Project'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Create a project
+      tags:
+      - projects
+  /api/v1/projects/{id}:
+    delete:
+      parameters:
+      - description: Project id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: deleted
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Delete a project
+      tags:
+      - projects
+    get:
+      parameters:
+      - description: Project id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Project'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Get a project
+      tags:
+      - projects
+    put:
+      parameters:
+      - description: Project id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Project
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.projectRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Project'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Update a project
+      tags:
+      - projects
+  /api/v1/projects/{id}/review:
+    post:
+      parameters:
+      - description: Project id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Project'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Mark a project reviewed
+      tags:
+      - projects
+  /api/v1/recurring:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.RecurringTodo'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List recurring actions
+      tags:
+      - recurring
+    post:
+      parameters:
+      - description: Recurring action
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.recurringRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.RecurringTodo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Create a recurring action
+      tags:
+      - recurring
+  /api/v1/recurring/{id}:
+    delete:
+      parameters:
+      - description: Recurring action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: deleted
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Delete a recurring action
+      tags:
+      - recurring
+    get:
+      parameters:
+      - description: Recurring action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.RecurringTodo'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Get a recurring action
+      tags:
+      - recurring
+    put:
+      parameters:
+      - description: Recurring action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Recurring action
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.recurringRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.RecurringTodo'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Update a recurring action
+      tags:
+      - recurring
+  /api/v1/stats:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.Stats'
+      security:
+      - BearerAuth: []
+      summary: Get statistics
+      tags:
+      - stats
+  /api/v1/tags:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Tag'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List tags
+      tags:
+      - tags
+  /api/v1/todos:
+    get:
+      parameters:
+      - description: Filter by context id
+        in: query
+        name: context
+        type: integer
+      - description: Filter by project id
+        in: query
+        name: project
+        type: integer
+      - description: Filter by state
+        in: query
+        name: state
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Todo'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List actions
+      tags:
+      - todos
+    post:
+      parameters:
+      - description: Action
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.todoRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Todo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Create an action
+      tags:
+      - todos
+  /api/v1/todos/{id}:
+    delete:
+      parameters:
+      - description: Action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: deleted
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Delete an action
+      tags:
+      - todos
+    get:
+      parameters:
+      - description: Action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Todo'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Get an action
+      tags:
+      - todos
+    put:
+      parameters:
+      - description: Action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Action
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.todoRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Todo'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Update an action
+      tags:
+      - todos
+  /api/v1/todos/{id}/attachments:
+    get:
+      parameters:
+      - description: Action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Attachment'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: List an action's attachments
+      tags:
+      - attachments
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: File to attach
+        in: formData
+        name: file
+        required: true
+        type: file
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Attachment'
+        "413":
+          description: file too large
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Upload an attachment
+      tags:
+      - attachments
+  /api/v1/todos/{id}/complete:
+    post:
+      parameters:
+      - description: Action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Todo'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Complete an action
+      tags:
+      - todos
+  /api/v1/todos/{id}/reactivate:
+    post:
+      parameters:
+      - description: Action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Todo'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Reactivate an action
+      tags:
+      - todos
+  /api/v1/todos/{id}/reorder:
+    post:
+      parameters:
+      - description: Action id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Target position
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.reorderRequest'
+      responses:
+        "204":
+          description: reordered
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Reorder an action
+      tags:
+      - todos
+  /api/v1/usage:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.Usage'
+        "404":
+          description: quotas not configured
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Get my quota usage
+      tags:
+      - account
+  /healthz:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - meta
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and the access token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

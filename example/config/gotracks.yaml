@@ -1,0 +1,68 @@
+# Example configuration file.
+#
+# Place it beside the binary, or in the XDG config directory — run
+# `gotracks where` to see exactly which paths are searched.
+#
+# Precedence, lowest to highest:
+#   flag default  <  this file  <  GOTRACKS_* env var  <  explicit flag
+
+log-level: info
+# text = human-readable console output, json = one object per line
+log-format: text
+
+db:
+  # sqlite:<path> or postgres://user:pass@host:5432/dbname?sslmode=disable
+  # Defaults to the XDG data directory when unset.
+  url: "sqlite:./gotracks.db"
+  debug: false
+
+auth:
+  # Generate with: openssl rand -hex 32
+  # Leave empty and a temporary key is created at startup — every restart then
+  # signs everyone out.
+  jwt-secret: ""
+  access-ttl: 15m
+  refresh-ttl: 720h
+  # Seeds self-registration on first run; afterwards the admin UI owns it.
+  allow-register: true
+
+http:
+  # host:port. Use "127.0.0.1:8080" to accept only traffic from a reverse proxy
+  # on the same host — but inside a container bind all interfaces, or the
+  # published port cannot reach it.
+  addr: ":8080"
+  # Terminate TLS here instead of at a proxy. Both files are required when
+  # enabled, and are read once at startup — restart after renewing.
+  tls:
+    enabled: false
+    cert: ""
+    key: ""
+  # Per-client request rate.
+  rate:
+    rps: 20
+    burst: 40
+  # CIDRs whose X-Forwarded-For may be believed, e.g. "10.0.0.0/8,172.16.0.0/12".
+  # Leave empty unless gotracks runs behind a reverse proxy: the header is then
+  # ignored, which is right for a directly exposed server but puts every client
+  # behind a proxy in one rate-limit bucket.
+  trusted-proxies: ""
+
+storage:
+  # Defaults to the XDG data directory when unset.
+  uploads: "./uploads"
+  max-upload-mb: 10
+
+# Passkeys. Enabled automatically when http.public-url is set; rp-id and
+# rp-origin are derived from it. Set them only to override (a multi-origin
+# dev setup, or scoping the id to a parent domain).
+webauthn:
+  rp-id: ""
+  rp-origin: ""
+  rp-name: gotracks
+
+# Single sign-on. All four fields are required to enable it.
+oidc:
+  issuer: ""
+  client-id: ""
+  client-secret: ""
+  redirect-url: ""
