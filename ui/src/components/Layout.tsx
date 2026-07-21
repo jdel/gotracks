@@ -84,7 +84,7 @@ export function Layout() {
       {/* Desktop sidebar */}
       <aside className="hidden w-56 shrink-0 flex-col border-r p-4 md:flex">
         <div className="mb-6 flex items-center gap-2 px-2 text-lg font-semibold">
-          <Inbox className="size-5" /> gotracks
+          <Inbox className="size-5 text-brand-secondary" /> gotracks
         </div>
         <nav className="flex-1 space-y-1">
           {visible.map(({ to, labelKey, icon: Icon, end }) => (
@@ -95,7 +95,9 @@ export function Layout() {
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive ? "bg-accent text-accent-foreground" : "hover:bg-accent/60"
+                  isActive
+                    ? "bg-accent font-semibold text-accent-foreground"
+                    : "hover:bg-accent/60"
                 )
               }
             >
@@ -114,7 +116,7 @@ export function Layout() {
       {/* Mobile top bar */}
       <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/95 p-4 backdrop-blur md:hidden">
         <div className="flex items-center gap-2 font-semibold">
-          <Inbox className="size-5" /> gotracks
+          <Inbox className="size-5 text-brand-secondary" /> gotracks
         </div>
         <div className="flex items-center gap-1">
           {visibleTopBar.map(({ to, labelKey, icon: Icon, end }) => (
@@ -186,7 +188,9 @@ export function Layout() {
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium",
-                    isActive ? "bg-accent text-accent-foreground" : "hover:bg-accent/60"
+                    isActive
+                    ? "bg-accent font-semibold text-accent-foreground"
+                    : "hover:bg-accent/60"
                   )
                 }
               >
