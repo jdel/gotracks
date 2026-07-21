@@ -33,7 +33,9 @@ func checkProject(ctx context.Context, projects repo.ProjectRepo, userID int64, 
 
 // Context returns the id of the named context, creating it if needed.
 func (r nameResolver) Context(ctx context.Context, userID int64, name string) (int64, error) {
-	name = strings.TrimSpace(name)
+	// The composer sigil is not part of the name: store it bare, exactly as the
+	// manual "add context" form does (and mirroring how Project strips "#").
+	name = strings.TrimPrefix(strings.TrimSpace(name), "@")
 	if name == "" || r.contexts == nil {
 		return 0, ErrValidation
 	}
@@ -46,10 +48,6 @@ func (r nameResolver) Context(ctx context.Context, userID int64, name string) (i
 	max, err := r.contexts.MaxPosition(ctx, userID)
 	if err != nil {
 		return 0, err
-	}
-	// Contexts are conventionally stored with a leading "@".
-	if !strings.HasPrefix(name, "@") {
-		name = "@" + name
 	}
 	now := time.Now()
 	c := &domain.Context{
