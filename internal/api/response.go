@@ -55,6 +55,8 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, "cannot delete your own account")
 	case errors.Is(err, service.ErrContextInUse):
 		writeError(w, http.StatusConflict, "context still holds actions; move or delete them first")
+	case errors.Is(err, service.ErrNotDue):
+		writeError(w, http.StatusConflict, "this occurrence is not due yet")
 	case errors.Is(err, service.ErrForbidden):
 		writeError(w, http.StatusForbidden, "forbidden")
 	case errors.Is(err, service.ErrTooLarge):

@@ -2,12 +2,19 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/jdel/gotracks/internal/domain"
 	"github.com/jdel/gotracks/internal/repo"
 )
+
+// ErrNotDue is returned when a recurring occurrence is completed before its
+// show-from date. Completing it early would spawn the following occurrence, and
+// repeating that lets a user race arbitrarily far into the future — three
+// "completed" months ahead plus an open one, which is not what recurrence means.
+var ErrNotDue = errors.New("this occurrence is not due yet")
 
 // TodoService manages actions and their GTD state machine.
 type TodoService struct {
@@ -267,6 +274,14 @@ func (s *TodoService) Complete(ctx context.Context, userID, id int64) (*domain.T
 		return nil, err
 	}
 	now := time.Now()
+	// A recurring occurrence still sitting in the tickler (deferred, show-from in
+	// the future) must not be completed: doing so spawns the next one, and
+	// repeating it races the pattern months ahead. It becomes completable once
+	// its show-from arrives and ActivateDue promotes it to active.
+	if t.RecurringTodoID != nil && t.State == domain.StateDeferred &&
+		t.ShowFrom != nil && t.ShowFrom.After(now) {
+		return nil, ErrNotDue
+	}
 	t.State = domain.StateCompleted
 	t.CompletedAt = &now
 	t.UpdatedAt = now
