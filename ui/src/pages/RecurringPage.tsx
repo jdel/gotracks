@@ -503,29 +503,34 @@ export function RecurringPage() {
                     ` · ${t("recurring.last", { date: fmt.date(p.lastSpawnedAt) })}`}
                 </p>
               </div>
-              <IconButton
-                variant="ghost"
-                label={t("recurring.editLabel")}
-                onClick={() => setEditing(p)}
-              >
-                <Pencil className="size-4" />
-              </IconButton>
-              <IconButton
-                variant="ghost"
-                label={p.state === "completed" ? t("recurring.resume") : t("recurring.pause")}
-                onClick={() =>
-                  update.mutate({ id: p.id, state: p.state === "completed" ? "active" : "completed" })
-                }
-              >
-                {p.state === "completed" ? <Play className="size-4" /> : <Pause className="size-4" />}
-              </IconButton>
-              <IconButton
-                variant="ghost"
-                label={t("recurring.deleteLabel", { description: p.description })}
-                onClick={() => setConfirming(p)}
-              >
-                <Trash2 className="size-4 text-destructive" />
-              </IconButton>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <IconButton
+                  variant="ghost"
+                  className="size-8"
+                  label={t("recurring.editLabel")}
+                  onClick={() => setEditing(p)}
+                >
+                  <Pencil className="size-4" />
+                </IconButton>
+                <IconButton
+                  variant="ghost"
+                  className="size-8"
+                  label={p.state === "completed" ? t("recurring.resume") : t("recurring.pause")}
+                  onClick={() =>
+                    update.mutate({ id: p.id, state: p.state === "completed" ? "active" : "completed" })
+                  }
+                >
+                  {p.state === "completed" ? <Play className="size-4" /> : <Pause className="size-4" />}
+                </IconButton>
+                <IconButton
+                  variant="ghost"
+                  className="size-8"
+                  label={t("recurring.deleteLabel", { description: p.description })}
+                  onClick={() => setConfirming(p)}
+                >
+                  <Trash2 className="size-4 text-destructive" />
+                </IconButton>
+              </div>
             </Card>
           </li>
         ))}

@@ -159,31 +159,36 @@ export function ProjectsPage() {
                 </span>
                 <span className="ml-2 text-xs text-muted-foreground">{t("projects.open", { count: p.openCount })}</span>
               </Link>
-              <IconButton
-                variant="ghost"
-                label={p.state === "hidden" ? t("projects.makeActive") : t("projects.moveSomeday")}
-                onClick={() =>
-                  update.mutate({ id: p.id, state: p.state === "hidden" ? "active" : "hidden" })
-                }
-              >
-                {p.state === "hidden" ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
-              </IconButton>
-              <IconButton
-                variant="ghost"
-                label={p.state === "completed" ? t("projects.reopen") : t("projects.markComplete")}
-                onClick={() =>
-                  update.mutate({ id: p.id, state: p.state === "completed" ? "active" : "completed" })
-                }
-              >
-                <CheckCircle2 className={cn("size-4", p.state === "completed" && "text-emerald-600")} />
-              </IconButton>
-              <IconButton
-                variant="ghost"
-                label={t("projects.deleteLabel", { name: p.name })}
-                onClick={() => setConfirming(p)}
-              >
-                <Trash2 className="size-4 text-destructive" />
-              </IconButton>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <IconButton
+                  variant="ghost"
+                  className="size-8"
+                  label={p.state === "hidden" ? t("projects.makeActive") : t("projects.moveSomeday")}
+                  onClick={() =>
+                    update.mutate({ id: p.id, state: p.state === "hidden" ? "active" : "hidden" })
+                  }
+                >
+                  {p.state === "hidden" ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                </IconButton>
+                <IconButton
+                  variant="ghost"
+                  className="size-8"
+                  label={p.state === "completed" ? t("projects.reopen") : t("projects.markComplete")}
+                  onClick={() =>
+                    update.mutate({ id: p.id, state: p.state === "completed" ? "active" : "completed" })
+                  }
+                >
+                  <CheckCircle2 className={cn("size-4", p.state === "completed" && "text-emerald-600")} />
+                </IconButton>
+                <IconButton
+                  variant="ghost"
+                  className="size-8"
+                  label={t("projects.deleteLabel", { name: p.name })}
+                  onClick={() => setConfirming(p)}
+                >
+                  <Trash2 className="size-4 text-destructive" />
+                </IconButton>
+              </div>
             </Card>
           </li>
         ))}

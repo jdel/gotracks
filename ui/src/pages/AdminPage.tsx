@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UserUsageDialog } from "@/components/UserUsageDialog";
+import { OverflowMenu } from "@/components/ui/overflow-menu";
 import { Pagination } from "@/components/Pagination";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/SearchInput";
@@ -255,44 +256,60 @@ export function AdminPage() {
                   <p className="text-xs text-emerald-600">{t("admin.twoFactorOn")}</p>
                 )}
               </div>
-              <IconButton
-                variant="ghost"
-                label={t("admin.showUsage", { email: u.email })}
-                onClick={() => setShowingUsage(u)}
-              >
-                <Gauge className="size-4 text-muted-foreground" />
-              </IconButton>
-              <IconButton
-                variant="ghost"
-                label={u.isAdmin ? t("admin.revokeAdmin", { email: u.email }) : t("admin.makeAdmin", { email: u.email })}
-                onClick={() => act(() => update.mutate({ id: u.id, isAdmin: !u.isAdmin }, {
-                  onError: (err) => setError(err instanceof ApiError ? err.message : t("common.errorGeneric")),
-                }))}
-              >
-                {u.isAdmin ? (
-                  <ShieldCheck className="size-4 text-emerald-600" />
-                ) : (
-                  <Shield className="size-4 text-muted-foreground" />
-                )}
-              </IconButton>
-              {/* With no email fallback, an admin is the only way back in for
-                  a user who lost both their authenticator and their codes. */}
-              {u.twoFactorEnabled && (
+              <div className="flex items-center gap-0.5">
+                {/* Primary action inline; the rest collapse into the ⋯ menu so
+                    a row never shows more than a couple of icons. */}
                 <IconButton
                   variant="ghost"
-                  label={t("admin.removeTwoFactor", { email: u.email })}
-                  onClick={() => setConfirmingReset(u)}
+                  className="size-8"
+                  label={t("admin.showUsage", { email: u.email })}
+                  onClick={() => setShowingUsage(u)}
                 >
-                  <ShieldOff className="size-4 text-muted-foreground" />
+                  <Gauge className="size-4 text-muted-foreground" />
                 </IconButton>
-              )}
-              <IconButton
-                variant="ghost"
-                label={t("admin.deleteUser", { email: u.email })}
-                onClick={() => setConfirmingDelete(u)}
-              >
-                <Trash2 className="size-4 text-destructive" />
-              </IconButton>
+                <OverflowMenu
+                  label={t("common.moreActions")}
+                  actions={[
+                    {
+                      label: u.isAdmin
+                        ? t("admin.revokeAdmin", { email: u.email })
+                        : t("admin.makeAdmin", { email: u.email }),
+                      icon: u.isAdmin ? (
+                        <ShieldCheck className="size-4 text-emerald-600" />
+                      ) : (
+                        <Shield className="size-4" />
+                      ),
+                      onSelect: () =>
+                        act(() =>
+                          update.mutate(
+                            { id: u.id, isAdmin: !u.isAdmin },
+                            {
+                              onError: (err) =>
+                                setError(err instanceof ApiError ? err.message : t("common.errorGeneric")),
+                            },
+                          ),
+                        ),
+                    },
+                    // With no email fallback, an admin is the only way back in
+                    // for a user who lost both their authenticator and codes.
+                    ...(u.twoFactorEnabled
+                      ? [
+                          {
+                            label: t("admin.removeTwoFactor", { email: u.email }),
+                            icon: <ShieldOff className="size-4" />,
+                            onSelect: () => setConfirmingReset(u),
+                          },
+                        ]
+                      : []),
+                    {
+                      label: t("admin.deleteUser", { email: u.email }),
+                      icon: <Trash2 className="size-4" />,
+                      onSelect: () => setConfirmingDelete(u),
+                      destructive: true,
+                    },
+                  ]}
+                />
+              </div>
             </Card>
           </li>
         ))}
