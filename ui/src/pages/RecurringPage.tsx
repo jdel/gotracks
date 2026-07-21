@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Trash2, Repeat, Pause, Play } from "lucide-react";
+import { Plus, Trash2, Repeat, Pause, Play, Pencil } from "lucide-react";
 import {
   useCreateRecurring,
   useDeleteRecurring,
@@ -16,6 +16,7 @@ import { useDateFmt } from "@/lib/datefmt";
 import { lastUsed } from "@/lib/lastUsed";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -277,11 +278,188 @@ function RecurringAddForm({
   );
 }
 
+/** Edit dialog for an existing recurrence: its description and schedule. The
+ *  context/project stay as they are — the server patches only what is sent. */
+function RecurringEditDialog({
+  pattern,
+  onOpenChange,
+}: {
+  pattern: RecurringTodo | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useT();
+  const update = useUpdateRecurring();
+  const [description, setDescription] = useState("");
+  const [period, setPeriod] = useState<RecurrencePeriod>("weekly");
+  const [everyN, setEveryN] = useState(1);
+  const [weekdays, setWeekdays] = useState<number[]>([1]);
+  const [dayOfMonth, setDayOfMonth] = useState(1);
+  const [monthOfYear, setMonthOfYear] = useState(1);
+  const [showFromDays, setShowFromDays] = useState(0);
+  const [error, setError] = useState("");
+  const [loadedId, setLoadedId] = useState<number | null>(null);
+
+  // Prefill from the pattern when the dialog opens for a new one.
+  if (pattern && pattern.id !== loadedId) {
+    setLoadedId(pattern.id);
+    setDescription(pattern.description);
+    setPeriod(pattern.period);
+    setEveryN(pattern.everyN);
+    setWeekdays(pattern.weekdays ? pattern.weekdays.split(",").map(Number) : []);
+    setDayOfMonth(pattern.dayOfMonth || 1);
+    setMonthOfYear(pattern.monthOfYear || 1);
+    setShowFromDays(pattern.showFromDays);
+    setError("");
+  }
+
+  function toggleWeekday(d: number) {
+    setWeekdays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d].sort()));
+  }
+
+  function save() {
+    if (!pattern) return;
+    if (!description.trim()) {
+      setError(t("recurring.errorCreate"));
+      return;
+    }
+    update.mutate(
+      {
+        id: pattern.id,
+        description: description.trim(),
+        period,
+        everyN,
+        weekdays: period === "weekly" ? weekdays.join(",") : undefined,
+        dayOfMonth: period === "monthly" || period === "yearly" ? dayOfMonth : undefined,
+        monthOfYear: period === "yearly" ? monthOfYear : undefined,
+        showFromDays,
+      },
+      {
+        onSuccess: () => onOpenChange(false),
+        onError: (err) => setError(apiMessage(err, t("recurring.errorCreate"))),
+      },
+    );
+  }
+
+  return (
+    <Dialog open={pattern !== null} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("recurring.editTitle")}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <label className="text-xs text-muted-foreground">
+            {t("recurring.description")}
+            <Input
+              autoFocus
+              className="mt-1"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs text-muted-foreground">
+              {t("recurring.repeats")}
+              <select
+                className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                value={period}
+                onChange={(e) => setPeriod(e.target.value as RecurrencePeriod)}
+              >
+                <option value="daily">{t("recurring.daily")}</option>
+                <option value="weekly">{t("recurring.weekly")}</option>
+                <option value="monthly">{t("recurring.monthly")}</option>
+                <option value="yearly">{t("recurring.yearly")}</option>
+              </select>
+            </label>
+            <label className="text-xs text-muted-foreground">
+              {t("recurring.every")}
+              <Input
+                type="number"
+                min={1}
+                className="mt-1"
+                value={everyN}
+                onChange={(e) => setEveryN(Math.max(1, Number(e.target.value)))}
+              />
+            </label>
+            <label className="text-xs text-muted-foreground">
+              {t("recurring.leadDays")}
+              <Input
+                type="number"
+                min={0}
+                className="mt-1"
+                value={showFromDays}
+                onChange={(e) => setShowFromDays(Math.max(0, Number(e.target.value)))}
+              />
+            </label>
+          </div>
+
+          {period === "weekly" && (
+            <div className="flex flex-wrap gap-1">
+              {WEEKDAY_INDEXES.map((i) => (
+                <Button
+                  key={i}
+                  type="button"
+                  size="sm"
+                  variant={weekdays.includes(i) ? "default" : "outline"}
+                  onClick={() => toggleWeekday(i)}
+                >
+                  {weekdayShort(t, i)}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {(period === "monthly" || period === "yearly") && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {period === "yearly" && (
+                <label className="text-xs text-muted-foreground">
+                  {t("recurring.month")}
+                  <Input
+                    type="number"
+                    min={1}
+                    max={12}
+                    className="mt-1"
+                    value={monthOfYear}
+                    onChange={(e) => setMonthOfYear(Number(e.target.value))}
+                  />
+                </label>
+              )}
+              <label className="text-xs text-muted-foreground">
+                {t("recurring.dayOfMonth")}
+                <Input
+                  type="number"
+                  min={1}
+                  max={31}
+                  className="mt-1"
+                  value={dayOfMonth}
+                  onChange={(e) => setDayOfMonth(Number(e.target.value))}
+                />
+              </label>
+            </div>
+          )}
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="button" onClick={save} disabled={update.isPending}>
+              {t("common.save")}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function RecurringPage() {
   const t = useT();
   const fmt = useDateFmt();
   const tn = useTn();
   const [confirming, setConfirming] = useState<{ id: number; description: string } | null>(null);
+  const [editing, setEditing] = useState<RecurringTodo | null>(null);
   const { data: patterns, isLoading } = useRecurring();
   const { data: contexts } = useContexts();
   const { data: projects } = useProjects("active");
@@ -327,6 +505,13 @@ export function RecurringPage() {
               </div>
               <IconButton
                 variant="ghost"
+                label={t("recurring.editLabel")}
+                onClick={() => setEditing(p)}
+              >
+                <Pencil className="size-4" />
+              </IconButton>
+              <IconButton
+                variant="ghost"
                 label={p.state === "completed" ? t("recurring.resume") : t("recurring.pause")}
                 onClick={() =>
                   update.mutate({ id: p.id, state: p.state === "completed" ? "active" : "completed" })
@@ -352,6 +537,8 @@ export function RecurringPage() {
       {patterns && patterns.length > 0 && visible.length === 0 && (
         <p className="text-center text-sm text-muted-foreground">{t("recurring.noMatch")}</p>
       )}
+
+      <RecurringEditDialog pattern={editing} onOpenChange={(open) => !open && setEditing(null)} />
 
       <ConfirmDialog
         open={confirming !== null}
