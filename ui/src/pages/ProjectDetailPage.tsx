@@ -7,6 +7,7 @@ import {
   useNotes,
   useProject,
   useReviewProject,
+  useUpdateProject,
 } from "@/hooks/useProjects";
 import { useTodos } from "@/hooks/useTodos";
 import { TodoItem } from "@/components/TodoItem";
@@ -31,7 +32,18 @@ export function ProjectDetailPage() {
   const createNote = useCreateNote();
   const deleteNote = useDeleteNote();
   const review = useReviewProject();
+  const updateProject = useUpdateProject();
   const [noteBody, setNoteBody] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+
+  function saveTitle() {
+    const name = titleDraft.trim();
+    setEditingTitle(false);
+    if (project && name && name !== project.name) {
+      updateProject.mutate({ id: project.id, name });
+    }
+  }
 
   function onAddNote(e: FormEvent) {
     e.preventDefault();
@@ -55,7 +67,33 @@ export function ProjectDetailPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
+          {editingTitle ? (
+            <Input
+              autoFocus
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveTitle();
+                if (e.key === "Escape") setEditingTitle(false);
+              }}
+              onBlur={saveTitle}
+              aria-label={t("projectDetail.renameLabel")}
+              className="h-9 max-w-sm text-2xl font-semibold"
+            />
+          ) : (
+            // Click the title to rename the project inline.
+            <button
+              type="button"
+              onClick={() => {
+                setEditingTitle(true);
+                setTitleDraft(project.name);
+              }}
+              title={t("projectDetail.renameLabel")}
+              className="rounded text-left text-2xl font-semibold tracking-tight hover:bg-accent/40"
+            >
+              {project.name}
+            </button>
+          )}
           {project.description && (
             <p className="text-sm text-muted-foreground">{project.description}</p>
           )}
