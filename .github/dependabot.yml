@@ -21,6 +21,12 @@ updates:
       ui-deps:
         patterns:
           - "*"
+    ignore:
+      # typescript-eslint (latest 8.65.0) peers on typescript ">=4.8.4 <6.1.0",
+      # so a bump to TypeScript 6.1/7.x breaks the install. Hold typescript at
+      # what the linter supports; lift this once typescript-eslint allows newer.
+      - dependency-name: "typescript"
+        versions: [">=6.1.0"]
 
   # GitHub Actions in .github/workflows
   - package-ecosystem: github-actions
