@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Plus, Trash2, ShieldCheck, Shield, ShieldOff, Gauge } from "lucide-react";
+import { Plus, Trash2, ShieldCheck, Shield, ShieldOff, Gauge, KeyRound, Copy, Check } from "lucide-react";
 import {
   useCreateUser,
   useDeleteUser,
@@ -10,6 +10,7 @@ import {
   useUsers,
 } from "@/hooks/useSettings";
 import { useAuth } from "@/lib/auth";
+import { generatePassword } from "@/lib/password";
 import { useT, useTn, type TFunc } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -51,6 +52,7 @@ export function AdminPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [copied, setCopied] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState("");
 
@@ -130,12 +132,44 @@ export function AdminPage() {
 
       <form onSubmit={onCreate} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-2">
         <Input placeholder={t("admin.email")} value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Input
-          type="password"
-          placeholder={t("admin.password")}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div className="flex items-center gap-1">
+          <Input
+            type="text"
+            autoComplete="off"
+            placeholder={t("admin.password")}
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setCopied(false);
+            }}
+            className="font-mono"
+          />
+          <IconButton
+            type="button"
+            variant="outline"
+            label={t("admin.generatePassword")}
+            onClick={() => {
+              setPassword(generatePassword());
+              setCopied(false);
+            }}
+          >
+            <KeyRound />
+          </IconButton>
+          <IconButton
+            type="button"
+            variant="outline"
+            disabled={!password}
+            label={t("admin.copyPassword")}
+            onClick={() => {
+              void navigator.clipboard?.writeText(password).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              });
+            }}
+          >
+            {copied ? <Check className="text-emerald-600" /> : <Copy />}
+          </IconButton>
+        </div>
         <div className="flex items-center gap-2 text-sm">
           <Switch
             id="new-user-admin"

@@ -5,6 +5,7 @@ import {
   MIN_PASSWORD_LENGTH,
   isLoginValid,
   normaliseLogin,
+  generatePassword,
 } from "./password";
 
 // These cases are the same table as internal/auth/password_policy_test.go.
@@ -38,6 +39,24 @@ describe("password policy mirror", () => {
     // Ten astral-plane characters: ten characters, forty bytes.
     expect(passwordRules("🙂".repeat(10)).find((r) => r.id === "length")?.met).toBe(true);
     expect(MIN_PASSWORD_LENGTH).toBe(10);
+  });
+});
+
+describe("generatePassword", () => {
+  it("always satisfies the policy", () => {
+    for (let i = 0; i < 200; i++) {
+      const pw = generatePassword();
+      expect(pw.length).toBeGreaterThanOrEqual(MIN_PASSWORD_LENGTH);
+      expect(isPasswordValid(pw)).toBe(true);
+    }
+  });
+
+  it("honours a requested length", () => {
+    expect(generatePassword(24)).toHaveLength(24);
+  });
+
+  it("is not deterministic", () => {
+    expect(generatePassword()).not.toBe(generatePassword());
   });
 });
 
