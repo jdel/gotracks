@@ -132,16 +132,20 @@ export function AttachmentsPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
+        <CardHeader className="space-y-2">
           <CardTitle className="text-base">{t("attachments.files")}</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={doneAttachments.length === 0}
-            onClick={() => setConfirmingBulk(true)}
-          >
-            <Trash2 /> {t("attachments.deleteDone", { count: doneAttachments.length })}
-          </Button>
+          {/* On its own line below the title, so it never crowds the heading on
+              narrow screens. */}
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={doneAttachments.length === 0}
+              onClick={() => setConfirmingBulk(true)}
+            >
+              <Trash2 /> {t("attachments.deleteDone", { count: doneAttachments.length })}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <SearchInput
