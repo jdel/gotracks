@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { SearchInput } from "@/components/SearchInput";
 import { PageWithAdd } from "@/components/PageWithAdd";
 import { ApiError, apiMessage } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useT, useTn } from "@/lib/i18n";
 
 /** The add-context form: one field, used both permanently on desktop and inside
@@ -66,6 +67,9 @@ export function ContextsPage() {
   const update = useUpdateContext();
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
+  // The context being renamed inline, and the working text for it.
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [draft, setDraft] = useState("");
   // Set when a delete was refused because the context still holds things; it
   // carries what would be destroyed so the user can be told before confirming.
   const [confirming, setConfirming] = useState<{
@@ -74,6 +78,18 @@ export function ContextsPage() {
     todos: number;
     recurring: number;
   } | null>(null);
+
+  // Commit an inline rename. No-ops on an empty or unchanged name so a stray
+  // click that opens and blurs the field costs nothing.
+  function saveRename(id: number, current: string) {
+    const name = draft.trim();
+    setEditingId(null);
+    if (!name || name === current) return;
+    update.mutate(
+      { id, name },
+      { onError: (err) => setError(apiMessage(err, t("contexts.loadError"))) },
+    );
+  }
 
   // First attempt never forces: an empty context just goes, and a full one
   // comes back with the counts to warn about.
@@ -134,9 +150,36 @@ export function ContextsPage() {
         {visible.map((c) => (
           <li key={c.id}>
             <Card className="flex items-center justify-between p-3">
-              <span className={c.state === "hidden" ? "text-muted-foreground line-through" : ""}>
-                {c.name}
-              </span>
+              {editingId === c.id ? (
+                <Input
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveRename(c.id, c.name);
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  onBlur={() => saveRename(c.id, c.name)}
+                  aria-label={t("contexts.renameLabel")}
+                  className="h-8 max-w-xs"
+                />
+              ) : (
+                // Single click starts an inline rename.
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(c.id);
+                    setDraft(c.name);
+                  }}
+                  title={t("contexts.renameLabel")}
+                  className={cn(
+                    "rounded px-1 text-left hover:bg-accent/40",
+                    c.state === "hidden" && "text-muted-foreground line-through",
+                  )}
+                >
+                  {c.name}
+                </button>
+              )}
               <div className="flex gap-1">
                 <IconButton
                   variant="ghost"
