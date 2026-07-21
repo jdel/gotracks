@@ -49,6 +49,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.raw("/auth/register", { email, password, locale }) as AuthResponse;
     tokenStore.set(res.tokens);
     setUser(res.user);
+    // Default the new account's timezone to the browser's, so dates read
+    // locally out of the box rather than in UTC. Best-effort: the account is
+    // already created, and the user can change it in settings.
+    try {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (timeZone) void api.put("/preferences", { timeZone }).catch(() => {});
+    } catch {
+      /* Intl unavailable — leave the server default. */
+    }
   }
 
   async function signInWithPasskey(email: string) {

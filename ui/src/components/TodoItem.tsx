@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { useT, useTn } from "@/lib/i18n";
+import { useDateFmt } from "@/lib/datefmt";
 
 // dueClass colour-codes urgency the way Tracks does:
 // red = today/overdue, orange = within a week, green = later.
@@ -37,10 +38,6 @@ function dueClass(due: string): string {
   if (days <= 0) return "text-destructive";
   if (days <= 7) return "text-orange-500";
   return "text-emerald-600 dark:text-emerald-500";
-}
-
-function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 /**
@@ -103,6 +100,7 @@ export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
   const qc = useQueryClient();
   const t = useT();
   const tn = useTn();
+  const fmt = useDateFmt();
   const complete = useCompleteTodo();
   const reactivate = useReactivateTodo();
   const del = useDeleteTodo();
@@ -203,11 +201,11 @@ export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
             </span>
           )}
           {todo.due && (
-            <span className={cn("font-medium", dueClass(todo.due))}>{t("todo.due", { date: formatDate(todo.due) })}</span>
+            <span className={cn("font-medium", dueClass(todo.due))}>{t("todo.due", { date: fmt.day(todo.due) })}</span>
           )}
           {todo.showFrom && todo.state === "deferred" && (
             <span className="flex items-center gap-1">
-              <CalendarClock className="size-3" /> {formatDate(todo.showFrom)}
+              <CalendarClock className="size-3" /> {fmt.day(todo.showFrom)}
             </span>
           )}
           {todo.recurringTodoId && (

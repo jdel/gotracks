@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import type { AttachmentWithTodo } from "@/lib/types";
 import { SearchInput } from "@/components/SearchInput";
 import { useT, useTn } from "@/lib/i18n";
+import { useDateFmt } from "@/lib/datefmt";
 
 type SortKey = "fileName" | "todoDescription" | "size" | "createdAt";
 
@@ -74,6 +75,7 @@ function sortAttachments(
 
 export function AttachmentsPage() {
   const t = useT();
+  const fmt = useDateFmt();
   const tn = useTn();
   const qc = useQueryClient();
   const { data: attachments, isLoading } = useAllAttachments();
@@ -189,7 +191,7 @@ export function AttachmentsPage() {
                       </td>
                       <td className="px-2 py-1 text-right tabular-nums">{formatBytes(a.size)}</td>
                       <td className="px-2 py-1 text-right tabular-nums text-muted-foreground">
-                        {new Date(a.createdAt).toLocaleDateString()}
+                        {fmt.date(a.createdAt)}
                       </td>
                       <td className="px-2 py-1">
                         <div className="flex justify-end gap-0.5">

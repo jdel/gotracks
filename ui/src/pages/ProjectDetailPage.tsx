@@ -17,9 +17,11 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useT } from "@/lib/i18n";
+import { useDateFmt } from "@/lib/datefmt";
 
 export function ProjectDetailPage() {
   const t = useT();
+  const fmt = useDateFmt();
   const [confirmingNote, setConfirmingNote] = useState<number | null>(null);
   const { id } = useParams();
   const projectId = Number(id);
@@ -59,7 +61,7 @@ export function ProjectDetailPage() {
           )}
           {project.lastReviewed && (
             <p className="text-xs text-muted-foreground">
-              {t("projectDetail.reviewed", { date: new Date(project.lastReviewed).toLocaleDateString() })}
+              {t("projectDetail.reviewed", { date: fmt.date(project.lastReviewed) })}
             </p>
           )}
         </div>

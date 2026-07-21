@@ -12,6 +12,7 @@ import { ActionInput } from "@/components/ActionInput";
 import { bare, parseAction, type Sigil } from "@/lib/composer";
 import { apiMessage } from "@/lib/api";
 import { useT, useTn, type TFunc, type TnFunc } from "@/lib/i18n";
+import { useDateFmt } from "@/lib/datefmt";
 import { lastUsed } from "@/lib/lastUsed";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -278,6 +279,7 @@ function RecurringAddForm({
 
 export function RecurringPage() {
   const t = useT();
+  const fmt = useDateFmt();
   const tn = useTn();
   const [confirming, setConfirming] = useState<{ id: number; description: string } | null>(null);
   const { data: patterns, isLoading } = useRecurring();
@@ -320,7 +322,7 @@ export function RecurringPage() {
                 <p className="text-xs text-muted-foreground">
                   {describe(t, tn, p)}
                   {p.lastSpawnedAt &&
-                    ` · ${t("recurring.last", { date: new Date(p.lastSpawnedAt).toLocaleDateString() })}`}
+                    ` · ${t("recurring.last", { date: fmt.date(p.lastSpawnedAt) })}`}
                 </p>
               </div>
               <IconButton

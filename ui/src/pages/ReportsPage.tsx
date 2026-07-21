@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import type { UsageReport, UsageSnapshot } from "@/lib/types";
 import { useT, type TFunc } from "@/lib/i18n";
+import { useDateFmt } from "@/lib/datefmt";
 
 type Limits = UsageReport["limits"];
 
@@ -163,6 +164,7 @@ function PercentCell({ percent, raw, limit, t }: { percent: number; raw: string;
 
 export function ReportsPage() {
   const t = useT();
+  const fmt = useDateFmt();
   const [search, setSearch] = useState("");
   const [admin, setAdmin] = useState<TriState>("all");
   const [twoFactor, setTwoFactor] = useState<TriState>("all");
@@ -230,7 +232,7 @@ export function ReportsPage() {
 
           <p className="text-xs text-muted-foreground">
             {report?.generatedAt
-              ? t("reports.built", { date: new Date(report.generatedAt).toLocaleString() })
+              ? t("reports.built", { date: fmt.dateTime(report.generatedAt) })
               : t("reports.never")}
           </p>
 
