@@ -17,18 +17,13 @@ import { PasskeySection } from "@/components/PasskeySection";
 import { TwoFactorSection } from "@/components/TwoFactorSection";
 import type { Preference } from "@/lib/types";
 
-const TIMEZONES = [
-  "UTC",
-  "Europe/London",
-  "Europe/Luxembourg",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "America/New_York",
-  "America/Chicago",
-  "America/Los_Angeles",
-  "Asia/Tokyo",
-  "Australia/Sydney",
-];
+// The full IANA zone list the browser knows, so any zone can be picked rather
+// than a hand-maintained handful. UTC is pinned to the top.
+const TIMEZONES: string[] = (() => {
+  const supported =
+    typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+  return ["UTC", ...supported.filter((z) => z !== "UTC")];
+})();
 
 const DATE_FORMATS = [
   { value: "2006-01-02", label: "2026-07-18" },

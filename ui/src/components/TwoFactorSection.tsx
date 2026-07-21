@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { TwoFactorEnrolment } from "@/lib/types";
 import { useT, useTn } from "@/lib/i18n";
+import { useDateFmt } from "@/lib/datefmt";
 
 function message(err: unknown, fallback: string) {
   return err instanceof ApiError ? err.message : fallback;
@@ -24,6 +25,7 @@ function message(err: unknown, fallback: string) {
 // account. Opt-in per user: nothing changes for anyone who ignores it.
 export function TwoFactorSection() {
   const t = useT();
+  const fmt = useDateFmt();
   const tn = useTn();
   const { data: config } = useServerConfig();
   const available = config?.twoFactor === true;
@@ -194,7 +196,7 @@ export function TwoFactorSection() {
         {!isLoading && status?.enabled && !enrolment && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              {t("twofactor.onSince", { date: status.enabledAt ? new Date(status.enabledAt).toLocaleDateString() : "—" })}{" "}
+              {t("twofactor.onSince", { date: status.enabledAt ? fmt.date(status.enabledAt) : "—" })}{" "}
               {tn(status.recoveryCodesRemaining, "twofactor.codesLeft")}
             </p>
 

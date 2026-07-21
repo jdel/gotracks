@@ -9,11 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQueryClient } from "@tanstack/react-query";
 import { useT } from "@/lib/i18n";
+import { useDateFmt } from "@/lib/datefmt";
 
 // PasskeySection lets a user enrol their own passkeys. Nothing is enabled for an
 // account until it enrols one, so this is opt-in per user.
 export function PasskeySection() {
   const t = useT();
+  const fmt = useDateFmt();
   const { data: config } = useServerConfig();
   const enabled = config?.passkeys === true;
   const { data: passkeys, isLoading } = usePasskeys(enabled);
@@ -93,8 +95,8 @@ export function PasskeySection() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm">{k.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {t("passkey.added", { date: new Date(k.createdAt).toLocaleDateString() })}
-                  {k.lastUsedAt && ` · ${t("passkey.lastUsed", { date: new Date(k.lastUsedAt).toLocaleDateString() })}`}
+                  {t("passkey.added", { date: fmt.date(k.createdAt) })}
+                  {k.lastUsedAt && ` · ${t("passkey.lastUsed", { date: fmt.date(k.lastUsedAt) })}`}
                 </p>
               </div>
               <IconButton
