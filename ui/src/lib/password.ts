@@ -34,6 +34,39 @@ export function isPasswordValid(password: string): boolean {
   return passwordRules(password).every((r) => r.met);
 }
 
+// Character classes for generation: excludes look-alikes (I/O/l/0/1) so a
+// generated password can be read aloud or copied by hand without confusion.
+const GEN_UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const GEN_LOWER = "abcdefghijkmnpqrstuvwxyz";
+const GEN_DIGIT = "23456789";
+const GEN_SYMBOL = "!@#$%^&*-_=+";
+const GEN_ALL = GEN_UPPER + GEN_LOWER + GEN_DIGIT + GEN_SYMBOL;
+
+function randIndex(n: number): number {
+  return crypto.getRandomValues(new Uint32Array(1))[0] % n;
+}
+
+/**
+ * generatePassword returns a random password satisfying passwordRules: it seeds
+ * one character from each required class, fills to length from the full set,
+ * then shuffles so the guaranteed characters are not in fixed positions.
+ */
+export function generatePassword(length = 16): string {
+  const target = Math.max(length, MIN_PASSWORD_LENGTH + 2);
+  const chars = [
+    GEN_UPPER[randIndex(GEN_UPPER.length)],
+    GEN_LOWER[randIndex(GEN_LOWER.length)],
+    GEN_DIGIT[randIndex(GEN_DIGIT.length)],
+    GEN_SYMBOL[randIndex(GEN_SYMBOL.length)],
+  ];
+  while (chars.length < target) chars.push(GEN_ALL[randIndex(GEN_ALL.length)]);
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randIndex(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
 /**
  * Login name rules, mirrored from internal/auth/login.go. The server is the
  * authority; this is here so the form can say what is wrong before submitting.

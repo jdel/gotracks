@@ -23,19 +23,24 @@ export function UserUsageDialog({
 
   return (
     <Dialog open={user !== null} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("usage.title")}</DialogTitle>
-          <DialogDescription>{user?.email}</DialogDescription>
-        </DialogHeader>
+      {/* Full-screen: usage is worth reading at size rather than in a small
+          centred card. The utilities here override the default dialog's
+          centred, max-w-md box. */}
+      <DialogContent className="inset-0 left-0 top-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none">
+        <div className="mx-auto w-full max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{t("usage.title")}</DialogTitle>
+            <DialogDescription>{user?.email}</DialogDescription>
+          </DialogHeader>
 
-        {isLoading && <p className="mt-4 text-sm text-muted-foreground">{t("common.loading")}</p>}
-        {error && <p className="mt-4 text-sm text-destructive">{t("usage.loadError")}</p>}
-        {data && (
-          <div className="mt-4">
-            <UsageBars usage={data} />
-          </div>
-        )}
+          {isLoading && <p className="mt-4 text-sm text-muted-foreground">{t("common.loading")}</p>}
+          {error && <p className="mt-4 text-sm text-destructive">{t("usage.loadError")}</p>}
+          {data && (
+            <div className="mt-6">
+              <UsageBars usage={data} />
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

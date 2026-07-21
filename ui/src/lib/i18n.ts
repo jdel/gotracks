@@ -102,6 +102,9 @@ export const en = {
   "admin.login": "Email",
   "admin.email": "Email",
   "admin.password": "Password",
+  "admin.generatePassword": "Generate a password",
+  "admin.copyPassword": "Copy password",
+  "admin.copied": "Copied",
   "admin.isAdmin": "Admin",
 
   "common.loading": "Loading…",
@@ -586,6 +589,9 @@ export const fr: Partial<Dict> = {
   "admin.login": "Adresse e-mail",
   "admin.email": "E-mail",
   "admin.password": "Mot de passe",
+  "admin.generatePassword": "Générer un mot de passe",
+  "admin.copyPassword": "Copier le mot de passe",
+  "admin.copied": "Copié",
   "admin.isAdmin": "Administrateur",
 
   "common.loading": "Chargement…",
