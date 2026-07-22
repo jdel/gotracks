@@ -5,6 +5,12 @@ import (
 	"fmt"
 	"os"
 
+	// Embed the IANA time zone database in the binary. Without this a
+	// CGO-free build on a minimal image (alpine has no tzdata) cannot
+	// time.LoadLocation any zone but UTC, so setting a timezone preference
+	// would be rejected server-side.
+	_ "time/tzdata"
+
 	"github.com/jdel/gotracks/cmd"
 )
 
