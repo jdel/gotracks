@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here.
 
+## v0.1.0 - 2026-07-22
+
+### Added
+
+- Card row actions collapse into an overflow (⋯) menu when crowded, and the
+  action icons are tighter. The admin overflow menu is trimmed to make/revoke
+  admin and delete (plus reset-two-factor only when the user has it).
+- Modals are full-screen on mobile: the recurrence editor, the per-user usage
+  view, and a new stats-page quota view opened from a top-right icon.
+- The admin new-user form opens from a top-right "+", full-screen on mobile.
+- Searchable timezone picker (type-to-filter over the full IANA list).
+
+### Fixed
+
+- **Timezone preferences now take effect.** A CGO-free build on a minimal image
+  (alpine ships no tzdata) could not `LoadLocation` any zone but UTC, so saving
+  a timezone was silently rejected. The tz database is now embedded in the
+  binary (`time/tzdata`).
+- The page no longer scrolls sideways on mobile (`min-w-0` on the main region).
+
+### Chore
+
+- Dependabot no longer proposes TypeScript bumps past typescript-eslint's
+  supported peer range (`<6.1.0`), which otherwise broke the UI install.
+
 ## v0.0.2 - 2026-07-21
 
 ### Added
