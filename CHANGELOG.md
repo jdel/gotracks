@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented here.
 
+## v0.2.0 - 2026-07-22
+
+### Breaking changes
+
+- Removed data import from the API and UI. Exports are now JSON-only,
+  intentionally non-importable snapshots that omit internal identifiers and
+  represent context/project relationships by name.
+- Removed the YAML, XML and CSV export formats.
+
+### Added
+
+- Usage-report schedules now use a configurable IANA time zone, defaulting to
+  UTC, with the same searchable time-zone picker used by account settings.
+- A fresh purple/teal light and dark theme, matching favicon and in-app brand
+  mark.
+- Shared standard and wide desktop page containers for consistent layouts.
+- Mobile attachment cards with touch-sized actions and compact sorting controls;
+  the full sortable table remains on desktop.
+- Personal quota consumption is now a permanent Settings pane after data
+  export instead of a Statistics-page modal.
+
+### Dependencies
+
+- Removed the unused Go YAML module and refreshed npm dependencies with a
+  48-hour publication safety window.
+
+### Tests
+
+- Added coverage for ID-free named exports, DST-aware report scheduling,
+  filterable time-zone selection, shared page widths, Settings quota placement,
+  and the mobile attachment layout.
+
 ## v0.1.0 - 2026-07-22
 
 ### Added
