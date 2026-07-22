@@ -74,7 +74,7 @@ func (m *smtpMailer) Send(ctx context.Context, msg Message) error {
 	if err != nil {
 		return fmt.Errorf("smtp: data: %w", err)
 	}
-	if _, err := w.Write([]byte(buildMIME(m.cfg, msg, time.Now()))); err != nil {
+	if _, err := w.Write([]byte(buildMIME(m.cfg, msg.Subject, msg.Text, msg.HTML, time.Now()))); err != nil {
 		return fmt.Errorf("smtp: write: %w", err)
 	}
 	if err := w.Close(); err != nil {
@@ -116,21 +116,24 @@ func dialSMTP(ctx context.Context, encryption, addr, host string) (*smtp.Client,
 // Kept separate from the conversation so it can be asserted on directly: header
 // encoding and the multipart boundary are the parts most likely to be wrong,
 // and they are invisible from the outside of a Send.
-func buildMIME(cfg Config, msg Message, now time.Time) string {
+func buildMIME(cfg Config, subject, text, html string, now time.Time) string {
 	var b strings.Builder
 
 	// Q-encoded, so a subject with an accent survives every client.
 	b.WriteString("From: " + cfg.From() + "\r\n")
-	b.WriteString("To: " + msg.To + "\r\n")
-	b.WriteString("Subject: " + mime.QEncoding.Encode("utf-8", msg.Subject) + "\r\n")
+	// The real destination belongs to the SMTP envelope (client.Rcpt), not the
+	// message content. Keeping user-controlled account data out of the MIME
+	// headers removes the header-injection surface entirely.
+	b.WriteString("To: undisclosed-recipients:;\r\n")
+	b.WriteString("Subject: " + mime.QEncoding.Encode("utf-8", subject) + "\r\n")
 	b.WriteString("Date: " + now.Format(time.RFC1123Z) + "\r\n")
 	b.WriteString("MIME-Version: 1.0\r\n")
 	// Transactional mail: tells well-behaved autoresponders not to reply.
 	b.WriteString("Auto-Submitted: auto-generated\r\n")
 
-	if msg.HTML == "" {
+	if html == "" {
 		b.WriteString("Content-Type: text/plain; charset=utf-8\r\n\r\n")
-		b.WriteString(msg.Text)
+		b.WriteString(text)
 		return b.String()
 	}
 
@@ -140,10 +143,10 @@ func buildMIME(cfg Config, msg Message, now time.Time) string {
 	// HTML has to come second for clients that can show it.
 	b.WriteString("--" + boundary + "\r\n")
 	b.WriteString("Content-Type: text/plain; charset=utf-8\r\n\r\n")
-	b.WriteString(msg.Text + "\r\n")
+	b.WriteString(text + "\r\n")
 	b.WriteString("--" + boundary + "\r\n")
 	b.WriteString("Content-Type: text/html; charset=utf-8\r\n\r\n")
-	b.WriteString(msg.HTML + "\r\n")
+	b.WriteString(html + "\r\n")
 	b.WriteString("--" + boundary + "--\r\n")
 	return b.String()
 }

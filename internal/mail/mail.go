@@ -84,8 +84,12 @@ func New(cfg Config) (Mailer, error) {
 	if !cfg.Enabled() {
 		return &logMailer{}, nil
 	}
+	cfg.FromAddress = strings.TrimSpace(cfg.FromAddress)
 	if err := validateAddress(cfg.FromAddress); err != nil {
 		return nil, fmt.Errorf("mail.from: %w", err)
+	}
+	if err := validateHeaderValue(cfg.FromName); err != nil {
+		return nil, fmt.Errorf("mail.from-name: %w", err)
 	}
 
 	switch strings.ToLower(cfg.Provider) {
@@ -104,8 +108,21 @@ func validateAddress(addr string) error {
 	if strings.TrimSpace(addr) == "" {
 		return fmt.Errorf("is required when a mail provider is configured")
 	}
-	if _, err := mail.ParseAddress(addr); err != nil {
+	parsed, err := mail.ParseAddress(addr)
+	if err != nil || parsed.Address != addr {
 		return fmt.Errorf("%q is not a valid address", addr)
+	}
+	return nil
+}
+
+// validateHeaderValue rejects every ASCII control character. Newlines enable
+// injected headers; the remaining controls have no legitimate place in a
+// subject or display name and can be interpreted inconsistently by relays.
+func validateHeaderValue(value string) error {
+	for _, r := range value {
+		if r < 0x20 || r == 0x7f {
+			return fmt.Errorf("contains a control character")
+		}
 	}
 	return nil
 }
@@ -113,14 +130,18 @@ func validateAddress(addr string) error {
 // validate checks a message before any provider touches it, so a missing
 // recipient fails the same way everywhere.
 func (m Message) validate() error {
-	if strings.TrimSpace(m.To) == "" {
+	if m.To == "" {
 		return fmt.Errorf("mail: no recipient")
 	}
-	if _, err := mail.ParseAddress(m.To); err != nil {
+	parsed, err := mail.ParseAddress(m.To)
+	if err != nil || parsed.Address != m.To {
 		return fmt.Errorf("mail: invalid recipient %q", m.To)
 	}
 	if strings.TrimSpace(m.Subject) == "" {
 		return fmt.Errorf("mail: no subject")
+	}
+	if err := validateHeaderValue(m.Subject); err != nil {
+		return fmt.Errorf("mail: invalid subject: %w", err)
 	}
 	if strings.TrimSpace(m.Text) == "" {
 		return fmt.Errorf("mail: no text body")

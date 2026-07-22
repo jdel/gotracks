@@ -50,15 +50,16 @@ func TestNewSelectsProvider(t *testing.T) {
 
 func TestNewRejectsBadConfiguration(t *testing.T) {
 	cases := map[string]func(*Config){
-		"unknown provider":     func(c *Config) { c.Provider = "carrier-pigeon" },
-		"missing from address": func(c *Config) { c.FromAddress = "" },
-		"invalid from address": func(c *Config) { c.FromAddress = "not-an-address" },
-		"smtp without host":    func(c *Config) { c.Provider = "smtp"; c.SMTPHost = "" },
-		"smtp without port":    func(c *Config) { c.Provider = "smtp"; c.SMTPPort = 0 },
-		"smtp bad encryption":  func(c *Config) { c.Provider = "smtp"; c.SMTPEncryption = "rot13" },
-		"resend without key":   func(c *Config) { c.Provider = "resend"; c.ResendAPIKey = "" },
-		"mailjet without key":  func(c *Config) { c.Provider = "mailjet"; c.MailjetAPIKey = "" },
-		"mailjet without sec":  func(c *Config) { c.Provider = "mailjet"; c.MailjetSecretKey = "" },
+		"unknown provider":      func(c *Config) { c.Provider = "carrier-pigeon" },
+		"missing from address":  func(c *Config) { c.FromAddress = "" },
+		"invalid from address":  func(c *Config) { c.FromAddress = "not-an-address" },
+		"from header injection": func(c *Config) { c.FromName = "gotracks\r\nBcc: attacker@example.com" },
+		"smtp without host":     func(c *Config) { c.Provider = "smtp"; c.SMTPHost = "" },
+		"smtp without port":     func(c *Config) { c.Provider = "smtp"; c.SMTPPort = 0 },
+		"smtp bad encryption":   func(c *Config) { c.Provider = "smtp"; c.SMTPEncryption = "rot13" },
+		"resend without key":    func(c *Config) { c.Provider = "resend"; c.ResendAPIKey = "" },
+		"mailjet without key":   func(c *Config) { c.Provider = "mailjet"; c.MailjetAPIKey = "" },
+		"mailjet without sec":   func(c *Config) { c.Provider = "mailjet"; c.MailjetSecretKey = "" },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -87,7 +88,10 @@ func TestMessageValidation(t *testing.T) {
 	cases := map[string]Message{
 		"no recipient":      {Subject: "s", Text: "t"},
 		"invalid recipient": {To: "not-an-address", Subject: "s", Text: "t"},
+		"recipient header":  {To: "a@example.com\r\nBcc: attacker@example.com", Subject: "s", Text: "t"},
+		"recipient display": {To: "Alice <a@example.com>", Subject: "s", Text: "t"},
 		"no subject":        {To: "a@example.com", Text: "t"},
+		"subject header":    {To: "a@example.com", Subject: "hello\r\nBcc: attacker@example.com", Text: "t"},
 		"no text body":      {To: "a@example.com", Subject: "s", HTML: "<p>x</p>"},
 	}
 	for name, msg := range cases {
@@ -205,11 +209,12 @@ func TestAPIErrorCarriesTheProviderMessage(t *testing.T) {
 
 func TestMIMEStructure(t *testing.T) {
 	cfg := testConfig("smtp")
-	out := buildMIME(cfg, testMessage, time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC))
+	out := buildMIME(cfg, testMessage.Subject, testMessage.Text, testMessage.HTML,
+		time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC))
 
 	for _, want := range []string{
 		"From: \"gotracks\" <tracks@example.com>",
-		"To: alice@example.com",
+		"To: undisclosed-recipients:;",
 		"Subject: Reset your password",
 		"MIME-Version: 1.0",
 		"Auto-Submitted: auto-generated",
@@ -220,6 +225,9 @@ func TestMIMEStructure(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("message is missing %q:\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, testMessage.To) {
+		t.Error("the untrusted envelope recipient was copied into the MIME content")
 	}
 	// Plain text must come first: the last part of a multipart/alternative
 	// wins, so HTML has to be second.
@@ -235,7 +243,7 @@ func TestMIMEStructure(t *testing.T) {
 func TestMIMEEncodesUnicodeSubject(t *testing.T) {
 	msg := testMessage
 	msg.Subject = "Réinitialisez votre mot de passe"
-	out := buildMIME(testConfig("smtp"), msg, time.Now())
+	out := buildMIME(testConfig("smtp"), msg.Subject, msg.Text, msg.HTML, time.Now())
 
 	if strings.Contains(out, "Réinitialisez") {
 		t.Error("the subject was written raw rather than encoded")
@@ -249,7 +257,7 @@ func TestMIMEEncodesUnicodeSubject(t *testing.T) {
 func TestMIMETextOnly(t *testing.T) {
 	msg := testMessage
 	msg.HTML = ""
-	out := buildMIME(testConfig("smtp"), msg, time.Now())
+	out := buildMIME(testConfig("smtp"), msg.Subject, msg.Text, msg.HTML, time.Now())
 
 	if strings.Contains(out, "multipart") {
 		t.Error("a text-only message was wrapped in multipart")
