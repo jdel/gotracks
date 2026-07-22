@@ -74,8 +74,6 @@ definitions:
         type: string
       isAdmin:
         type: boolean
-      password:
-        type: string
     type: object
   api.disableRequest:
     properties:
@@ -236,7 +234,10 @@ definitions:
           Locale is the language picked on the form. Optional: an absent or
           unsupported value leaves the account on the default.
         type: string
-      password:
+      timeZone:
+        description: |-
+          TimeZone is the browser's IANA zone, used before the account can sign in
+          and save preferences itself.
         type: string
     type: object
   api.reorderRequest:
@@ -1030,6 +1031,26 @@ paths:
       summary: Reset a user's two-factor
       tags:
       - admin
+  /api/v1/admin/users/{id}/invitation:
+    post:
+      parameters:
+      - description: User id
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: sent
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Resend a user invitation
+      tags:
+      - admin
   /api/v1/admin/users/{id}/usage:
     get:
       parameters:
@@ -1162,6 +1183,25 @@ paths:
           schema:
             $ref: '#/definitions/api.errorBody'
       summary: Verify an email address
+      tags:
+      - auth
+  /api/v1/auth/invitation/accept:
+    post:
+      parameters:
+      - description: Invitation token and password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.resetPasswordRequest'
+      responses:
+        "204":
+          description: account activated
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      summary: Accept a user invitation
       tags:
       - auth
   /api/v1/auth/login:
@@ -1341,17 +1381,15 @@ paths:
   /api/v1/auth/register:
     post:
       parameters:
-      - description: Email, password and optional locale
+      - description: Email and optional locale
         in: body
         name: body
         required: true
         schema:
           $ref: '#/definitions/api.registerRequest'
       responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/api.authResponse'
+        "204":
+          description: accepted
         "400":
           description: Bad Request
           schema:
@@ -1360,7 +1398,7 @@ paths:
           description: registration disabled
           schema:
             $ref: '#/definitions/api.errorBody'
-      summary: Register a new account
+      summary: Request account enrollment
       tags:
       - auth
   /api/v1/config:

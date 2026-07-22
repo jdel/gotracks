@@ -240,7 +240,7 @@ func serve(ctx context.Context) error {
 	// Mail must be able to build absolute links back into the app.
 	if mailer.Name() != "log" && cfg.PublicURL == "" {
 		return fmt.Errorf("http.public-url is required when a mail provider is configured: " +
-			"verification and reset links have nowhere to point")
+			"verification, invitation and reset links have nowhere to point")
 	}
 
 	authSvc := service.NewAuthService(store.Users, store.RefreshTokens, tm, settings)

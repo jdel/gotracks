@@ -17,12 +17,7 @@ function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
   const url = typeof input === "string" ? input : input.toString();
   if (url.includes("/auth/register")) {
     registered.push(JSON.parse(String(init?.body ?? "{}")));
-    return Promise.resolve(
-      jsonResponse({
-        user: { id: 1, email: "a@b.com", isAdmin: false },
-        tokens: { accessToken: "a", refreshToken: "r", expiresAt: "" },
-      }),
-    );
+    return Promise.resolve({ ok: true, status: 204 } as Response);
   }
   if (url.includes("/me")) return Promise.resolve(jsonResponse({}, 401));
   if (url.includes("/preferences")) return Promise.resolve(jsonResponse({}, 401));
@@ -69,10 +64,11 @@ describe("registration language", () => {
     expect(screen.getByText("Vous avez déjà un compte ?")).toBeDefined();
 
     await user.type(screen.getByLabelText("Adresse e-mail"), "a@b.com");
-    await user.type(screen.getByLabelText("Mot de passe"), "Str0ng!Passw0rd");
     await user.click(screen.getByRole("button", { name: /Créer un compte/ }));
 
     expect(registered).toHaveLength(1);
+    expect(registered[0]).not.toHaveProperty("password");
     expect(registered[0].locale).toBe("fr");
+    expect(await screen.findByText(/Consultez votre boîte/)).toBeDefined();
   });
 });

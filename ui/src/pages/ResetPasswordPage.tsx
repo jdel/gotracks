@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { KeyRound } from "lucide-react";
-import { useResetPassword } from "@/hooks/useSettings";
+import { useAcceptInvitation, useResetPassword } from "@/hooks/useSettings";
 import { ApiError } from "@/lib/api";
 import { PasswordRules } from "@/components/PasswordRules";
 import { isPasswordValid } from "@/lib/password";
@@ -13,9 +13,19 @@ import { useT } from "@/lib/i18n";
 
 /** Landing page for the link in a password-reset email. */
 export function ResetPasswordPage() {
+  return <PasswordFromMailPage invitation={false} />;
+}
+
+/** Landing page for an administrator-issued account invitation. */
+export function AcceptInvitationPage() {
+  return <PasswordFromMailPage invitation />;
+}
+
+function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
   const reset = useResetPassword();
+  const accept = useAcceptInvitation();
   const navigate = useNavigate();
   const t = useT();
 
@@ -32,7 +42,7 @@ export function ResetPasswordPage() {
       return;
     }
     try {
-      await reset.mutateAsync({ token, newPassword: password });
+      await (invitation ? accept : reset).mutateAsync({ token, newPassword: password });
       setDone(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("reset.errGeneric"));
@@ -43,14 +53,16 @@ export function ResetPasswordPage() {
     <div className="flex min-h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">{t("reset.title")}</CardTitle>
+          <CardTitle className="text-xl">{t(invitation ? "invite.title" : "reset.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           {!token ? (
-<p className="text-sm text-destructive">{t("reset.incomplete")}</p>
+            <p className="text-sm text-destructive">
+              {t(invitation ? "invite.incomplete" : "reset.incomplete")}
+            </p>
           ) : done ? (
             <div className="space-y-4">
-<p className="text-sm">{t("reset.done")}</p>
+              <p className="text-sm">{t(invitation ? "invite.done" : "reset.done")}</p>
               <Button className="w-full" onClick={() => navigate("/login")}>
                 {t("auth.signIn")}
               </Button>
@@ -83,9 +95,12 @@ export function ResetPasswordPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={reset.isPending || !isPasswordValid(password) || !confirm}
+                disabled={reset.isPending || accept.isPending || !isPasswordValid(password) || !confirm}
               >
-                <KeyRound /> {reset.isPending ? t("reset.saving") : t("reset.setNew")}
+                <KeyRound />
+                {reset.isPending || accept.isPending
+                  ? t("reset.saving")
+                  : t(invitation ? "invite.accept" : "reset.setNew")}
               </Button>
               <p className="text-center text-sm text-muted-foreground">
                 <Link to="/login" className="underline">

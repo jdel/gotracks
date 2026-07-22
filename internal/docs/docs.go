@@ -477,6 +477,39 @@ const docTemplate = `{
                 ]
             }
         },
+        "/api/v1/admin/users/{id}/invitation": {
+            "post": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Resend a user invitation",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "sent"
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/admin/users/{id}/usage": {
             "get": {
                 "tags": [
@@ -684,6 +717,36 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "verified"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/invitation/accept": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Accept a user invitation",
+                "parameters": [
+                    {
+                        "description": "Invitation token and password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.resetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "account activated"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -973,10 +1036,10 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Register a new account",
+                "summary": "Request account enrollment",
                 "parameters": [
                     {
-                        "description": "Email, password and optional locale",
+                        "description": "Email and optional locale",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -986,11 +1049,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/api.authResponse"
-                        }
+                    "204": {
+                        "description": "accepted"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -2592,9 +2652,6 @@ const docTemplate = `{
                 },
                 "isAdmin": {
                     "type": "boolean"
-                },
-                "password": {
-                    "type": "string"
                 }
             }
         },
@@ -2828,7 +2885,8 @@ const docTemplate = `{
                     "description": "Locale is the language picked on the form. Optional: an absent or\nunsupported value leaves the account on the default.",
                     "type": "string"
                 },
-                "password": {
+                "timeZone": {
+                    "description": "TimeZone is the browser's IANA zone, used before the account can sign in\nand save preferences itself.",
                     "type": "string"
                 }
             }

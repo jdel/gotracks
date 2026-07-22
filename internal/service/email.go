@@ -23,22 +23,28 @@ var (
 	// ErrEmailUnverified is returned when a sign-in is refused pending
 	// verification.
 	ErrEmailUnverified = errors.New("email address not verified")
+	// ErrEmailVerified prevents an invitation from becoming an admin-triggered
+	// password reset for an already active account.
+	ErrEmailVerified = errors.New("email address already verified")
 )
 
 const (
 	kindEmailVerify   = "email-verify"
 	kindPasswordReset = "password-reset"
+	kindInvitation    = "user-invitation"
 
 	// verifyTTL is generous: people read mail hours later.
 	verifyTTL = 24 * time.Hour
 	// resetTTL is short. It is a credential, and a mailbox is not a vault.
 	resetTTL = 30 * time.Minute
+	// Invitations may be sent well before somebody checks their mailbox.
+	invitationTTL = 48 * time.Hour
 
 	// maxLiveTokensPerUser stops repeated requests filling the table.
 	maxLiveTokensPerUser = 5
 )
 
-// EmailService owns address verification and password reset.
+// EmailService owns address verification, invitations and password reset.
 type EmailService struct {
 	users     repo.UserRepo
 	tokens    repo.EphemeralRepo
@@ -158,6 +164,42 @@ func (s *EmailService) SendVerification(ctx context.Context, u *domain.User) err
 	})
 }
 
+// SendInvitation lets an administrator invite a pending account to choose its
+// own password. Unlike a password reset, this is only valid before the address
+// has been verified.
+func (s *EmailService) SendInvitation(ctx context.Context, u *domain.User) error {
+	if u.EmailVerifiedAt != nil {
+		return ErrEmailVerified
+	}
+	token, err := s.issueToken(ctx, kindInvitation, u.ID, invitationTTL)
+	if err != nil {
+		return err
+	}
+	href := s.link("/accept-invitation", token)
+	return s.mailer.Send(ctx, mail.Message{
+		To:      u.Email,
+		Subject: "Your gotracks invitation",
+		Text: "You have been invited to gotracks. Choose your password to activate your account:\n\n" + href +
+			"\n\nThe link is valid for 48 hours and can be used once. If you were not expecting this invitation, ignore this message.",
+		HTML: `<p>You have been invited to gotracks.</p>` +
+			`<p><a href="` + href + `">Choose my password</a></p>` +
+			`<p>The link is valid for 48 hours and can be used once. If you were not expecting this invitation, ignore this message.</p>`,
+	})
+}
+
+// RequestInvitation resends enrollment mail without revealing whether the
+// address exists. It is used by the public endpoint when somebody enrolls an
+// already-pending address.
+func (s *EmailService) RequestInvitation(ctx context.Context, email string) {
+	u, err := s.users.ByEmail(ctx, auth.NormaliseEmail(email))
+	if err != nil || u.EmailVerifiedAt != nil {
+		return
+	}
+	if err := s.SendInvitation(ctx, u); err != nil {
+		log.Warn().Err(err).Msg("could not resend an invitation")
+	}
+}
+
 // Verify marks an address proven.
 func (s *EmailService) Verify(ctx context.Context, token string) error {
 	u, err := s.consumeToken(ctx, kindEmailVerify, token)
@@ -235,12 +277,38 @@ func (s *EmailService) ResetPassword(ctx context.Context, token, newPassword str
 	if err != nil {
 		return err
 	}
-	if _, err := s.auth.SetPassword(ctx, u.ID, newPassword); err != nil {
+	return s.setPasswordAndVerify(ctx, u, newPassword)
+}
+
+// AcceptInvitation activates a pending account. The password is checked before
+// consuming the token so a typo or weak choice does not destroy the invitation.
+func (s *EmailService) AcceptInvitation(ctx context.Context, token, newPassword string) error {
+	if err := auth.ValidatePassword(newPassword); err != nil {
 		return err
 	}
-	// Reaching the mailbox is itself proof of the address.
-	if u.EmailVerifiedAt == nil {
-		return s.MarkVerified(ctx, u)
+	u, err := s.consumeToken(ctx, kindInvitation, token)
+	if err != nil {
+		return err
 	}
-	return nil
+	if u.EmailVerifiedAt != nil {
+		return ErrEmailToken
+	}
+	return s.setPasswordAndVerify(ctx, u, newPassword)
+}
+
+// setPasswordAndVerify reloads the user before marking it verified. SetPassword
+// updates its own copy; writing the older copy afterwards would restore the old
+// password hash while appearing to complete the flow successfully.
+func (s *EmailService) setPasswordAndVerify(ctx context.Context, u *domain.User, password string) error {
+	if _, err := s.auth.SetPassword(ctx, u.ID, password); err != nil {
+		return err
+	}
+	if u.EmailVerifiedAt != nil {
+		return nil
+	}
+	fresh, err := s.users.ByID(ctx, u.ID)
+	if err != nil {
+		return err
+	}
+	return s.MarkVerified(ctx, fresh)
 }

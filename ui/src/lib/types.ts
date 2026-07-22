@@ -3,6 +3,7 @@ export interface User {
   /** The account identity. There is no separate username. */
   email: string;
   isAdmin: boolean;
+  emailVerifiedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -73,6 +73,8 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, "this link is no longer valid; request a new one")
 	case errors.Is(err, service.ErrEmailUnverified):
 		writeError(w, http.StatusForbidden, "confirm your email address before signing in")
+	case errors.Is(err, service.ErrEmailVerified):
+		writeError(w, http.StatusConflict, "this account is already active")
 	case errors.Is(err, service.ErrAccountLocked):
 		writeError(w, http.StatusTooManyRequests,
 			"too many failed sign-in attempts; try again in a few minutes")

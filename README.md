@@ -31,7 +31,9 @@ go run . serve --log-level debug          # API on :8080
 cd ui && npm ci && npm run dev            # UI on :5173
 ```
 
-Open <http://localhost:5173>. The first account you register becomes the admin.
+Open <http://localhost:5173>. Enroll the first account, then follow the
+invitation link written to the backend's debug log; that account becomes the
+administrator.
 
 ## Production build (single binary)
 
@@ -227,8 +229,8 @@ relationships use the context and project names visible in the UI.
 
 ### Sending mail
 
-Transactional mail (password reset, address verification) goes through one
-provider, chosen with `--mail.provider`:
+Transactional mail (account invitations, password reset, address verification)
+goes through one provider, chosen with `--mail.provider`:
 
 ```bash
 # SMTP relay
@@ -250,15 +252,18 @@ being sent, which is what you want in development. Configuration is validated
 at startup, so a missing key or a malformed sender address stops the server
 rather than surfacing when somebody first asks for a password reset.
 
-`--http.public-url` must be set once a provider is configured: verification and
-reset links are absolute, and the server refuses to start without it rather
-than guessing from a request header, which an attacker could point at their own
-site.
+`--http.public-url` must be set once a provider is configured: verification,
+invitation and reset links are absolute, and the server refuses to start without
+it rather than guessing from a request header, which an attacker could point at
+their own site.
 
-New accounts must confirm their address before signing in. Two deliberate
-exceptions stop that bricking a deployment: the first account (the
-administrator) is verified automatically, since it is created before mail can
-be configured, and the requirement is lifted entirely when no provider is set.
+Public enrollment and administrator-created accounts both use invitations
+instead of accepting or generating an initial password. The single-use link is
+stored hashed in the database, expires after 48 hours, and works across server
+instances. Choosing a password through it both activates the account and
+verifies control of the email address. Administrators can resend invitations
+even when public enrollment is disabled. Without a mail provider, development
+invitations are written to the debug log instead of being delivered.
 
 **Deliverability is the hard part.** Publish SPF, DKIM and DMARC records for
 the sending domain, or reset mail will land in spam and users will conclude the

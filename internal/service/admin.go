@@ -48,13 +48,13 @@ func (s *AdminService) ListUsers(ctx context.Context) ([]*domain.User, error) {
 	return s.store.Users.List(ctx)
 }
 
-// CreateUser adds an account.
-func (s *AdminService) CreateUser(ctx context.Context, email, password string, isAdmin bool) (*domain.User, error) {
+// CreateUser adds an account that cannot sign in until it accepts the emailed
+// invitation. The random value is never returned or shown; hashing it merely
+// satisfies the non-null password column while keeping the pending account
+// unreachable through password authentication.
+func (s *AdminService) CreateUser(ctx context.Context, email string, isAdmin bool) (*domain.User, error) {
 	email = auth.NormaliseEmail(email)
 	if err := auth.ValidateEmail(email); err != nil {
-		return nil, err
-	}
-	if err := auth.ValidatePassword(password); err != nil {
 		return nil, err
 	}
 	if _, err := s.store.Users.ByEmail(ctx, email); err == nil {
@@ -62,7 +62,11 @@ func (s *AdminService) CreateUser(ctx context.Context, email, password string, i
 	} else if !errors.Is(err, repo.ErrNotFound) {
 		return nil, err
 	}
-	hash, err := auth.HashPassword(password)
+	placeholder, err := randomToken()
+	if err != nil {
+		return nil, err
+	}
+	hash, err := auth.HashPassword(placeholder)
 	if err != nil {
 		return nil, err
 	}

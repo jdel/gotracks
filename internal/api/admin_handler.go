@@ -15,6 +15,7 @@ type adminHandler struct {
 	twoFactor *service.TwoFactorService
 	quotas    *service.QuotaService
 	reports   *service.UsageReportService
+	email     *service.EmailService
 }
 
 // adminUser is a user plus admin-only annotations. It embeds the user so the
@@ -95,9 +96,8 @@ func (h *adminHandler) updateSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 type createUserRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	IsAdmin  bool   `json:"isAdmin"`
+	Email   string `json:"email"`
+	IsAdmin bool   `json:"isAdmin"`
 }
 
 type updateUserRequest struct {
@@ -273,12 +273,43 @@ func (h *adminHandler) createUser(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	u, err := h.admin.CreateUser(r.Context(), req.Email, req.Password, req.IsAdmin)
+	u, err := h.admin.CreateUser(r.Context(), req.Email, req.IsAdmin)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
+	if err := h.email.SendInvitation(r.Context(), u); err != nil {
+		writeServiceError(w, err)
+		return
+	}
 	writeJSON(w, http.StatusCreated, u)
+}
+
+// resendInvitation sends a fresh invitation to an unverified account.
+//
+//	@Summary	Resend a user invitation
+//	@Tags		admin
+//	@Security	BearerAuth
+//	@Param		id	path	int	true	"User id"
+//	@Success	204	"sent"
+//	@Failure	409	{object}	errorBody
+//	@Router		/api/v1/admin/users/{id}/invitation [post]
+func (h *adminHandler) resendInvitation(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	u, err := h.admin.GetUser(r.Context(), id)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	if err := h.email.SendInvitation(r.Context(), u); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // updateUser changes an account's email, password or admin flag.

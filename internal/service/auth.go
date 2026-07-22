@@ -91,33 +91,10 @@ type TokenPair struct {
 
 // Register creates a new user. The first user ever created becomes admin.
 func (s *AuthService) Register(ctx context.Context, email, password, locale string) (*domain.User, *TokenPair, error) {
-	email = auth.NormaliseEmail(email)
-	if err := auth.ValidateEmail(email); err != nil {
-		return nil, nil, err
-	}
-
-	count, err := s.users.Count(ctx)
+	email, count, err := s.registrationIdentity(ctx, email)
 	if err != nil {
 		return nil, nil, err
 	}
-	// Registration may be disabled, but the very first (admin) account is always
-	// allowed — otherwise a fresh instance could never be set up.
-	if count > 0 {
-		allowed, err := s.settings.AllowRegister(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		if !allowed {
-			return nil, nil, ErrRegisterDisabled
-		}
-	}
-
-	if _, err := s.users.ByEmail(ctx, email); err == nil {
-		return nil, nil, ErrEmailTaken
-	} else if !errors.Is(err, repo.ErrNotFound) {
-		return nil, nil, err
-	}
-
 	if err := auth.ValidatePassword(password); err != nil {
 		return nil, nil, err
 	}
@@ -125,35 +102,94 @@ func (s *AuthService) Register(ctx context.Context, email, password, locale stri
 	if err != nil {
 		return nil, nil, err
 	}
-	now := time.Now()
-	u := &domain.User{
-		Email:     email,
-		Password:  hash,
-		IsAdmin:   count == 0,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	if err := s.users.Create(ctx, u); err != nil {
+	u, err := s.createRegisteredUser(ctx, email, hash, locale, "", count == 0)
+	if err != nil {
 		return nil, nil, err
 	}
-
-	// The language chosen on the form, so the account reads correctly from the
-	// first screen rather than defaulting to English until someone visits
-	// settings. An unusable value falls back instead of failing the signup.
-	if s.prefs != nil && locale != "" {
-		p := DefaultPreference(u.ID)
-		p.Locale = NormaliseLocale(locale)
-		p.UpdatedAt = now
-		if err := s.prefs.Upsert(ctx, p); err != nil {
-			return nil, nil, err
-		}
-	}
-
 	pair, err := s.issue(ctx, u)
 	if err != nil {
 		return nil, nil, err
 	}
 	return u, pair, nil
+}
+
+// Enroll creates a pending user with no known password. The public HTTP flow
+// follows this by sending an invitation; accepting it proves the email address
+// and chooses the first usable password.
+func (s *AuthService) Enroll(ctx context.Context, email, locale, timeZone string) (*domain.User, error) {
+	email, count, err := s.registrationIdentity(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	placeholder, err := randomToken()
+	if err != nil {
+		return nil, err
+	}
+	hash, err := auth.HashPassword(placeholder)
+	if err != nil {
+		return nil, err
+	}
+	return s.createRegisteredUser(ctx, email, hash, locale, timeZone, count == 0)
+}
+
+func (s *AuthService) registrationIdentity(ctx context.Context, email string) (string, int, error) {
+	email = auth.NormaliseEmail(email)
+	if err := auth.ValidateEmail(email); err != nil {
+		return "", 0, err
+	}
+
+	count, err := s.users.Count(ctx)
+	if err != nil {
+		return "", 0, err
+	}
+	// Registration may be disabled, but the very first (admin) account is always
+	// allowed — otherwise a fresh instance could never be set up.
+	if count > 0 {
+		allowed, err := s.settings.AllowRegister(ctx)
+		if err != nil {
+			return "", 0, err
+		}
+		if !allowed {
+			return "", 0, ErrRegisterDisabled
+		}
+	}
+
+	if _, err := s.users.ByEmail(ctx, email); err == nil {
+		return "", 0, ErrEmailTaken
+	} else if !errors.Is(err, repo.ErrNotFound) {
+		return "", 0, err
+	}
+	return email, count, nil
+}
+
+func (s *AuthService) createRegisteredUser(ctx context.Context, email, hash, locale, timeZone string, isAdmin bool) (*domain.User, error) {
+	now := time.Now()
+	u := &domain.User{
+		Email:     email,
+		Password:  hash,
+		IsAdmin:   isAdmin,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if err := s.users.Create(ctx, u); err != nil {
+		return nil, err
+	}
+
+	// The language chosen on the form, so the account reads correctly from the
+	// first screen rather than defaulting to English until someone visits
+	// settings. An unusable value falls back instead of failing the signup.
+	if s.prefs != nil && (locale != "" || timeZone != "") {
+		p := DefaultPreference(u.ID)
+		p.Locale = NormaliseLocale(locale)
+		if _, err := time.LoadLocation(timeZone); err == nil {
+			p.TimeZone = timeZone
+		}
+		p.UpdatedAt = now
+		if err := s.prefs.Upsert(ctx, p); err != nil {
+			return nil, err
+		}
+	}
+	return u, nil
 }
 
 // LoginOIDC signs in (or provisions) a user identified by an OIDC provider.

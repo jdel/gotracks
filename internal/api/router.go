@@ -57,13 +57,14 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	// Completes a sign-in that stopped at the second factor. Public: the
 	// caller has proven a password but holds no access token yet.
 	mux.HandleFunc("POST /api/v1/auth/2fa/verify", ah.verifyTwoFactor)
-	// Address verification and password reset, all public: the caller is
-	// holding a mailed token, not a session.
+	// Address verification, invitations and password reset, all public: the
+	// caller is holding a mailed token, not a session.
 	if svc.Email != nil {
 		mux.HandleFunc("POST /api/v1/auth/email/verify", ah.verifyEmail)
 		mux.HandleFunc("POST /api/v1/auth/email/resend", ah.resendVerification)
 		mux.HandleFunc("POST /api/v1/auth/password/forgot", ah.forgotPassword)
 		mux.HandleFunc("POST /api/v1/auth/password/reset", ah.resetPassword)
+		mux.HandleFunc("POST /api/v1/auth/invitation/accept", ah.acceptInvitation)
 	}
 
 	// Current user (protected).
@@ -138,12 +139,13 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 
 	// Admin (protected + admin-only).
 	adminOnly := func(h http.HandlerFunc) http.Handler { return requireAuth(RequireAdmin(h)) }
-	adh := &adminHandler{admin: svc.Admin, settings: svc.Settings, twoFactor: svc.TwoFactor, quotas: svc.Quotas, reports: svc.Reports}
+	adh := &adminHandler{admin: svc.Admin, settings: svc.Settings, twoFactor: svc.TwoFactor, quotas: svc.Quotas, reports: svc.Reports, email: svc.Email}
 	mux.Handle("GET /api/v1/admin/users", adminOnly(adh.listUsers))
 	mux.Handle("POST /api/v1/admin/users", adminOnly(adh.createUser))
 	mux.Handle("PUT /api/v1/admin/users/{id}", adminOnly(adh.updateUser))
 	mux.Handle("DELETE /api/v1/admin/users/{id}", adminOnly(adh.deleteUser))
 	mux.Handle("POST /api/v1/admin/users/{id}/2fa/reset", adminOnly(adh.resetTwoFactor))
+	mux.Handle("POST /api/v1/admin/users/{id}/invitation", adminOnly(adh.resendInvitation))
 	mux.Handle("GET /api/v1/admin/users/{id}/usage", adminOnly(adh.usage))
 	// The instance-wide report: served from the periodically rebuilt table,
 	// and rebuildable on demand.

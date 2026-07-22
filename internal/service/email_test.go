@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/mail"
@@ -275,6 +276,151 @@ func TestResetVerifiesTheAddress(t *testing.T) {
 	fresh, _ := store.Users.ByID(ctx, u.ID)
 	if fresh.EmailVerifiedAt == nil {
 		t.Error("completing a reset did not verify the address")
+	}
+}
+
+func TestInvitationSetsPasswordAndVerifiesAddress(t *testing.T) {
+	svc, authSvc, store, m := emailFixture(t, true)
+	ctx := context.Background()
+	admin := service.NewAdminService(store, nil)
+	u, err := admin.CreateUser(ctx, "invited@example.com", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.EmailVerifiedAt != nil {
+		t.Fatal("a new invitation was already verified")
+	}
+	if err := svc.SendInvitation(ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	msg := mustLast(t, m)
+	if !strings.Contains(msg.Text, "https://tracks.example.com/accept-invitation?token=") {
+		t.Fatalf("the invitation link is not absolute:\n%s", msg.Text)
+	}
+	if !strings.Contains(msg.Text, "valid for 48 hours") {
+		t.Fatalf("the invitation does not advertise the 48-hour lifetime:\n%s", msg.Text)
+	}
+	stored, err := store.Ephemeral.Peek(ctx, "user-invitation", auth.HashEmailToken(tokenFrom(t, msg.Text)))
+	if err != nil {
+		t.Fatalf("invitation was not persisted: %v", err)
+	}
+	remaining := time.Until(stored.ExpiresAt)
+	if remaining < 47*time.Hour || remaining > 48*time.Hour {
+		t.Fatalf("invitation lifetime = %v, want 48h", remaining)
+	}
+
+	const password = "Invited-Passw0rd!"
+	if err := svc.AcceptInvitation(ctx, tokenFrom(t, msg.Text), password); err != nil {
+		t.Fatalf("accept invitation: %v", err)
+	}
+	fresh, err := store.Users.ByID(ctx, u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fresh.EmailVerifiedAt == nil {
+		t.Fatal("accepting the invitation did not verify the address")
+	}
+	if _, err := authSvc.AuthenticatePassword(ctx, u.Email, password); err != nil {
+		t.Fatalf("the invited user cannot sign in: %v", err)
+	}
+}
+
+func TestPublicEnrollmentCreatesAnInvitedAccount(t *testing.T) {
+	svc, authSvc, store, m := emailFixture(t, true)
+	ctx := context.Background()
+	authSvc.SetPreferences(store.Preferences)
+
+	u, err := authSvc.Enroll(ctx, "new@example.com", "fr", "Europe/Paris")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authSvc.AuthenticatePassword(ctx, u.Email, "Invited-Passw0rd!"); !errors.Is(err, service.ErrInvalidCredentials) {
+		t.Fatalf("enrolled account had a usable password before accepting its invitation: %v", err)
+	}
+	if err := svc.SendInvitation(ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(mustLast(t, m).Text, "/accept-invitation?token=") {
+		t.Fatal("public enrollment did not send an invitation")
+	}
+	prefs := service.NewPreferenceService(store.Preferences)
+	p, err := prefs.Get(ctx, u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Locale != "fr" {
+		t.Fatalf("enrollment locale = %q, want fr", p.Locale)
+	}
+	if p.TimeZone != "Europe/Paris" {
+		t.Fatalf("enrollment timezone = %q, want Europe/Paris", p.TimeZone)
+	}
+}
+
+func TestDisabledPublicEnrollmentDoesNotBlockAdminInvitations(t *testing.T) {
+	svc, authSvc, store, m := emailFixture(t, true)
+	ctx := context.Background()
+	if _, err := authSvc.Enroll(ctx, "root@example.com", "en", "UTC"); err != nil {
+		t.Fatalf("bootstrap enrollment: %v", err)
+	}
+	settings := service.NewSettingsService(store.Settings, true)
+	if _, err := settings.SetAllowRegister(ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authSvc.Enroll(ctx, "public@example.com", "en", "UTC"); !errors.Is(err, service.ErrRegisterDisabled) {
+		t.Fatalf("public enrollment while disabled = %v, want ErrRegisterDisabled", err)
+	}
+
+	admin := service.NewAdminService(store, nil)
+	u, err := admin.CreateUser(ctx, "invited@example.com", false)
+	if err != nil {
+		t.Fatalf("admin invitation was blocked with public enrollment: %v", err)
+	}
+	if err := svc.SendInvitation(ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	if m.count() != 1 {
+		t.Fatalf("sent messages = %d, want 1 admin invitation", m.count())
+	}
+}
+
+func TestPublicEnrollmentDoesNotInviteAnActiveAccount(t *testing.T) {
+	svc, authSvc, _, m := emailFixture(t, true)
+	ctx := context.Background()
+	u, _, err := authSvc.Register(ctx, "active@example.com", emailPassword, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.MarkVerified(ctx, u); err != nil {
+		t.Fatal(err)
+	}
+
+	svc.RequestInvitation(ctx, u.Email)
+	if m.count() != 0 {
+		t.Fatal("public enrollment sent a password-setting invitation to an active account")
+	}
+}
+
+func TestInvitationIsSingleUseAndWeakPasswordDoesNotBurnIt(t *testing.T) {
+	svc, _, store, m := emailFixture(t, true)
+	ctx := context.Background()
+	admin := service.NewAdminService(store, nil)
+	u, err := admin.CreateUser(ctx, "invited@example.com", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SendInvitation(ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	token := tokenFrom(t, mustLast(t, m).Text)
+
+	if err := svc.AcceptInvitation(ctx, token, "weak"); !errors.Is(err, auth.ErrWeakPassword) {
+		t.Fatalf("want ErrWeakPassword, got %v", err)
+	}
+	if err := svc.AcceptInvitation(ctx, token, "Invited-Passw0rd!"); err != nil {
+		t.Fatalf("the rejected password consumed the invitation: %v", err)
+	}
+	if err := svc.AcceptInvitation(ctx, token, "An0ther-Passw0rd!"); !errors.Is(err, service.ErrEmailToken) {
+		t.Fatalf("a spent invitation worked again: %v", err)
 	}
 }
 

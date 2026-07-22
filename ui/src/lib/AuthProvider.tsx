@@ -43,21 +43,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
   }
 
-  async function register(email: string, password: string, locale?: string) {
+  async function register(email: string, locale?: string) {
     // The language is chosen before the account exists, so it travels with the
-    // signup rather than needing a second call once signed in.
-    const res = await api.raw("/auth/register", { email, password, locale }) as AuthResponse;
-    tokenStore.set(res.tokens);
-    setUser(res.user);
-    // Default the new account's timezone to the browser's, so dates read
-    // locally out of the box rather than in UTC. Best-effort: the account is
-    // already created, and the user can change it in settings.
+    // enrollment rather than needing an authenticated preference call.
+    let timeZone = "";
     try {
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (timeZone) void api.put("/preferences", { timeZone }).catch(() => {});
+      timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     } catch {
-      /* Intl unavailable — leave the server default. */
+      /* Intl unavailable — the server keeps UTC. */
     }
+    await api.raw("/auth/register", { email, locale, timeZone });
   }
 
   async function signInWithPasskey(email: string) {

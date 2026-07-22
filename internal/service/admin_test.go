@@ -229,3 +229,23 @@ func TestPasswordResetRevokesRefreshTokens(t *testing.T) {
 		t.Fatalf("new password does not work: %v", err)
 	}
 }
+
+func TestCreatedUserHasNoKnownInitialPassword(t *testing.T) {
+	_, store, _ := newTodoService(t)
+	ctx := context.Background()
+	authSvc := newAuthService(t, store)
+	admin := service.NewAdminService(store, nil)
+
+	u, err := admin.CreateUser(ctx, "invited@example.com", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Password == "" {
+		t.Fatal("the required password column was left empty")
+	}
+	for _, password := range []string{"password", "Invited-Passw0rd!"} {
+		if _, err := authSvc.AuthenticatePassword(ctx, u.Email, password); !errors.Is(err, service.ErrInvalidCredentials) {
+			t.Fatalf("created account accepted %q before its invitation: %v", password, err)
+		}
+	}
+}

@@ -52,9 +52,18 @@ function useAdminMutation<TVars>(fn: (vars: TVars) => Promise<unknown>) {
 }
 
 export function useCreateUser() {
-  return useAdminMutation((input: { email: string; password: string; isAdmin?: boolean }) =>
-    api.post<User>("/admin/users", input)
-  );
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { email: string; isAdmin?: boolean }) =>
+      api.post<User>("/admin/users", input),
+    // Mail delivery can fail after the pending account was stored. Refresh the
+    // list even on failure so the administrator can resend its invitation.
+    onSettled: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
+  });
+}
+
+export function useResendUserInvitation() {
+  return useAdminMutation((id: number) => api.post<void>(`/admin/users/${id}/invitation`, {}));
 }
 
 export function useUpdateUser() {
@@ -332,6 +341,13 @@ export function useResetPassword() {
   return useMutation({
     mutationFn: (input: { token: string; newPassword: string }) =>
       api.raw("/auth/password/reset", input),
+  });
+}
+
+export function useAcceptInvitation() {
+  return useMutation({
+    mutationFn: (input: { token: string; newPassword: string }) =>
+      api.raw("/auth/invitation/accept", input),
   });
 }
 

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/jdel/gotracks/internal/domain"
@@ -22,11 +23,13 @@ type authHandler struct {
 }
 
 type registerRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email string `json:"email"`
 	// Locale is the language picked on the form. Optional: an absent or
 	// unsupported value leaves the account on the default.
 	Locale string `json:"locale"`
+	// TimeZone is the browser's IANA zone, used before the account can sign in
+	// and save preferences itself.
+	TimeZone string `json:"timeZone"`
 }
 
 type loginRequest struct {
@@ -78,12 +81,12 @@ type twoFactorVerifyRequest struct {
 	Code        string `json:"code"`
 }
 
-// register creates a new account (the first ever becomes admin).
+// register emails an invitation for a new account (the first becomes admin).
 //
-//	@Summary	Register a new account
+//	@Summary	Request account enrollment
 //	@Tags		auth
-//	@Param		body	body		registerRequest	true	"Email, password and optional locale"
-//	@Success	201		{object}	authResponse
+//	@Param		body	body	registerRequest	true	"Email and optional locale"
+//	@Success	204	"accepted"
 //	@Failure	400		{object}	errorBody
 //	@Failure	403		{object}	errorBody	"registration disabled"
 //	@Router		/api/v1/auth/register [post]
@@ -92,26 +95,21 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	u, tokens, err := h.auth.Register(r.Context(), req.Email, req.Password, req.Locale)
+	u, err := h.auth.Enroll(r.Context(), req.Email, req.Locale, req.TimeZone)
+	if errors.Is(err, service.ErrEmailTaken) {
+		h.email.RequestInvitation(r.Context(), req.Email)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
-	if h.email != nil {
-		// The very first account is the administrator, created before there is
-		// anything to send it mail with; verifying it automatically is what
-		// stops a fresh deployment locking itself out.
-		if u.IsAdmin || !h.email.VerificationRequired() {
-			if err := h.email.MarkVerified(r.Context(), u); err != nil {
-				writeServiceError(w, err)
-				return
-			}
-		} else if err := h.email.SendVerification(r.Context(), u); err != nil {
-			writeServiceError(w, err)
-			return
-		}
+	if err := h.email.SendInvitation(r.Context(), u); err != nil {
+		writeServiceError(w, err)
+		return
 	}
-	writeJSON(w, http.StatusCreated, authResponse{User: u, Tokens: tokens})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // login verifies a password and returns a session or a second-factor challenge.
@@ -335,6 +333,26 @@ func (h *authHandler) resetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.email.ResetPassword(r.Context(), req.Token, req.NewPassword); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// acceptInvitation sets the first password and verifies the invited address.
+//
+//	@Summary	Accept a user invitation
+//	@Tags		auth
+//	@Param		body	body	resetPasswordRequest	true	"Invitation token and password"
+//	@Success	204	"account activated"
+//	@Failure	400	{object}	errorBody
+//	@Router		/api/v1/auth/invitation/accept [post]
+func (h *authHandler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
+	var req resetPasswordRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if err := h.email.AcceptInvitation(r.Context(), req.Token, req.NewPassword); err != nil {
 		writeServiceError(w, err)
 		return
 	}

@@ -119,8 +119,8 @@ during lockout still fails; assert another account is unaffected.
 
 ## 4. Email identity
 
-**Now.** `domain.User.Email` is a plain column — not unique, not verified, and
-optional (`internal/domain/models.go`).
+**Now.** Email is the sole account identity: required, unique, normalised and
+verified through a single-use link before an enrolled account becomes usable.
 
 **Why it matters here.** This is a **prerequisite for #5**, not a follow-up:
 "reset the password for this address" is ambiguous the moment two accounts share
@@ -130,11 +130,11 @@ one. It is also how you contact users about security events.
 identity, `unique, notnull`, normalised lower-case, validated, and folded on
 lookup so casing cannot create two accounts for one mailbox.
 
-**Outstanding.** `email_verified_at`, the verification mail, and the decision
-already taken that an unverified account **cannot sign in** — which needs two
-guards or a deployment bricks itself: the first-run admin account must be
-auto-verified (it registers before any mailer exists), and enforcement must be
-off entirely when no mail provider is configured.
+**Done.** `email_verified_at` records proof of mailbox control. Public enrollment
+and administrator-created users receive a database-backed invitation; accepting
+it chooses the first password and verifies the address together. The first-run
+administrator uses the same flow, with the logging mailer available in local
+development.
 
 **Original note.** Unique index on a normalised (lower-cased, trimmed) email; make it
 required at registration; add `email_verified_at`. Decide explicitly what an
@@ -147,13 +147,11 @@ migration. See #18.
 
 ## 5. Mailer and password reset
 
-**Done so far.** `internal/mail`: one `Mailer` interface with SMTP, Mailjet,
-Resend and a logging no-op behind `mail.provider`, no new Go dependencies,
-configuration validated at startup. Verified against a real SMTP conversation
-and against recorded provider payloads.
-
-**Outstanding.** Everything above the transport: reset tokens, the forgot/reset
-endpoints, verification mail, email-change verification, and the UI for each.
+**Done so far.** `internal/mail` provides SMTP, Mailjet, Resend and a logging
+mailer behind one interface. Verification, invitation and reset tokens are
+high-entropy, stored hashed in the database, expire, and are single-use. The UI
+covers all three flows; password reset revokes existing sessions. Email-change
+verification remains outstanding.
 
 **Original note.** There is no mailer at all — no SMTP config, no send path.
 
@@ -216,8 +214,9 @@ attachment rows without their files are useless. Document the restore procedure.
 
 ## 8. Registration abuse controls
 
-**Now.** `allowRegister` defaults to true and registration is otherwise
-unguarded.
+**Now.** `allowRegister` gates public enrollment without affecting administrator
+invitations. Enrollment creates a dormant account and requires mailbox proof;
+the global per-client limiter also covers the endpoint.
 
 **Do.** In order of value: email verification (#5) → per-IP registration rate
 limit (#3) → captcha. Captcha is the weakest of the three; it stops naive bots
@@ -227,9 +226,10 @@ before.
 
 ## 9. Account enumeration
 
-**Now.** Registering with a taken login returns `409 "login already taken"`, so
-the endpoint confirms who has an account. The passkey endpoints are deliberately
-anti-enumeration (`ErrNoPasskeys` is identical either way); registration is not.
+**Now.** Enrolling an existing address returns the same success response and
+only resends mail while the account is still unverified. Active accounts receive
+nothing. Password reset, verification resend and passkey discovery likewise use
+non-enumerating responses.
 
 **Do.** Accept that usernames are semi-public (they must be, to be chosen), but
 make **email** non-enumerable everywhere: registration with an existing address
