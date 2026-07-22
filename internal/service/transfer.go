@@ -22,10 +22,13 @@ type Export struct {
 	Notes      []ExportNote      `json:"notes"`
 }
 
+// ExportContext is a context represented only by its user-visible fields.
 type ExportContext struct {
 	Name  string `json:"name"`
 	State string `json:"state"`
 }
+
+// ExportProject is a project with named rather than database-ID references.
 type ExportProject struct {
 	Name           string     `json:"name"`
 	Description    string     `json:"description"`
@@ -34,6 +37,8 @@ type ExportProject struct {
 	CompletedAt    *time.Time `json:"completedAt,omitempty"`
 	LastReviewed   *time.Time `json:"lastReviewed,omitempty"`
 }
+
+// ExportTodo is an action with named context and project references.
 type ExportTodo struct {
 	Description string     `json:"description"`
 	Context     string     `json:"context"`
@@ -47,6 +52,8 @@ type ExportTodo struct {
 	Tags        []string   `json:"tags"`
 	CreatedAt   time.Time  `json:"createdAt"`
 }
+
+// ExportRecurring is a recurring action with named context and project references.
 type ExportRecurring struct {
 	Description   string     `json:"description"`
 	Context       string     `json:"context"`
@@ -65,6 +72,8 @@ type ExportRecurring struct {
 	CompletedAt   *time.Time `json:"completedAt,omitempty"`
 	CreatedAt     time.Time  `json:"createdAt"`
 }
+
+// ExportNote is a note with an optional user-visible project name.
 type ExportNote struct {
 	Body      string    `json:"body"`
 	Project   string    `json:"project,omitempty"`

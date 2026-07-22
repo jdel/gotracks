@@ -223,7 +223,22 @@ func sortAccounts(accounts []*AccountUsage, by string, desc bool) {
 	})
 }
 
-// Schedule rebuilds the report once a day at the configured UTC time.
+// reportScheduleMinute converts now to the configured report time zone and
+// returns its wall-clock minute. An empty zone preserves the historical UTC
+// default for settings rows created before time zones were configurable.
+func reportScheduleMinute(now time.Time, zone string) (int, error) {
+	if zone == "" {
+		zone = "UTC"
+	}
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return 0, err
+	}
+	local := now.In(loc)
+	return local.Hour()*60 + local.Minute(), nil
+}
+
+// Schedule rebuilds the report once a day at the configured local time.
 //
 // The target minute is read each time round rather than captured once, so
 // changing it in the admin screen takes effect without a restart. It is
@@ -238,16 +253,11 @@ func (s *UsageReportService) Schedule(ctx context.Context) {
 			if err != nil {
 				continue
 			}
-			zone := settings.UsageReportTimeZone
-			if zone == "" {
-				zone = "UTC"
-			}
-			loc, err := time.LoadLocation(zone)
+			minute, err := reportScheduleMinute(time.Now(), settings.UsageReportTimeZone)
 			if err != nil {
 				continue
 			}
-			now := time.Now().In(loc)
-			atTarget := now.Hour()*60+now.Minute() == settings.UsageReportAtMinute
+			atTarget := minute == settings.UsageReportAtMinute
 			if !atTarget {
 				continue
 			}

@@ -32,15 +32,14 @@ func (s *SettingsService) Get(ctx context.Context) (*domain.InstanceSettings, er
 	return settings, nil
 }
 
-// AllowRegister reports whether self-registration is currently open.
 // Raw returns the whole settings row.
 func (s *SettingsService) Raw(ctx context.Context) (*domain.InstanceSettings, error) {
 	return s.Get(ctx)
 }
 
-// SetUsageReportAtMinute changes the UTC time of day the usage report is
-// rebuilt (minutes since midnight, wrapped into 0-1439). The rebuild happens
-// once a day at that time; the report can still be run on demand regardless.
+// SetUsageReportAtMinute changes the local wall-clock time at which the usage
+// report is rebuilt (minutes since midnight, wrapped into 0-1439). The time
+// zone is configured separately and defaults to UTC.
 func (s *SettingsService) SetUsageReportAtMinute(ctx context.Context, minute int) (*domain.InstanceSettings, error) {
 	cur, err := s.Get(ctx)
 	if err != nil {
@@ -57,6 +56,7 @@ func (s *SettingsService) SetUsageReportAtMinute(ctx context.Context, minute int
 	return cur, nil
 }
 
+// SetUsageReportTimeZone changes the IANA time zone used by the report schedule.
 func (s *SettingsService) SetUsageReportTimeZone(ctx context.Context, zone string) (*domain.InstanceSettings, error) {
 	if _, err := time.LoadLocation(zone); err != nil {
 		return nil, ErrValidation
@@ -82,6 +82,7 @@ func (s *SettingsService) SetUsageReportRunAt(ctx context.Context, at time.Time)
 	return s.settings.Update(ctx, cur)
 }
 
+// AllowRegister reports whether self-registration is currently open.
 func (s *SettingsService) AllowRegister(ctx context.Context) (bool, error) {
 	cur, err := s.Get(ctx)
 	if err != nil {

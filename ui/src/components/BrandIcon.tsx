@@ -4,6 +4,7 @@ export function BrandIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 32 32"
+      data-brand-icon=""
       aria-hidden="true"
       focusable="false"
       {...props}
