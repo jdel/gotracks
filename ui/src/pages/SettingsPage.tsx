@@ -41,6 +41,9 @@ export function SettingsPage() {
 
   const [importText, setImportText] = useState("");
   const [saved, setSaved] = useState(false);
+  // The timezone combobox's working text. null means "not editing", so the
+  // field mirrors the saved preference; a string is what the user is typing.
+  const [tzDraft, setTzDraft] = useState<string | null>(null);
 
   function set(patch: Partial<Preference>) {
     update.mutate(patch, {
@@ -107,17 +110,30 @@ export function SettingsPage() {
 
           <label className="text-xs text-muted-foreground">
             {t("settings.timeZone")}
-            <select
+            {/* Searchable: the full IANA list is far too long for a plain
+                dropdown, so this is a type-to-filter combobox (input + datalist).
+                A saved change only fires when the text matches a real zone. */}
+            <input
+              type="text"
+              list="timezone-options"
               className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-              value={prefs.timeZone}
-              onChange={(e) => set({ timeZone: e.target.value })}
-            >
+              value={tzDraft ?? prefs.timeZone}
+              onChange={(e) => {
+                const v = e.target.value;
+                setTzDraft(v);
+                if (TIMEZONES.includes(v)) {
+                  set({ timeZone: v });
+                  setTzDraft(null);
+                }
+              }}
+              onBlur={() => setTzDraft(null)}
+              aria-label={t("settings.timeZone")}
+            />
+            <datalist id="timezone-options">
               {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz}
-                </option>
+                <option key={tz} value={tz} />
               ))}
-            </select>
+            </datalist>
           </label>
 
           <label className="text-xs text-muted-foreground">
