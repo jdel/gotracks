@@ -162,7 +162,7 @@ export function ProjectsPage() {
               <div className="flex shrink-0 items-center gap-0.5">
                 <IconButton
                   variant="ghost"
-                  className="size-8"
+                  className="size-7"
                   label={p.state === "hidden" ? t("projects.makeActive") : t("projects.moveSomeday")}
                   onClick={() =>
                     update.mutate({ id: p.id, state: p.state === "hidden" ? "active" : "hidden" })
@@ -172,7 +172,7 @@ export function ProjectsPage() {
                 </IconButton>
                 <IconButton
                   variant="ghost"
-                  className="size-8"
+                  className="size-7"
                   label={p.state === "completed" ? t("projects.reopen") : t("projects.markComplete")}
                   onClick={() =>
                     update.mutate({ id: p.id, state: p.state === "completed" ? "active" : "completed" })
@@ -182,7 +182,7 @@ export function ProjectsPage() {
                 </IconButton>
                 <IconButton
                   variant="ghost"
-                  className="size-8"
+                  className="size-7"
                   label={t("projects.deleteLabel", { name: p.name })}
                   onClick={() => setConfirming(p)}
                 >

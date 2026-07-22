@@ -183,7 +183,7 @@ export function ContextsPage() {
               <div className="flex shrink-0 items-center gap-0.5">
                 <IconButton
                   variant="ghost"
-                  className="size-8"
+                  className="size-7"
                   label={c.state === "hidden" ? t("contexts.show") : t("contexts.hide")}
                   onClick={() =>
                     update.mutate({ id: c.id, state: c.state === "hidden" ? "active" : "hidden" })
@@ -193,7 +193,7 @@ export function ContextsPage() {
                 </IconButton>
                 <IconButton
                   variant="ghost"
-                  className="size-8"
+                  className="size-7"
                   label={t("contexts.deleteLabel", { name: c.name })}
                   onClick={() => onDelete(c.id, c.name)}
                 >

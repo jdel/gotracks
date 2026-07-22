@@ -224,7 +224,7 @@ export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
       <div className="flex shrink-0 gap-0.5">
         <IconButton
           variant="ghost"
-          className="size-8"
+          className="size-7"
           label={
             showFiles
               ? t("todo.hideAttachments")
@@ -248,7 +248,7 @@ export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
         </IconButton>
         <IconButton
           variant="ghost"
-          className="size-8"
+          className="size-7"
           label={todo.starred ? t("todo.removeStar") : t("todo.star")}
           onClick={() => update.mutate({ id: todo.id, starred: !todo.starred })}
         >
@@ -256,7 +256,7 @@ export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
         </IconButton>
         <IconButton
           variant="ghost"
-          className="size-8"
+          className="size-7"
           label={t("todo.delete")}
           onClick={() => setConfirming(true)}
         >

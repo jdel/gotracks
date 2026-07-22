@@ -261,7 +261,7 @@ export function AdminPage() {
                     a row never shows more than a couple of icons. */}
                 <IconButton
                   variant="ghost"
-                  className="size-8"
+                  className="size-7"
                   label={t("admin.showUsage", { email: u.email })}
                   onClick={() => setShowingUsage(u)}
                 >
@@ -271,9 +271,7 @@ export function AdminPage() {
                   label={t("common.moreActions")}
                   actions={[
                     {
-                      label: u.isAdmin
-                        ? t("admin.revokeAdmin", { email: u.email })
-                        : t("admin.makeAdmin", { email: u.email }),
+                      label: u.isAdmin ? t("admin.menuRevokeAdmin") : t("admin.menuMakeAdmin"),
                       icon: u.isAdmin ? (
                         <ShieldCheck className="size-4 text-emerald-600" />
                       ) : (
@@ -290,19 +288,19 @@ export function AdminPage() {
                           ),
                         ),
                     },
-                    // With no email fallback, an admin is the only way back in
-                    // for a user who lost both their authenticator and codes.
+                    // Only when the user has 2FA: an admin is the only way back
+                    // in for someone who lost both their authenticator and codes.
                     ...(u.twoFactorEnabled
                       ? [
                           {
-                            label: t("admin.removeTwoFactor", { email: u.email }),
+                            label: t("admin.menuResetTwoFactor"),
                             icon: <ShieldOff className="size-4" />,
                             onSelect: () => setConfirmingReset(u),
                           },
                         ]
                       : []),
                     {
-                      label: t("admin.deleteUser", { email: u.email }),
+                      label: t("admin.menuDelete"),
                       icon: <Trash2 className="size-4" />,
                       onSelect: () => setConfirmingDelete(u),
                       destructive: true,

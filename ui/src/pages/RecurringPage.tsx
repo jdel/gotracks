@@ -506,7 +506,7 @@ export function RecurringPage() {
               <div className="flex shrink-0 items-center gap-0.5">
                 <IconButton
                   variant="ghost"
-                  className="size-8"
+                  className="size-7"
                   label={t("recurring.editLabel")}
                   onClick={() => setEditing(p)}
                 >
@@ -514,7 +514,7 @@ export function RecurringPage() {
                 </IconButton>
                 <IconButton
                   variant="ghost"
-                  className="size-8"
+                  className="size-7"
                   label={p.state === "completed" ? t("recurring.resume") : t("recurring.pause")}
                   onClick={() =>
                     update.mutate({ id: p.id, state: p.state === "completed" ? "active" : "completed" })
@@ -524,7 +524,7 @@ export function RecurringPage() {
                 </IconButton>
                 <IconButton
                   variant="ghost"
-                  className="size-8"
+                  className="size-7"
                   label={t("recurring.deleteLabel", { description: p.description })}
                   onClick={() => setConfirming(p)}
                 >

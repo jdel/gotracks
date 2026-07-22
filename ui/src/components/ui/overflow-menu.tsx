@@ -27,7 +27,7 @@ export function OverflowMenu({ label, actions }: { label: string; actions: Overf
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <IconButton variant="ghost" className="size-8" label={label}>
+        <IconButton variant="ghost" className="size-7" label={label}>
           <MoreVertical className="size-4" />
         </IconButton>
       </DropdownMenuTrigger>
