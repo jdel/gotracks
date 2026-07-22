@@ -17,6 +17,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UserUsageDialog } from "@/components/UserUsageDialog";
 import { OverflowMenu } from "@/components/ui/overflow-menu";
+import { PageWithAdd } from "@/components/PageWithAdd";
 import { Pagination } from "@/components/Pagination";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/SearchInput";
@@ -81,7 +82,7 @@ export function AdminPage() {
   const pageStart = Math.min((page - 1) * PAGE_SIZE, Math.max(0, visible.length - 1));
   const paged = visible.slice(pageStart, pageStart + PAGE_SIZE);
 
-  function onCreate(e: FormEvent) {
+  function onCreate(e: FormEvent, onAdded?: () => void) {
     e.preventDefault();
     if (!email.trim() || !password) return;
     setError("");
@@ -92,6 +93,7 @@ export function AdminPage() {
           setEmail("");
           setPassword("");
           setIsAdmin(false);
+          onAdded?.();
         },
         onError: (err) => setError(err instanceof ApiError ? err.message : t("common.errorGeneric")),
       }
@@ -104,18 +106,81 @@ export function AdminPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("admin.title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("admin.subtitle")}</p>
-      </div>
-
+    <PageWithAdd
+      title={t("admin.title")}
+      subtitle={t("admin.subtitle")}
+      addLabel={t("admin.newUser")}
+      widthClass="max-w-2xl"
+      renderForm={(onAdded) => (
+        <form
+          onSubmit={(e) => onCreate(e, onAdded)}
+          className="grid gap-2 rounded-lg border p-3 sm:grid-cols-2"
+        >
+          <Input placeholder={t("admin.email")} value={email} onChange={(e) => setEmail(e.target.value)} />
+          <div className="flex items-center gap-1">
+            <Input
+              type="text"
+              autoComplete="off"
+              placeholder={t("admin.password")}
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setCopied(false);
+              }}
+              className="font-mono"
+            />
+            <IconButton
+              type="button"
+              variant="outline"
+              label={t("admin.generatePassword")}
+              onClick={() => {
+                setPassword(generatePassword());
+                setCopied(false);
+              }}
+            >
+              <KeyRound />
+            </IconButton>
+            <IconButton
+              type="button"
+              variant="outline"
+              disabled={!password}
+              label={t("admin.copyPassword")}
+              onClick={() => {
+                void navigator.clipboard?.writeText(password).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                });
+              }}
+            >
+              {copied ? <Check className="text-emerald-600" /> : <Copy />}
+            </IconButton>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <Switch
+              id="new-user-admin"
+              checked={isAdmin}
+              onCheckedChange={setIsAdmin}
+              aria-label={t("admin.isAdmin")}
+            />
+            <Label htmlFor="new-user-admin" className="cursor-pointer">
+              {t("admin.isAdmin")}
+            </Label>
+          </div>
+          <div className="sm:col-span-2">
+            <Button type="submit" size="sm" disabled={create.isPending}>
+              <Plus /> {t("admin.newUser")}
+            </Button>
+          </div>
+          {error && <p className="text-sm text-destructive sm:col-span-2">{error}</p>}
+        </form>
+      )}
+    >
       {/* Instance-wide switch: turning this off stops strangers creating their
           own accounts, while an admin can still add users below. */}
       <Card className="flex items-start justify-between gap-4 p-4">
         <div>
           <p className="text-sm font-medium">{t("admin.allowRegister")}</p>
-<p className="text-xs text-muted-foreground">{t("admin.allowRegisterHelp")}</p>
+          <p className="text-xs text-muted-foreground">{t("admin.allowRegisterHelp")}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 text-sm">
           <Switch
@@ -130,64 +195,6 @@ export function AdminPage() {
           </Label>
         </div>
       </Card>
-
-      <form onSubmit={onCreate} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-2">
-        <Input placeholder={t("admin.email")} value={email} onChange={(e) => setEmail(e.target.value)} />
-        <div className="flex items-center gap-1">
-          <Input
-            type="text"
-            autoComplete="off"
-            placeholder={t("admin.password")}
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setCopied(false);
-            }}
-            className="font-mono"
-          />
-          <IconButton
-            type="button"
-            variant="outline"
-            label={t("admin.generatePassword")}
-            onClick={() => {
-              setPassword(generatePassword());
-              setCopied(false);
-            }}
-          >
-            <KeyRound />
-          </IconButton>
-          <IconButton
-            type="button"
-            variant="outline"
-            disabled={!password}
-            label={t("admin.copyPassword")}
-            onClick={() => {
-              void navigator.clipboard?.writeText(password).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              });
-            }}
-          >
-            {copied ? <Check className="text-emerald-600" /> : <Copy />}
-          </IconButton>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Switch
-            id="new-user-admin"
-            checked={isAdmin}
-            onCheckedChange={setIsAdmin}
-            aria-label={t("admin.isAdmin")}
-          />
-          <Label htmlFor="new-user-admin" className="cursor-pointer">
-            {t("admin.isAdmin")}
-          </Label>
-        </div>
-        <div className="sm:col-span-2">
-          <Button type="submit" size="sm" disabled={create.isPending}>
-            <Plus /> {t("admin.newUser")}
-          </Button>
-        </div>
-      </form>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {isLoading && <p className="text-sm text-muted-foreground">{t("actions.loading")}</p>}
@@ -355,6 +362,6 @@ export function AdminPage() {
           }
         }}
       />
-    </div>
+    </PageWithAdd>
   );
 }
