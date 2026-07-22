@@ -31,8 +31,10 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2",
-          "rounded-lg border bg-background p-6 shadow-lg animate-in fade-in-0 zoom-in-95",
+          // Mobile: full-screen sheet. Desktop (sm+): a centred card.
+          "fixed inset-0 z-50 h-dvh w-screen overflow-y-auto border bg-background p-6 shadow-lg animate-in fade-in-0",
+          "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[85dvh] sm:w-full sm:max-w-md",
+          "sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:zoom-in-95",
           className,
         )}
         {...props}

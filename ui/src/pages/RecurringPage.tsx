@@ -342,7 +342,7 @@ function RecurringEditDialog({
 
   return (
     <Dialog open={pattern !== null} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("recurring.editTitle")}</DialogTitle>
         </DialogHeader>

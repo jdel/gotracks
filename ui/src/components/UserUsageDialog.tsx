@@ -23,10 +23,8 @@ export function UserUsageDialog({
 
   return (
     <Dialog open={user !== null} onOpenChange={onOpenChange}>
-      {/* Full-screen: usage is worth reading at size rather than in a small
-          centred card. The utilities here override the default dialog's
-          centred, max-w-md box. */}
-      <DialogContent className="inset-0 left-0 top-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none">
+      {/* Full-screen on mobile (from the base dialog); a wide card on desktop. */}
+      <DialogContent className="sm:max-w-3xl">
         <div className="mx-auto w-full max-w-3xl">
           <DialogHeader>
             <DialogTitle>{t("usage.title")}</DialogTitle>
