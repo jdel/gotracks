@@ -137,7 +137,11 @@ export function Layout() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 p-4 pb-24 md:p-8 md:pb-8">
+      {/* min-w-0 lets this flex child shrink instead of being pushed past the
+          viewport by wide content; overflow-x-clip is the belt-and-braces guard
+          so the page body never scrolls sideways (wide tables carry their own
+          overflow-x-auto). */}
+      <main className="min-w-0 flex-1 overflow-x-clip p-4 pb-24 md:p-8 md:pb-8">
         <Outlet />
       </main>
 
