@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { AttachmentWithTodo } from "@/lib/types";
 import { SearchInput } from "@/components/SearchInput";
+import { PageContainer } from "@/components/PageContainer";
 import { useT, useTn } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
 
@@ -49,6 +50,40 @@ function SortHeader({
         {active && (desc ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />)}
       </button>
     </th>
+  );
+}
+
+function AttachmentActions({
+  attachment,
+  mobile = false,
+  onDownload,
+  onDelete,
+}: {
+  attachment: AttachmentWithTodo;
+  mobile?: boolean;
+  onDownload: (attachment: AttachmentWithTodo) => void;
+  onDelete: (attachment: AttachmentWithTodo) => void;
+}) {
+  const t = useT();
+  return (
+    <div className="flex shrink-0 justify-end gap-1">
+      <IconButton
+        variant="ghost"
+        className={mobile ? "size-9" : "size-7"}
+        label={t("attachments.download", { name: attachment.fileName })}
+        onClick={() => onDownload(attachment)}
+      >
+        <Download className={mobile ? "size-4" : "size-3"} />
+      </IconButton>
+      <IconButton
+        variant="ghost"
+        className={mobile ? "size-9" : "size-7"}
+        label={t("attachments.deleteLabel", { name: attachment.fileName })}
+        onClick={() => onDelete(attachment)}
+      >
+        <Trash2 className={cn("text-destructive", mobile ? "size-4" : "size-3")} />
+      </IconButton>
+    </div>
   );
 }
 
@@ -125,7 +160,7 @@ export function AttachmentsPage() {
   const rows = sortAttachments(filtered, sort, desc);
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <PageContainer size="wide">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t("nav.attachments")}</h1>
 <p className="text-sm text-muted-foreground">{t("attachments.subtitle")}</p>
@@ -168,7 +203,64 @@ export function AttachmentsPage() {
           )}
 
           {rows.length > 0 && (
-            <div className="overflow-x-auto">
+            <>
+              <div className="flex items-end gap-2 md:hidden">
+                <label className="min-w-0 flex-1 text-xs text-muted-foreground">
+                  {t("attachments.sortBy")}
+                  <select
+                    className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                    value={sort}
+                    onChange={(event) => setSort(event.target.value as SortKey)}
+                  >
+                    <option value="fileName">{t("attachments.colFile")}</option>
+                    <option value="todoDescription">{t("attachments.colAction")}</option>
+                    <option value="size">{t("attachments.colSize")}</option>
+                    <option value="createdAt">{t("attachments.colUploaded")}</option>
+                  </select>
+                </label>
+                <IconButton
+                  variant="outline"
+                  className="size-9"
+                  label={t(desc ? "attachments.sortDescending" : "attachments.sortAscending")}
+                  onClick={() => setDesc((current) => !current)}
+                >
+                  {desc ? <ArrowDown className="size-4" /> : <ArrowUp className="size-4" />}
+                </IconButton>
+              </div>
+
+              <ul className="space-y-2 md:hidden">
+                {rows.map((attachment) => (
+                  <li key={attachment.id} className="rounded-lg border bg-card p-3 shadow-sm">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium" title={attachment.fileName}>
+                          {attachment.fileName}
+                        </p>
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                          {attachment.todoDescription}
+                          {attachment.todoState === "completed" && (
+                            <span className="ml-1.5 rounded bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">
+                              {t("attachments.done")}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <AttachmentActions
+                        attachment={attachment}
+                        mobile
+                        onDownload={(item) => void handleDownload(item)}
+                        onDelete={setConfirming}
+                      />
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 border-t pt-2 text-xs text-muted-foreground">
+                      <span className="tabular-nums">{formatBytes(attachment.size)}</span>
+                      <span className="tabular-nums">{fmt.date(attachment.createdAt)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead className="text-xs text-muted-foreground">
                   <tr className="border-b">
@@ -198,30 +290,18 @@ export function AttachmentsPage() {
                         {fmt.date(a.createdAt)}
                       </td>
                       <td className="px-2 py-1">
-                        <div className="flex justify-end gap-0.5">
-                          <IconButton
-                            variant="ghost"
-                            className="size-7"
-                            label={t("attachments.download", { name: a.fileName })}
-                            onClick={() => void handleDownload(a)}
-                          >
-                            <Download className="size-3" />
-                          </IconButton>
-                          <IconButton
-                            variant="ghost"
-                            className="size-7"
-                            label={t("attachments.deleteLabel", { name: a.fileName })}
-                            onClick={() => setConfirming(a)}
-                          >
-                            <Trash2 className="size-3 text-destructive" />
-                          </IconButton>
-                        </div>
+                        <AttachmentActions
+                          attachment={a}
+                          onDownload={(item) => void handleDownload(item)}
+                          onDelete={setConfirming}
+                        />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -256,6 +336,6 @@ export function AttachmentsPage() {
         busy={bulkBusy}
         onConfirm={() => void handleBulkDelete()}
       />
-    </div>
+    </PageContainer>
   );
 }

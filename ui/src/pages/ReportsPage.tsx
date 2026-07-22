@@ -12,6 +12,7 @@ import { nextTriState, type TriState } from "@/lib/adminFilter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TimezonePicker } from "@/components/TimezonePicker";
+import { PageContainer } from "@/components/PageContainer";
 import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/SearchInput";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -199,7 +200,7 @@ export function ReportsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <PageContainer size="wide">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t("nav.reports")}</h1>
 <p className="text-sm text-muted-foreground">{t("reports.subtitle")}</p>
@@ -359,6 +360,6 @@ export function ReportsPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

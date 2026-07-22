@@ -14,6 +14,7 @@ import { TodoItem } from "@/components/TodoItem";
 import { QuickAdd } from "@/components/QuickAdd";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { PageContainer } from "@/components/PageContainer";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -60,7 +61,7 @@ export function ProjectDetailPage() {
   const done = todos?.filter((t) => t.state === "completed") ?? [];
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <PageContainer>
       <Link to="/projects" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
         <ArrowLeft className="size-4" /> {t("nav.projects")}
       </Link>
@@ -171,6 +172,6 @@ export function ProjectDetailPage() {
           setConfirmingNote(null);
         }}
       />
-    </div>
+    </PageContainer>
   );
 }

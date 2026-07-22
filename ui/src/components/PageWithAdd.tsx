@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { PageContainer } from "@/components/PageContainer";
 
 // Fills the screen on a phone, a centred card at sm and up. Shared so every
 // full-screen add modal matches without repeating the class list.
@@ -24,20 +24,20 @@ export function PageWithAdd({
   title,
   subtitle,
   addLabel,
-  widthClass = "max-w-3xl",
+  size = "standard",
   renderForm,
   children,
 }: {
   title: string;
   subtitle?: string;
   addLabel: string;
-  widthClass?: string;
+  size?: "standard" | "wide";
   renderForm: (onAdded: () => void) => ReactNode;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={cn("mx-auto w-full space-y-6", widthClass)}>
+    <PageContainer size={size}>
       <div className="flex items-start justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
@@ -65,6 +65,6 @@ export function PageWithAdd({
           {renderForm(() => setOpen(false))}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

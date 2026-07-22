@@ -3,54 +3,50 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  /* Highlight: amber-500 (#F59E0B). Dark foreground for contrast on a bright fill. */
-  --primary: oklch(0.769 0.188 70.08);
-  --primary-foreground: oklch(0.145 0 0);
-  /* Secondary accent: orange-600 (#EA580C), light text on top. */
-  --secondary: oklch(0.646 0.222 41.116);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  /* Hover/subtle accent: a soft amber tint rather than neutral grey. */
-  --accent: oklch(0.962 0.059 95.617);
-  --accent-foreground: oklch(0.279 0.077 45.635);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  /* Focus ring picks up the amber highlight. */
-  --ring: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  /* Brand tokens, usable directly as text-brand / bg-brand-secondary. */
-  --brand: oklch(0.769 0.188 70.08);
-  --brand-secondary: oklch(0.646 0.222 41.116);
+  --background: #f8f7fc;
+  --foreground: #211a32;
+  --card: #ffffff;
+  --card-foreground: #211a32;
+  /* Purple is the lead voice; it stays dark enough for white button text. */
+  --primary: #694aae;
+  --primary-foreground: #ffffff;
+  /* Teal is the bright, playful counterpoint. */
+  --secondary: #71bfb3;
+  --secondary-foreground: #153d3a;
+  --muted: #f0edf8;
+  --muted-foreground: #716983;
+  --accent: #e5faf6;
+  --accent-foreground: #245e58;
+  --destructive: #c74262;
+  --destructive-foreground: #ffffff;
+  --border: #e3dff0;
+  --input: #ded8eb;
+  --ring: #71bfb3;
+  --radius: 0.875rem;
+  --brand: #694aae;
+  --brand-secondary: #71bfb3;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  /* Brighter amber (amber-400) reads better on a dark surface. */
-  --primary: oklch(0.828 0.189 84.429);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.705 0.213 47.604);
-  --secondary-foreground: oklch(0.145 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.3 0.05 75);
-  --accent-foreground: oklch(0.95 0.03 90);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.828 0.189 84.429);
-  --brand: oklch(0.828 0.189 84.429);
-  --brand-secondary: oklch(0.705 0.213 47.604);
+  --background: #171324;
+  --foreground: #f6f2ff;
+  --card: #211b31;
+  --card-foreground: #f6f2ff;
+  --primary: #a98bdd;
+  --primary-foreground: #211632;
+  --secondary: #71bfb3;
+  --secondary-foreground: #103532;
+  --muted: #2c2540;
+  --muted-foreground: #b9b0ca;
+  --accent: #173b3b;
+  --accent-foreground: #bdf2e9;
+  --destructive: #ef7892;
+  --destructive-foreground: #34121d;
+  --border: #3a324e;
+  --input: #413756;
+  --ring: #71bfb3;
+  --brand: #a98bdd;
+  --brand-secondary: #71bfb3;
 }
 
 @theme inline {
@@ -84,6 +80,10 @@
   }
   body {
     background-color: var(--color-background);
+    background-image:
+      radial-gradient(circle at 0 0, color-mix(in srgb, var(--brand) 10%, transparent), transparent 27rem),
+      radial-gradient(circle at 100% 12rem, color-mix(in srgb, var(--brand-secondary) 13%, transparent), transparent 30rem);
+    background-attachment: fixed;
     color: var(--color-foreground);
     font-family: ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;

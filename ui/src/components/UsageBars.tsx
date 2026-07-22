@@ -43,8 +43,8 @@ export function UsageRow({
   );
 }
 
-/** The full set of bars for one account. Shared by the stats page and the
- *  admin panel, so the two cannot drift apart. */
+/** The full set of bars for one account. Shared by settings and the admin
+ *  panel, so the two cannot drift apart. */
 export function UsageBars({ usage }: { usage: QuotaUsage }) {
   const t = useT();
   return (

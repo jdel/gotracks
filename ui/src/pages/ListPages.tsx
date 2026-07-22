@@ -9,6 +9,7 @@ import { SearchInput } from "@/components/SearchInput";
 import { Button } from "@/components/ui/button";
 import { nextTriState, type TriState } from "@/lib/adminFilter";
 import { cn } from "@/lib/utils";
+import { PageContainer } from "@/components/PageContainer";
 import type { Todo } from "@/lib/types";
 
 /** Whether an action passes a yes/no/all switch on a boolean it has. */
@@ -61,7 +62,7 @@ function TodoList({
   });
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <PageContainer>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
@@ -103,7 +104,7 @@ function TodoList({
           <TodoItem key={todo.id} todo={todo} showContext={contextName(todo.contextId)} />
         ))}
       </ul>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -177,7 +178,7 @@ export function TagsPage() {
   const contextName = (id: number) => contexts?.find((c) => c.id === id)?.name;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <PageContainer>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t("nav.tags")}</h1>
         <p className="text-sm text-muted-foreground">{t("tags.subtitle")}</p>
@@ -210,6 +211,6 @@ export function TagsPage() {
           )}
         </ul>
       )}
-    </div>
+    </PageContainer>
   );
 }

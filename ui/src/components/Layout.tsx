@@ -23,6 +23,7 @@ import { useT } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Dialog, DialogTitle, SheetContent } from "@/components/ui/dialog";
+import { BrandIcon } from "@/components/BrandIcon";
 import { cn } from "@/lib/utils";
 
 // nav is the single list of sections. The desktop sidebar shows all of it; on
@@ -84,7 +85,7 @@ export function Layout() {
       {/* Desktop sidebar */}
       <aside className="hidden w-56 shrink-0 flex-col border-r p-4 md:flex">
         <div className="mb-6 flex items-center gap-2 px-2 text-lg font-semibold">
-          <Inbox className="size-5 text-brand-secondary" /> gotracks
+          <BrandIcon className="size-5" /> gotracks
         </div>
         <nav className="flex-1 space-y-1">
           {visible.map(({ to, labelKey, icon: Icon, end }) => (
@@ -116,7 +117,7 @@ export function Layout() {
       {/* Mobile top bar */}
       <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/95 p-4 backdrop-blur md:hidden">
         <div className="flex items-center gap-2 font-semibold">
-          <Inbox className="size-5 text-brand-secondary" /> gotracks
+          <BrandIcon className="size-5" /> gotracks
         </div>
         <div className="flex items-center gap-1">
           {visibleTopBar.map(({ to, labelKey, icon: Icon, end }) => (

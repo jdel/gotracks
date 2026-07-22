@@ -127,7 +127,6 @@ export function NotesPage() {
       title={t("nav.notes")}
       subtitle={t("notes.subtitle")}
       addLabel={t("notes.addTitle")}
-      widthClass="max-w-2xl"
       renderForm={(onAdded) => <NoteAddForm projects={projectList} onAdded={onAdded} />}
     >
       <SearchInput

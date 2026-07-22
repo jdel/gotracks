@@ -10,6 +10,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { SearchInput } from "@/components/SearchInput";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FULLSCREEN_DIALOG_CLASS } from "@/components/PageWithAdd";
+import { PageContainer } from "@/components/PageContainer";
 import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +78,7 @@ export function HomePage() {
     : activeContexts;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <PageContainer>
       <div className="flex items-start justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t("actions.title")}</h1>
@@ -166,6 +167,6 @@ export function HomePage() {
           <QuickAdd defaultExpanded onAdded={() => setAdding(false)} />
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

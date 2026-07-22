@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Download, Check } from "lucide-react";
 import {
   downloadExport,
+  useMyUsage,
   usePreferences,
   useUpdatePreferences,
 } from "@/hooks/useSettings";
@@ -11,10 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { TimezonePicker } from "@/components/TimezonePicker";
+import { PageContainer } from "@/components/PageContainer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordSection } from "@/components/PasswordSection";
 import { PasskeySection } from "@/components/PasskeySection";
 import { TwoFactorSection } from "@/components/TwoFactorSection";
+import { UsageBars } from "@/components/UsageBars";
 import type { Preference } from "@/lib/types";
 
 const DATE_FORMATS = [
@@ -28,6 +31,7 @@ export function SettingsPage() {
   const t = useT();
   const { setLocale } = useLocale();
   const { data: prefs, isLoading } = usePreferences();
+  const { data: usage, isLoading: usageLoading, error: usageError } = useMyUsage();
   const update = useUpdatePreferences();
   const [saved, setSaved] = useState(false);
 
@@ -45,7 +49,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
+    <PageContainer>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t("settings.title")}</h1>
         <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
@@ -173,6 +177,17 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-    </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t("usage.title")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {usageLoading && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+          {usageError && <p className="text-sm text-destructive">{t("usage.loadError")}</p>}
+          {usage && <UsageBars usage={usage} />}
+        </CardContent>
+      </Card>
+
+    </PageContainer>
   );
 }

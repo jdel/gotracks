@@ -110,7 +110,7 @@ export function AdminPage() {
       title={t("admin.title")}
       subtitle={t("admin.subtitle")}
       addLabel={t("admin.newUser")}
-      widthClass="max-w-2xl"
+      size="wide"
       renderForm={(onAdded) => (
         <form
           onSubmit={(e) => onCreate(e, onAdded)}

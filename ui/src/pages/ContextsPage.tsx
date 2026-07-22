@@ -132,7 +132,6 @@ export function ContextsPage() {
       title={t("nav.contexts")}
       subtitle={t("contexts.subtitle")}
       addLabel={t("contexts.addTitle")}
-      widthClass="max-w-2xl"
       renderForm={(onAdded) => <ContextAddForm onAdded={onAdded} />}
     >
       <SearchInput
