@@ -109,6 +109,8 @@ definitions:
         description: UsageReportAtMinute is a pointer so "absent" is distinct from
           midnight.
         type: integer
+      usageReportTimeZone:
+        type: string
     type: object
   api.loginRequest:
     properties:
@@ -367,13 +369,12 @@ definitions:
       updatedAt:
         type: string
       usageReportAtMinute:
-        description: |-
-          UsageReportAtMinute is the UTC time of day the usage report is rebuilt,
-          as minutes since midnight (e.g. 90 = 01:30). The interval is fixed at
-          once a day; only the start time is configurable. It can still be run on
-          demand regardless of the schedule.
+        description: UsageReportAtMinute is the local wall-clock time of day the report
+          runs.
         type: integer
       usageReportRunAt:
+        type: string
+      usageReportTimeZone:
         type: string
     type: object
   domain.Note:
@@ -614,19 +615,6 @@ definitions:
       name:
         type: string
       open:
-        type: integer
-    type: object
-  service.ImportResult:
-    properties:
-      contexts:
-        type: integer
-      notes:
-        type: integer
-      projects:
-        type: integer
-      recurring:
-        type: integer
-      todos:
         type: integer
     type: object
   service.MonthCount:
@@ -1497,16 +1485,8 @@ paths:
       - contexts
   /api/v1/export:
     get:
-      parameters:
-      - description: json (default), yaml, xml or csv
-        in: query
-        name: format
-        type: string
       produces:
       - application/json
-      - application/yaml
-      - application/xml
-      - text/csv
       responses:
         "200":
           description: OK
@@ -1519,22 +1499,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Export my data
-      tags:
-      - transfer
-  /api/v1/import:
-    post:
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.ImportResult'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/api.errorBody'
-      security:
-      - BearerAuth: []
-      summary: Import data
       tags:
       - transfer
   /api/v1/me:

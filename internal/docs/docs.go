@@ -1205,55 +1205,17 @@ const docTemplate = `{
         "/api/v1/export": {
             "get": {
                 "produces": [
-                    "application/json",
-                    "application/yaml",
-                    "application/xml",
-                    "text/csv"
+                    "application/json"
                 ],
                 "tags": [
                     "transfer"
                 ],
                 "summary": "Export my data",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "json (default), yaml, xml or csv",
-                        "name": "format",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "type": "file"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/api.errorBody"
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/v1/import": {
-            "post": {
-                "tags": [
-                    "transfer"
-                ],
-                "summary": "Import data",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.ImportResult"
                         }
                     },
                     "400": {
@@ -2683,6 +2645,9 @@ const docTemplate = `{
                 "usageReportAtMinute": {
                     "description": "UsageReportAtMinute is a pointer so \"absent\" is distinct from midnight.",
                     "type": "integer"
+                },
+                "usageReportTimeZone": {
+                    "type": "string"
                 }
             }
         },
@@ -3065,10 +3030,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "usageReportAtMinute": {
-                    "description": "UsageReportAtMinute is the UTC time of day the usage report is rebuilt,\nas minutes since midnight (e.g. 90 = 01:30). The interval is fixed at\nonce a day; only the start time is configurable. It can still be run on\ndemand regardless of the schedule.",
+                    "description": "UsageReportAtMinute is the local wall-clock time of day the report runs.",
                     "type": "integer"
                 },
                 "usageReportRunAt": {
+                    "type": "string"
+                },
+                "usageReportTimeZone": {
                     "type": "string"
                 }
             }
@@ -3402,26 +3370,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "open": {
-                    "type": "integer"
-                }
-            }
-        },
-        "service.ImportResult": {
-            "type": "object",
-            "properties": {
-                "contexts": {
-                    "type": "integer"
-                },
-                "notes": {
-                    "type": "integer"
-                },
-                "projects": {
-                    "type": "integer"
-                },
-                "recurring": {
-                    "type": "integer"
-                },
-                "todos": {
                     "type": "integer"
                 }
             }

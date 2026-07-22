@@ -22,7 +22,14 @@ func NewSettingsService(s repo.SettingsRepo, defaultAllowRegister bool) *Setting
 
 // Get returns the current settings.
 func (s *SettingsService) Get(ctx context.Context) (*domain.InstanceSettings, error) {
-	return s.settings.Get(ctx, s.defaultAllowRegister)
+	settings, err := s.settings.Get(ctx, s.defaultAllowRegister)
+	if err != nil {
+		return nil, err
+	}
+	if settings.UsageReportTimeZone == "" {
+		settings.UsageReportTimeZone = "UTC"
+	}
+	return settings, nil
 }
 
 // AllowRegister reports whether self-registration is currently open.
@@ -44,6 +51,21 @@ func (s *SettingsService) SetUsageReportAtMinute(ctx context.Context, minute int
 		minute += 1440
 	}
 	cur.UsageReportAtMinute = minute
+	if err := s.settings.Update(ctx, cur); err != nil {
+		return nil, err
+	}
+	return cur, nil
+}
+
+func (s *SettingsService) SetUsageReportTimeZone(ctx context.Context, zone string) (*domain.InstanceSettings, error) {
+	if _, err := time.LoadLocation(zone); err != nil {
+		return nil, ErrValidation
+	}
+	cur, err := s.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	cur.UsageReportTimeZone = zone
 	if err := s.settings.Update(ctx, cur); err != nil {
 		return nil, err
 	}

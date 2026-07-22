@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Download, Upload, Check } from "lucide-react";
+import { Download, Check } from "lucide-react";
 import {
   downloadExport,
-  useImport,
   usePreferences,
   useUpdatePreferences,
 } from "@/hooks/useSettings";
@@ -11,19 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { TimezonePicker } from "@/components/TimezonePicker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordSection } from "@/components/PasswordSection";
 import { PasskeySection } from "@/components/PasskeySection";
 import { TwoFactorSection } from "@/components/TwoFactorSection";
 import type { Preference } from "@/lib/types";
-
-// The full IANA zone list the browser knows, so any zone can be picked rather
-// than a hand-maintained handful. UTC is pinned to the top.
-const TIMEZONES: string[] = (() => {
-  const supported =
-    typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
-  return ["UTC", ...supported.filter((z) => z !== "UTC")];
-})();
 
 const DATE_FORMATS = [
   { value: "2006-01-02", label: "2026-07-18" },
@@ -37,13 +29,7 @@ export function SettingsPage() {
   const { setLocale } = useLocale();
   const { data: prefs, isLoading } = usePreferences();
   const update = useUpdatePreferences();
-  const doImport = useImport();
-
-  const [importText, setImportText] = useState("");
   const [saved, setSaved] = useState(false);
-  // The timezone combobox's working text. null means "not editing", so the
-  // field mirrors the saved preference; a string is what the user is typing.
-  const [tzDraft, setTzDraft] = useState<string | null>(null);
 
   function set(patch: Partial<Preference>) {
     update.mutate(patch, {
@@ -110,30 +96,7 @@ export function SettingsPage() {
 
           <label className="text-xs text-muted-foreground">
             {t("settings.timeZone")}
-            {/* Searchable: the full IANA list is far too long for a plain
-                dropdown, so this is a type-to-filter combobox (input + datalist).
-                A saved change only fires when the text matches a real zone. */}
-            <input
-              type="text"
-              list="timezone-options"
-              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-              value={tzDraft ?? prefs.timeZone}
-              onChange={(e) => {
-                const v = e.target.value;
-                setTzDraft(v);
-                if (TIMEZONES.includes(v)) {
-                  set({ timeZone: v });
-                  setTzDraft(null);
-                }
-              }}
-              onBlur={() => setTzDraft(null)}
-              aria-label={t("settings.timeZone")}
-            />
-            <datalist id="timezone-options">
-              {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz} />
-              ))}
-            </datalist>
+            <TimezonePicker value={prefs.timeZone} onChange={(zone) => set({ timeZone: zone })} ariaLabel={t("settings.timeZone")} />
           </label>
 
           <label className="text-xs text-muted-foreground">
@@ -204,50 +167,12 @@ export function SettingsPage() {
           <CardTitle className="text-base">{t("settings.export")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          {["json", "yaml", "xml", "csv"].map((fmt) => (
-            <Button key={fmt} variant="outline" size="sm" onClick={() => void downloadExport(fmt)}>
-              <Download /> {fmt.toUpperCase()}
-            </Button>
-          ))}
+          <Button variant="outline" size="sm" onClick={() => void downloadExport()}>
+            <Download /> JSON
+          </Button>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("settings.import")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-xs text-muted-foreground">{t("settings.importHelp")}</p>
-          <textarea
-            className="h-32 w-full rounded-md border border-input bg-background p-2 font-mono text-xs"
-            value={importText}
-            onChange={(e) => setImportText(e.target.value)}
-            placeholder='{"version":1,"contexts":[…]}'
-          />
-          <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              disabled={!importText.trim() || doImport.isPending}
-              onClick={() =>
-                doImport.mutate(importText, { onSuccess: () => setImportText("") })
-              }
-            >
-              <Upload /> {t("settings.import")}
-            </Button>
-            {doImport.isSuccess && doImport.data && (
-              <span className="text-xs text-emerald-600">
-                {t("settings.imported")}: {doImport.data.contexts} contexts,{" "}
-                {doImport.data.projects} projects, {doImport.data.todos} actions
-              </span>
-            )}
-            {doImport.isError && (
-              <span className="text-xs text-destructive">
-                {(doImport.error as Error).message}
-              </span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

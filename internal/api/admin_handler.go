@@ -27,7 +27,8 @@ type adminUser struct {
 type instanceSettingsRequest struct {
 	AllowRegister *bool `json:"allowRegister"`
 	// UsageReportAtMinute is a pointer so "absent" is distinct from midnight.
-	UsageReportAtMinute *int `json:"usageReportAtMinute"`
+	UsageReportAtMinute *int    `json:"usageReportAtMinute"`
+	UsageReportTimeZone *string `json:"usageReportTimeZone"`
 }
 
 // getSettings returns the instance settings.
@@ -63,7 +64,7 @@ func (h *adminHandler) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	// Each field is optional so one can be changed without restating the
 	// other, but at least one must be present or the call means nothing.
-	if req.AllowRegister == nil && req.UsageReportAtMinute == nil {
+	if req.AllowRegister == nil && req.UsageReportAtMinute == nil && req.UsageReportTimeZone == nil {
 		writeError(w, http.StatusBadRequest, "nothing to change")
 		return
 	}
@@ -80,6 +81,12 @@ func (h *adminHandler) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.UsageReportAtMinute != nil {
 		if s, err = h.settings.SetUsageReportAtMinute(r.Context(), *req.UsageReportAtMinute); err != nil {
+			writeServiceError(w, err)
+			return
+		}
+	}
+	if req.UsageReportTimeZone != nil {
+		if s, err = h.settings.SetUsageReportTimeZone(r.Context(), *req.UsageReportTimeZone); err != nil {
 			writeServiceError(w, err)
 			return
 		}

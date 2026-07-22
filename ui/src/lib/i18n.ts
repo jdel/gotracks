@@ -79,9 +79,6 @@ export const en = {
     "When on, completing an action deletes its attachments instead of asking first.",
   "settings.saved": "Saved.",
   "settings.export": "Export your data",
-  "settings.import": "Import data",
-  "settings.importHelp": "Paste a gotracks JSON or YAML export.",
-  "settings.imported": "Imported",
 
   "stats.title": "Statistics",
   "stats.subtitle": "How your system is doing.",
@@ -574,9 +571,6 @@ export const fr: Partial<Dict> = {
     "Si activé, terminer une action supprime ses pièces jointes sans demander.",
   "settings.saved": "Enregistré.",
   "settings.export": "Exporter vos données",
-  "settings.import": "Importer des données",
-  "settings.importHelp": "Collez un export gotracks au format JSON ou YAML.",
-  "settings.imported": "Importé",
 
   "stats.title": "Statistiques",
   "stats.subtitle": "L'état de votre système.",

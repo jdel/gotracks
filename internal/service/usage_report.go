@@ -238,7 +238,15 @@ func (s *UsageReportService) Schedule(ctx context.Context) {
 			if err != nil {
 				continue
 			}
-			now := time.Now().UTC()
+			zone := settings.UsageReportTimeZone
+			if zone == "" {
+				zone = "UTC"
+			}
+			loc, err := time.LoadLocation(zone)
+			if err != nil {
+				continue
+			}
+			now := time.Now().In(loc)
 			atTarget := now.Hour()*60+now.Minute() == settings.UsageReportAtMinute
 			if !atTarget {
 				continue

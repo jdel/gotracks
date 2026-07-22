@@ -117,7 +117,7 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	mux.Handle("PUT /api/v1/notes/{id}", protect(nh.update))
 	mux.Handle("DELETE /api/v1/notes/{id}", protect(nh.delete))
 
-	// Preferences, stats, export/import (protected).
+	// Preferences, stats and export (protected).
 	prh := &preferenceHandler{prefs: svc.Preferences}
 	mux.Handle("GET /api/v1/preferences", protect(prh.get))
 	mux.Handle("PUT /api/v1/preferences", protect(prh.update))
@@ -127,7 +127,6 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 
 	trh := &transferHandler{transfer: svc.Transfer}
 	mux.Handle("GET /api/v1/export", protect(trh.export))
-	mux.Handle("POST /api/v1/import", protect(trh.importData))
 
 	// Attachments (protected).
 	atth := &attachmentHandler{attachments: svc.Attachments}

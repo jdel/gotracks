@@ -11,6 +11,7 @@ import { Pagination } from "@/components/Pagination";
 import { nextTriState, type TriState } from "@/lib/adminFilter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimezonePicker } from "@/components/TimezonePicker";
 import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/SearchInput";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -117,6 +118,7 @@ const COLUMNS: Column[] = [
   },
 ];
 
+
 /** Minutes since UTC midnight -> "HH:MM" for a <input type="time">. */
 function minuteToClock(minute: number): string {
   const h = Math.floor(minute / 60) % 24;
@@ -221,7 +223,7 @@ export function ReportsPage() {
                     update.mutate({ usageReportAtMinute: clockToMinute(e.target.value) })
                   }
                 />
-                <span className="text-sm text-muted-foreground">UTC</span>
+                <TimezonePicker value={settings?.usageReportTimeZone || "UTC"} onChange={(zone) => update.mutate({ usageReportTimeZone: zone })} ariaLabel="Report time zone" />
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={() => run.mutate()} disabled={run.isPending}>

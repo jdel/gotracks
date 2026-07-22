@@ -14,7 +14,7 @@ the long tail of Tracks features.
 | 4 | Views: context home, project, tickler, tags, starred, done | ✅ done |
 | 5 | Mobile QA pass + preferences (theme/date/timezone) | ☐ |
 | 6 | Recurring todos, reorder endpoint | ✅ done |
-| 7 | Preferences, stats, export/import, admin, attachments, drag-drop, i18n, OIDC | ✅ done |
+| 7 | Preferences, stats, export, admin, attachments, drag-drop, i18n, OIDC | ✅ done |
 
 ## Phase 1 — delivered
 
@@ -67,10 +67,8 @@ Recurrence has its own unit tests (including the `AddDate` month-overflow trap, 
   lightness band for *both* modes and 3:1 contrast on both surfaces, so one value
   serves light and dark. Single-series charts carry no legend; the monthly series
   also renders as a screen-reader table.
-- **Export** — JSON, YAML, XML and CSV, downloaded with the auth token via a blob URL.
-- **Import** — JSON/YAML snapshots, ids remapped so importing merges rather than
-  overwrites. Documents that are valid JSON but not exports are rejected (400)
-  rather than silently importing nothing.
+- **Export** — JSON, downloaded with the auth token via a blob URL.
+  Exports use names for relationships and omit internal database identifiers.
 - **Admin panel** — user list, create, promote/demote, delete. Guarded by an
   admin-only middleware; the last admin cannot be demoted or deleted, and nobody
   can delete their own account.
@@ -89,7 +87,7 @@ Recurrence has its own unit tests (including the `AddDate` month-overflow trap, 
 ## Deferred features (from Tracks, not yet built)
 
 - [x] ~~Statistics dashboard~~ — done (phase 7)
-- [x] ~~Export / Import~~ — done (phase 7)
+- [x] ~~Export~~ — done (phase 7)
 - [x] ~~Admin panel~~ — done (phase 7)
 - [x] ~~Attachments~~ — done (phase 7)
 - [x] ~~Drag-and-drop reordering~~ — done (phase 7)
@@ -100,9 +98,6 @@ Recurrence has its own unit tests (including the `AddDate` month-overflow trap, 
 
 ### Known gaps
 
-- Import accepts gotracks' own export format. Migrating from a real Tracks
-  (Rails) instance would need a converter for its schema — not written, since it
-  cannot be verified without a genuine Tracks dump.
 - Date format / timezone preferences are stored and validated, but the frontend
   still renders dates with the browser locale; wiring them through the formatters
   is outstanding.

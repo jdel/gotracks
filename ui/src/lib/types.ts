@@ -243,14 +243,6 @@ export interface Stats {
   projectsHidden: number;
 }
 
-export interface ImportResult {
-  contexts: number;
-  projects: number;
-  todos: number;
-  recurring: number;
-  notes: number;
-}
-
 export type ContextState = "active" | "hidden";
 
 export interface Context {

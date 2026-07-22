@@ -4,7 +4,6 @@ import type {
   AdminUser,
   Attachment,
   AttachmentWithTodo,
-  ImportResult,
   Preference,
   QuotaUsage,
   UsageReport,
@@ -73,6 +72,7 @@ export interface InstanceSettings {
   allowRegister: boolean;
   /** UTC time of day the usage report rebuilds, as minutes since midnight. */
   usageReportAtMinute: number;
+  usageReportTimeZone: string;
   usageReportRunAt?: string;
   updatedAt: string;
 }
@@ -101,7 +101,7 @@ export function useInstanceSettings() {
 export function useUpdateInstanceSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { allowRegister?: boolean; usageReportAtMinute?: number }) =>
+    mutationFn: (input: { allowRegister?: boolean; usageReportAtMinute?: number; usageReportTimeZone?: string }) =>
       api.put<InstanceSettings>("/admin/settings", input),
     onSuccess: (data) => {
       qc.setQueryData(["instance-settings"], data);
@@ -304,18 +304,9 @@ export function useDeleteAttachment() {
   });
 }
 
-// Import / export
-export function useImport() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (raw: string) => api.post<ImportResult>("/import", JSON.parse(raw)),
-    onSuccess: () => qc.invalidateQueries(),
-  });
-}
-
 // downloadExport fetches an export with auth and saves it via a blob URL.
-export async function downloadExport(format: string): Promise<void> {
-  const res = await fetch(`/api/v1/export?format=${format}`, {
+export async function downloadExport(): Promise<void> {
+	const res = await fetch("/api/v1/export", {
     headers: { Authorization: `Bearer ${tokenStore.access ?? ""}` },
   });
   if (!res.ok) throw new Error("export failed");
@@ -323,7 +314,7 @@ export async function downloadExport(format: string): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `gotracks-${new Date().toISOString().slice(0, 10)}.${format}`;
+	a.download = `gotracks-${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();

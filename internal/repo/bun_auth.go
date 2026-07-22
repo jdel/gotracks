@@ -21,9 +21,10 @@ func (r *settingsRepo) Get(ctx context.Context, defaultAllowRegister bool) (*dom
 	if errors.Is(err, sql.ErrNoRows) {
 		// Seed from configuration the first time the server runs.
 		s = &domain.InstanceSettings{
-			ID:            domain.SettingsID,
-			AllowRegister: defaultAllowRegister,
-			UpdatedAt:     time.Now(),
+			ID:                  domain.SettingsID,
+			AllowRegister:       defaultAllowRegister,
+			UsageReportTimeZone: "UTC",
+			UpdatedAt:           time.Now(),
 		}
 		if _, err := r.db.NewInsert().Model(s).Exec(ctx); err != nil {
 			return nil, err
@@ -40,7 +41,7 @@ func (r *settingsRepo) Update(ctx context.Context, s *domain.InstanceSettings) e
 	s.ID = domain.SettingsID
 	s.UpdatedAt = time.Now()
 	res, err := r.db.NewUpdate().Model(s).
-		Column("allow_register", "usage_report_at_minute", "usage_report_run_at", "updated_at").
+		Column("allow_register", "usage_report_at_minute", "usage_report_time_zone", "usage_report_run_at", "updated_at").
 		Where("id = ?", domain.SettingsID).Exec(ctx)
 	if err != nil {
 		return err

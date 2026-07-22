@@ -15,7 +15,7 @@ P1 follows within weeks. P2 is scale and operations.
 argon2id password hashing; rotating refresh tokens, hashed with an HMAC keyed on
 the signing secret; opt-in TOTP with recovery codes; passkeys; OIDC; per-IP rate
 limiting with correct trusted-proxy handling; upload body caps; delete cascades
-with tests; export/import. **No cookies anywhere** — auth is Bearer-only, so
+with tests; export. **No cookies anywhere** — auth is Bearer-only, so
 there is no CSRF surface to defend.
 
 ---

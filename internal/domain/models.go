@@ -164,11 +164,9 @@ type InstanceSettings struct {
 
 	ID            int64 `bun:"id,pk" json:"-"`
 	AllowRegister bool  `bun:"allow_register,notnull" json:"allowRegister"`
-	// UsageReportAtMinute is the UTC time of day the usage report is rebuilt,
-	// as minutes since midnight (e.g. 90 = 01:30). The interval is fixed at
-	// once a day; only the start time is configurable. It can still be run on
-	// demand regardless of the schedule.
+	// UsageReportAtMinute is the local wall-clock time of day the report runs.
 	UsageReportAtMinute int        `bun:"usage_report_at_minute" json:"usageReportAtMinute"`
+	UsageReportTimeZone string     `bun:"usage_report_time_zone" json:"usageReportTimeZone"`
 	UsageReportRunAt    *time.Time `bun:"usage_report_run_at" json:"usageReportRunAt,omitempty"`
 	UpdatedAt           time.Time  `bun:"updated_at,notnull" json:"updatedAt"`
 }

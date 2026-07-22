@@ -290,7 +290,6 @@ func serve(ctx context.Context) error {
 		Tags:        store.Tags,
 		Notes:       store.Notes,
 	}
-
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           api.New(cfg, tm, svc, web.FS()),

@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -130,18 +129,17 @@ func (h *statsHandler) get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s)
 }
 
-// transferHandler serves /export and /import.
+// transferHandler serves /export.
 type transferHandler struct {
 	transfer *service.TransferService
 }
 
-// export streams all of the caller's data in the requested format.
+// export streams all of the caller's data as JSON.
 //
 //	@Summary	Export my data
 //	@Tags		transfer
 //	@Security	BearerAuth
-//	@Produce	json,application/yaml,application/xml,text/csv
-//	@Param		format	query	string	false	"json (default), yaml, xml or csv"
+//	@Produce	json
 //	@Success	200		{file}	binary
 //	@Failure	400		{object}	errorBody
 //	@Router		/api/v1/export [get]
@@ -153,72 +151,13 @@ func (h *transferHandler) export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	format := r.URL.Query().Get("format")
-	if format == "" {
-		format = "json"
-	}
 	stamp := time.Now().Format("2006-01-02")
-	filename := fmt.Sprintf("gotracks-%s.%s", stamp, format)
-
-	switch format {
-	case "json":
-		w.Header().Set("Content-Type", "application/json")
-	case "yaml", "yml":
-		w.Header().Set("Content-Type", "application/yaml")
-	case "xml":
-		w.Header().Set("Content-Type", "application/xml")
-	case "csv":
-		w.Header().Set("Content-Type", "text/csv")
-	default:
-		writeError(w, http.StatusBadRequest, "format must be json, yaml, xml or csv")
-		return
-	}
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
-
-	var writeErr error
-	switch format {
-	case "json":
-		writeErr = data.WriteJSON(w)
-	case "yaml", "yml":
-		writeErr = data.WriteYAML(w)
-	case "xml":
-		writeErr = data.WriteXML(w)
-	case "csv":
-		writeErr = data.WriteCSV(w)
-	}
-	if writeErr != nil {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", "gotracks-"+stamp+".json"))
+	if err := data.WriteJSON(w); err != nil {
 		// Headers are already sent; log via the service error path only.
-		writeServiceError(w, writeErr)
-	}
-}
-
-// importData merges an uploaded export into the caller's account.
-//
-//	@Summary	Import data
-//	@Tags		transfer
-//	@Security	BearerAuth
-//	@Success	200		{object}	service.ImportResult
-//	@Failure	400		{object}	errorBody
-//	@Router		/api/v1/import [post]
-func (h *transferHandler) importData(w http.ResponseWriter, r *http.Request) {
-	uid := claimsFrom(r).UserID
-	r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
-	raw, err := io.ReadAll(r.Body)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "could not read body")
-		return
-	}
-	parsed, err := service.ParseImport(raw)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	res, err := h.transfer.Import(r.Context(), uid, parsed)
-	if err != nil {
 		writeServiceError(w, err)
-		return
 	}
-	writeJSON(w, http.StatusOK, res)
 }
 
 // attachmentHandler serves /todos/{id}/attachments and /attachments/{id}.
