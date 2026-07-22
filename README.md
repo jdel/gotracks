@@ -118,8 +118,8 @@ Only the raw counts are stored — percentages are computed at read time against
 the quotas currently configured, so changing a quota doesn't leave stale
 numbers behind.
 
-It rebuilds once a day at a UTC time set in the admin screen —
-`usageReportAtMinute`, minutes since midnight — and can also be rebuilt on
+It rebuilds once a day at the local wall-clock time and IANA time zone selected
+in the admin screen. UTC is the default. The report can also be rebuilt on
 demand there or with `POST /api/v1/admin/reports/usage/run`.
 
 In the UI it's its own page (`/reports`), in the left nav, visible only to
@@ -134,8 +134,10 @@ email/admin/2FA filters as the admin user list, and both are paginated.
 The Attachments page (`/attachments`, in the left nav) lists every file a user
 has uploaded across all their actions, each showing which action it's attached
 to, sortable by name, action, size or upload date. Files can be downloaded or
-deleted from there directly. In an action list, the paperclip is tinted blue
-when that action has files — whether or not its panel is open.
+deleted from there directly. On phones the table becomes touch-friendly cards,
+with the same sorting controls and no horizontal page scrolling. In an action
+list, the paperclip is tinted when that action has files — whether or not its
+panel is open.
 
 Completing an action with attachments normally prompts to delete them, with a
 note that this can be automated in Settings. Turning on "auto-delete
@@ -206,15 +208,22 @@ an account total. Tags are created as a side effect of an action's tag list, so
 without it one request can write thousands of tag rows while costing a single
 action against the action allowance.
 
-Users see their own consumption at the top of the statistics page, via
-`GET /api/v1/usage`. The panel is hidden entirely when nothing is capped, so a
-single-user instance with no limits set is not shown a page of blanks.
+Users see their own consumption in Settings, directly after the data-export
+pane, via `GET /api/v1/usage`. Unlimited resources show their current count
+without a quota bar.
 
 An administrator can see any account's consumption from the user list — the
 gauge icon opens a usage panel — or through
 `GET /api/v1/admin/users/{id}/usage`. It is a separate call rather than a
 column in the user list, since it is seven counts per account and is read one
 account at a time.
+
+### Data export
+
+Settings can download an account's data as JSON. The export is intended for
+leaving gotracks or processing the data elsewhere, not for re-import: there is
+no import endpoint. Database and account identifiers are deliberately omitted;
+relationships use the context and project names visible in the UI.
 
 ### Sending mail
 
