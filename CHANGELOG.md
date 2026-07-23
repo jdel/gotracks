@@ -21,6 +21,8 @@ All notable changes to this project are documented here.
   privileges instead of stale access-token claims.
 - Concurrent refresh requests can no longer reuse one token to create multiple
   successor sessions.
+- Concurrent two-factor requests can no longer reuse one TOTP timestep or
+  redeem one sign-in challenge more than once.
 
 ## v0.2.0 - 2026-07-22
 

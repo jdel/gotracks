@@ -77,6 +77,38 @@ func TestUserCreateAndLookup(t *testing.T) {
 	})
 }
 
+func TestTwoFactorStepIsConsumedOnce(t *testing.T) {
+	eachEngine(t, func(t *testing.T, store *repo.Store) {
+		ctx := context.Background()
+		tf := &domain.TwoFactor{
+			UserID:   42,
+			Enabled:  true,
+			Secret:   "secret",
+			LastStep: 100,
+		}
+		if err := store.TwoFactor.Upsert(ctx, tf); err != nil {
+			t.Fatalf("create two-factor state: %v", err)
+		}
+		if err := store.TwoFactor.ConsumeStep(ctx, tf.UserID, 101); err != nil {
+			t.Fatalf("consume new step: %v", err)
+		}
+		if err := store.TwoFactor.ConsumeStep(ctx, tf.UserID, 101); !errors.Is(err, repo.ErrNotFound) {
+			t.Fatalf("reused step error = %v, want ErrNotFound", err)
+		}
+		if err := store.TwoFactor.ConsumeStep(ctx, tf.UserID, 100); !errors.Is(err, repo.ErrNotFound) {
+			t.Fatalf("older step error = %v, want ErrNotFound", err)
+		}
+
+		stored, err := store.TwoFactor.Get(ctx, tf.UserID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if stored.LastStep != 101 {
+			t.Fatalf("last step = %d, want 101", stored.LastStep)
+		}
+	})
+}
+
 func TestContextScopedByUser(t *testing.T) {
 	eachEngine(t, func(t *testing.T, store *repo.Store) {
 		ctx := context.Background()

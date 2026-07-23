@@ -160,7 +160,9 @@ func (s *TwoFactorService) Verify(ctx context.Context, challengeID, code string)
 		return nil, ErrTwoFactorCode
 	}
 
-	s.challenges.take(ctx, challengeID, kindLogin)
+	if _, ok := s.challenges.take(ctx, challengeID, kindLogin); !ok {
+		return nil, ErrTwoFactorChallenge
+	}
 	return s.users.ByID(ctx, c.userID)
 }
 
@@ -171,11 +173,13 @@ func (s *TwoFactorService) Verify(ctx context.Context, challengeID, code string)
 // refused, even though plain skew validation would still accept them.
 func (s *TwoFactorService) consumeTOTP(ctx context.Context, tf *domain.TwoFactor, code string) (bool, error) {
 	step, ok := auth.ValidateTOTP(tf.Secret, code, s.now())
-	if !ok || step <= tf.LastStep {
+	if !ok {
 		return false, nil
 	}
-	tf.LastStep = step
-	if err := s.twoFactor.Upsert(ctx, tf); err != nil {
+	if err := s.twoFactor.ConsumeStep(ctx, tf.UserID, step); err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return false, nil
+		}
 		return false, err
 	}
 	return true, nil

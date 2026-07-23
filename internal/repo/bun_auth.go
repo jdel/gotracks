@@ -132,6 +132,18 @@ func (r *twoFactorRepo) Upsert(ctx context.Context, t *domain.TwoFactor) error {
 	return nil
 }
 
+func (r *twoFactorRepo) ConsumeStep(ctx context.Context, userID, step int64) error {
+	res, err := r.db.NewUpdate().Model((*domain.TwoFactor)(nil)).
+		Set("last_step = ?", step).
+		Set("updated_at = ?", time.Now()).
+		Where("user_id = ? AND enabled = ? AND last_step < ?", userID, true, step).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	return affected(res)
+}
+
 func (r *twoFactorRepo) EnabledUserIDs(ctx context.Context) ([]int64, error) {
 	var ids []int64
 	err := r.db.NewSelect().Model((*domain.TwoFactor)(nil)).

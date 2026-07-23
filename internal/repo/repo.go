@@ -46,6 +46,9 @@ type TwoFactorRepo interface {
 	// Get returns ErrNotFound when the user has never enrolled.
 	Get(ctx context.Context, userID int64) (*domain.TwoFactor, error)
 	Upsert(ctx context.Context, t *domain.TwoFactor) error
+	// ConsumeStep advances the replay boundary only when step is newer than the
+	// currently stored value. Concurrent reuse returns ErrNotFound.
+	ConsumeStep(ctx context.Context, userID, step int64) error
 	// EnabledUserIDs lists the users with 2FA on, so the admin screen can show
 	// the flag without a query per row.
 	EnabledUserIDs(ctx context.Context) ([]int64, error)

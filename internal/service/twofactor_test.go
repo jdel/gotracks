@@ -131,6 +131,124 @@ func TestTOTPCodeCannotBeReplayed(t *testing.T) {
 	}
 }
 
+type gatedTwoFactorRepo struct {
+	repo.TwoFactorRepo
+	arrived chan struct{}
+	release chan struct{}
+}
+
+func (g *gatedTwoFactorRepo) Get(ctx context.Context, userID int64) (*domain.TwoFactor, error) {
+	tf, err := g.TwoFactorRepo.Get(ctx, userID)
+	g.arrived <- struct{}{}
+	<-g.release
+	return tf, err
+}
+
+type gatedEphemeralRepo struct {
+	repo.EphemeralRepo
+	arrived chan struct{}
+	release chan struct{}
+}
+
+func (g *gatedEphemeralRepo) Take(ctx context.Context, kind, id string) (*domain.Ephemeral, error) {
+	g.arrived <- struct{}{}
+	<-g.release
+	return g.EphemeralRepo.Take(ctx, kind, id)
+}
+
+func releaseAfterArrivals(t *testing.T, arrived <-chan struct{}, release chan<- struct{}, count int) {
+	t.Helper()
+	timeout := time.NewTimer(2 * time.Second)
+	defer timeout.Stop()
+	for range count {
+		select {
+		case <-arrived:
+		case <-timeout.C:
+			close(release)
+			t.Fatal("concurrent verifications did not reach the race barrier")
+		}
+	}
+	close(release)
+}
+
+func twoFactorResults(t *testing.T, results <-chan error, wantRejected error) (succeeded, rejected int) {
+	t.Helper()
+	for range 2 {
+		err := <-results
+		switch {
+		case err == nil:
+			succeeded++
+		case errors.Is(err, wantRejected):
+			rejected++
+		default:
+			t.Fatalf("unexpected two-factor error: %v", err)
+		}
+	}
+	return succeeded, rejected
+}
+
+func TestConcurrentTOTPCodeSucceedsOnce(t *testing.T) {
+	svc, store, userID := newTwoFactorService(t)
+	secret, _ := enrol(t, svc, userID)
+
+	gated := &gatedTwoFactorRepo{
+		TwoFactorRepo: store.TwoFactor,
+		arrived:       make(chan struct{}, 2),
+		release:       make(chan struct{}),
+	}
+	racing := service.NewTwoFactorService(
+		gated, store.RecoveryCodes, store.Users, store.Ephemeral, "gotracks",
+	)
+	code, err := auth.GenerateTOTP(secret, time.Now().Add(auth.TOTPPeriod*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results := make(chan error, 2)
+	for range 2 {
+		challengeID := beginChallenge(t, racing, userID)
+		go func() {
+			_, err := racing.Verify(context.Background(), challengeID, code)
+			results <- err
+		}()
+	}
+
+	releaseAfterArrivals(t, gated.arrived, gated.release, 2)
+	succeeded, rejected := twoFactorResults(t, results, service.ErrTwoFactorCode)
+	if succeeded != 1 || rejected != 1 {
+		t.Fatalf("concurrent TOTP: succeeded=%d rejected=%d, want 1 each", succeeded, rejected)
+	}
+}
+
+func TestConcurrentChallengeRedemptionSucceedsOnce(t *testing.T) {
+	svc, store, userID := newTwoFactorService(t)
+	_, codes := enrol(t, svc, userID)
+
+	gated := &gatedEphemeralRepo{
+		EphemeralRepo: store.Ephemeral,
+		arrived:       make(chan struct{}, 2),
+		release:       make(chan struct{}),
+	}
+	racing := service.NewTwoFactorService(
+		store.TwoFactor, store.RecoveryCodes, store.Users, gated, "gotracks",
+	)
+	challengeID := beginChallenge(t, racing, userID)
+
+	results := make(chan error, 2)
+	for _, code := range codes[:2] {
+		go func() {
+			_, err := racing.Verify(context.Background(), challengeID, code)
+			results <- err
+		}()
+	}
+
+	releaseAfterArrivals(t, gated.arrived, gated.release, 2)
+	succeeded, rejected := twoFactorResults(t, results, service.ErrTwoFactorChallenge)
+	if succeeded != 1 || rejected != 1 {
+		t.Fatalf("concurrent challenge: succeeded=%d rejected=%d, want 1 each", succeeded, rejected)
+	}
+}
+
 // The interaction naive implementations get wrong: once a step is spent, the
 // earlier step inside the drift window must also be refused.
 func TestEarlierStepRejectedAfterLaterOneUsed(t *testing.T) {
