@@ -40,17 +40,29 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	ah := &authHandler{auth: svc.Auth, twoFactor: svc.TwoFactor, passkeys: svc.Passkeys, email: svc.Email, admin: svc.Admin, quotas: svc.Quotas}
 	ch := &contextHandler{contexts: svc.Contexts}
 	requireAuth := RequireAuth(tm, svc.Auth.CurrentUser)
+	limit := func(l *AbuseLimiter, h http.HandlerFunc) http.Handler {
+		return l.Middleware(h)
+	}
+	// Costly public routes get both per-client and whole-process budgets. The
+	// global limiter below remains a broad safety net for every route.
+	registerLimit := NewAbuseLimiter(1.0/60, 3, 10.0/60, 10)
+	loginLimit := NewAbuseLimiter(1, 5, 5, 10)
+	mailLimit := NewAbuseLimiter(1.0/60, 3, 10.0/60, 10)
+	passkeyLimit := NewAbuseLimiter(1, 5, 10, 20)
 
 	// Health check (public).
-	mh := &metaHandler{settings: svc.Settings, passkeys: svc.Passkeys != nil, twoFactor: svc.TwoFactor != nil}
+	mh := &metaHandler{
+		settings: svc.Settings, auth: svc.Auth,
+		passkeys: svc.Passkeys != nil, twoFactor: svc.TwoFactor != nil,
+	}
 	mux.HandleFunc("GET /healthz", mh.healthz)
 
 	// Swagger UI + spec at /doc (public).
 	swaggerHandlers(mux, cfg.TLSEnabled())
 
 	// Auth endpoints (public).
-	mux.HandleFunc("POST /api/v1/auth/register", ah.register)
-	mux.HandleFunc("POST /api/v1/auth/login", ah.login)
+	mux.Handle("POST /api/v1/auth/register", limit(registerLimit, ah.register))
+	mux.Handle("POST /api/v1/auth/login", limit(loginLimit, ah.login))
 	mux.HandleFunc("POST /api/v1/auth/refresh", ah.refresh)
 	mux.HandleFunc("POST /api/v1/auth/logout", ah.logout)
 	// Completes a sign-in that stopped at the second factor. Public: the
@@ -60,9 +72,9 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	// caller is holding a mailed token, not a session.
 	if svc.Email != nil {
 		mux.HandleFunc("POST /api/v1/auth/email/verify", ah.verifyEmail)
-		mux.HandleFunc("POST /api/v1/auth/email/resend", ah.resendVerification)
+		mux.Handle("POST /api/v1/auth/email/resend", limit(mailLimit, ah.resendVerification))
 		mux.HandleFunc("POST /api/v1/auth/email/change/confirm", ah.confirmEmailChange)
-		mux.HandleFunc("POST /api/v1/auth/password/forgot", ah.forgotPassword)
+		mux.Handle("POST /api/v1/auth/password/forgot", limit(mailLimit, ah.forgotPassword))
 		mux.HandleFunc("POST /api/v1/auth/password/reset", ah.resetPassword)
 		mux.HandleFunc("POST /api/v1/auth/invitation/accept", ah.acceptInvitation)
 		mux.HandleFunc("POST /api/v1/auth/account/deletion/confirm", ah.confirmAccountDeletion)
@@ -161,7 +173,7 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	pkh := &passkeyHandler{passkeys: svc.Passkeys, auth: svc.Auth}
 	mux.HandleFunc("GET /api/v1/auth/passkey/status", pkh.status)
 	if pkh.enabled() {
-		mux.HandleFunc("POST /api/v1/auth/passkey/login/begin", pkh.loginBegin)
+		mux.Handle("POST /api/v1/auth/passkey/login/begin", limit(passkeyLimit, pkh.loginBegin))
 		mux.HandleFunc("POST /api/v1/auth/passkey/login/finish", pkh.loginFinish)
 		mux.Handle("GET /api/v1/passkeys", protect(pkh.list))
 		mux.Handle("POST /api/v1/passkeys/register/begin", protect(pkh.registerBegin))

@@ -6,6 +6,8 @@ All notable changes to this project are documented here.
 
 ### Breaking changes
 
+- Empty instances now require `auth.bootstrap-secret` to create their first
+  administrator, and public registration defaults to disabled.
 - Removed OIDC configuration, API routes, automatic SSO account provisioning,
   and the login-page SSO flow. Authentication is now local accounts only.
 
@@ -24,6 +26,10 @@ All notable changes to this project are documented here.
 
 ### Fixed
 
+- Public authentication work is now bounded by route and process-wide limits;
+  public enrollment creates a capped pending record instead of a user, Argon2
+  concurrency is capped, unknown logins create no rows, and passkey ceremonies
+  replace prior state per account.
 - Authenticated requests now reject deleted users and use current administrator
   privileges instead of stale access-token claims.
 - Concurrent refresh requests can no longer reuse one token to create multiple

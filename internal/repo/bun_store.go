@@ -15,6 +15,7 @@ import (
 func NewStore(db *bun.DB) *Store {
 	return &Store{
 		Users:         &userRepo{db},
+		Enrollments:   &pendingEnrollmentRepo{db},
 		RefreshTokens: &refreshTokenRepo{db},
 		Contexts:      &contextRepo{db},
 		Projects:      &projectRepo{db},

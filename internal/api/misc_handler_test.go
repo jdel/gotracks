@@ -6,14 +6,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/service"
 )
 
 func TestPublicConfigContainsOnlySupportedCapabilities(t *testing.T) {
 	store := newTestStore(t)
 	settings := service.NewSettingsService(store.Settings, true)
-	h := &metaHandler{settings: settings, passkeys: true, twoFactor: true}
+	authSvc := service.NewAuthService(
+		store.Users,
+		store.RefreshTokens,
+		auth.NewTokenManager([]byte("test"), time.Minute, time.Hour),
+		settings,
+	)
+	h := &metaHandler{settings: settings, auth: authSvc, passkeys: true, twoFactor: true}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/config", nil)
 	rec := httptest.NewRecorder()
@@ -27,9 +35,10 @@ func TestPublicConfigContainsOnlySupportedCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]bool{
-		"allowRegister": true,
-		"passkeys":      true,
-		"twoFactor":     true,
+		"allowRegister":     true,
+		"bootstrapRequired": true,
+		"passkeys":          true,
+		"twoFactor":         true,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("capabilities = %v, want %v", got, want)

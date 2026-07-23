@@ -3,6 +3,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"errors"
 	"time"
 
@@ -18,6 +20,8 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrEmailTaken         = errors.New("email already registered")
 	ErrRegisterDisabled   = errors.New("registration is disabled")
+	ErrBootstrapRequired  = errors.New("valid bootstrap secret required")
+	ErrEnrollmentCapacity = errors.New("too many pending enrollments")
 	ErrInvalidRefresh     = errors.New("invalid or expired refresh token")
 	// ErrAccountLocked is returned once a login has failed too many times in a
 	// row. It is deliberately distinct from ErrInvalidCredentials so the user is
@@ -53,6 +57,10 @@ type AuthService struct {
 	// prefs is optional too, and only used to record the language chosen at
 	// registration. Nil simply leaves the account on the default.
 	prefs repo.PreferenceRepo
+	// enrollments holds public signups before mailbox proof. bootstrapSecret is
+	// required only while the users table is empty.
+	enrollments     repo.PendingEnrollmentRepo
+	bootstrapSecret string
 }
 
 // SetLoginAttempts enables per-account lockout. Wired separately so the
@@ -62,6 +70,13 @@ func (s *AuthService) SetLoginAttempts(a repo.LoginAttemptRepo) { s.attempts = a
 // SetPreferences enables storing the language picked on the registration form.
 // Wired separately for the same reason as the above.
 func (s *AuthService) SetPreferences(p repo.PreferenceRepo) { s.prefs = p }
+
+// SetEnrollments enables bounded public enrollment and protects first-admin
+// creation with an operator-supplied secret.
+func (s *AuthService) SetEnrollments(e repo.PendingEnrollmentRepo, bootstrapSecret string) {
+	s.enrollments = e
+	s.bootstrapSecret = bootstrapSecret
+}
 
 // NewAuthService builds an AuthService.
 func NewAuthService(
@@ -100,7 +115,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, locale stri
 	if err := auth.ValidatePassword(password); err != nil {
 		return nil, nil, err
 	}
-	hash, err := auth.HashPassword(password)
+	hash, err := auth.HashPasswordContext(ctx, password)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -115,23 +130,121 @@ func (s *AuthService) Register(ctx context.Context, email, password, locale stri
 	return u, pair, nil
 }
 
-// Enroll creates a pending user with no known password. The public HTTP flow
-// follows this by sending an invitation; accepting it proves the email address
-// and chooses the first usable password.
-func (s *AuthService) Enroll(ctx context.Context, email, locale, timeZone string) (*domain.User, error) {
-	email, count, err := s.registrationIdentity(ctx, email)
+const maxPendingEnrollments = 1000
+
+// BootstrapRequired reports whether the instance still needs its first
+// administrator.
+func (s *AuthService) BootstrapRequired(ctx context.Context) (bool, error) {
+	count, err := s.users.Count(ctx)
+	return count == 0, err
+}
+
+// BeginEnrollment stores a bounded pending signup without hashing a password or
+// creating a user. It returns the raw single-use token for email delivery.
+func (s *AuthService) BeginEnrollment(
+	ctx context.Context, email, locale, timeZone, suppliedBootstrapSecret string,
+) (string, string, error) {
+	if s.enrollments == nil {
+		return "", "", ErrRegisterDisabled
+	}
+	email = auth.NormaliseEmail(email)
+	if err := auth.ValidateEmail(email); err != nil {
+		return "", "", err
+	}
+	count, err := s.users.Count(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	bootstrap := count == 0
+	if bootstrap {
+		want := sha256.Sum256([]byte(s.bootstrapSecret))
+		got := sha256.Sum256([]byte(suppliedBootstrapSecret))
+		if s.bootstrapSecret == "" || subtle.ConstantTimeCompare(want[:], got[:]) != 1 {
+			return "", "", ErrBootstrapRequired
+		}
+	} else {
+		allowed, err := s.settings.AllowRegister(ctx)
+		if err != nil {
+			return "", "", err
+		}
+		if !allowed {
+			return "", "", ErrRegisterDisabled
+		}
+	}
+	if _, err := s.users.ByEmail(ctx, email); err == nil {
+		return "", "", ErrEmailTaken
+	} else if !errors.Is(err, repo.ErrNotFound) {
+		return "", "", err
+	}
+
+	if _, err := time.LoadLocation(timeZone); err != nil {
+		timeZone = "UTC"
+	}
+	raw, err := randomToken()
+	if err != nil {
+		return "", "", err
+	}
+	pending := &domain.PendingEnrollment{
+		Email:     email,
+		TokenHash: auth.HashEmailToken(raw),
+		Locale:    NormaliseLocale(locale),
+		TimeZone:  timeZone,
+		Bootstrap: bootstrap,
+		ExpiresAt: time.Now().Add(invitationTTL),
+		CreatedAt: time.Now(),
+	}
+	if err := s.enrollments.Replace(ctx, pending, maxPendingEnrollments); err != nil {
+		if errors.Is(err, repo.ErrCapacity) {
+			return "", "", ErrEnrollmentCapacity
+		}
+		return "", "", err
+	}
+	return email, raw, nil
+}
+
+// AcceptEnrollment proves mailbox control and atomically creates the account.
+func (s *AuthService) AcceptEnrollment(
+	ctx context.Context, token, password string,
+) (*domain.User, error) {
+	if s.enrollments == nil {
+		return nil, ErrEmailToken
+	}
+	if err := auth.ValidatePassword(password); err != nil {
+		return nil, err
+	}
+	hash, err := auth.HashPasswordContext(ctx, password)
 	if err != nil {
 		return nil, err
 	}
-	placeholder, err := randomToken()
+	pending, user, err := s.enrollments.Activate(ctx, auth.HashEmailToken(token), hash)
 	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, ErrEmailToken
+		}
 		return nil, err
 	}
-	hash, err := auth.HashPassword(placeholder)
-	if err != nil {
-		return nil, err
+	if s.prefs != nil {
+		p := DefaultPreference(user.ID)
+		p.Locale = pending.Locale
+		p.TimeZone = pending.TimeZone
+		p.UpdatedAt = time.Now()
+		if err := s.prefs.Upsert(ctx, p); err != nil {
+			// The account is already active atomically. Preferences have safe
+			// defaults, so do not strand the user by pretending activation
+			// failed after consuming the link.
+			log.Warn().Err(err).Int64("user", user.ID).Msg("could not save enrollment preferences")
+		}
 	}
-	return s.createRegisteredUser(ctx, email, hash, locale, timeZone, count == 0)
+	return user, nil
+}
+
+// EnrollmentPending reports whether token names a live public enrollment.
+func (s *AuthService) EnrollmentPending(ctx context.Context, token string) bool {
+	if s.enrollments == nil {
+		return false
+	}
+	_, err := s.enrollments.ByTokenHash(ctx, auth.HashEmailToken(token))
+	return err == nil
 }
 
 func (s *AuthService) registrationIdentity(ctx context.Context, email string) (string, int, error) {
@@ -219,13 +332,12 @@ func (s *AuthService) AuthenticatePassword(ctx context.Context, email, password 
 		if errors.Is(err, repo.ErrNotFound) {
 			// Do the same Argon2 work as a known account before returning. The
 			// result can never authenticate; only its timing is relevant.
-			_, _ = auth.VerifyPassword(password, dummyPasswordHash)
-			s.recordFailure(ctx, email)
+			_, _ = auth.VerifyPasswordContext(ctx, password, dummyPasswordHash)
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
 	}
-	ok, err := auth.VerifyPassword(password, u.Password)
+	ok, err := auth.VerifyPasswordContext(ctx, password, u.Password)
 	if err != nil || !ok {
 		s.recordFailure(ctx, email)
 		return nil, ErrInvalidCredentials
@@ -304,7 +416,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, current,
 	if err != nil {
 		return nil, err
 	}
-	ok, err := auth.VerifyPassword(current, u.Password)
+	ok, err := auth.VerifyPasswordContext(ctx, current, u.Password)
 	if err != nil || !ok {
 		return nil, ErrInvalidCredentials
 	}
@@ -316,7 +428,7 @@ func (s *AuthService) replacePassword(ctx context.Context, u *domain.User, next 
 	if err := auth.ValidatePassword(next); err != nil {
 		return nil, err
 	}
-	hash, err := auth.HashPassword(next)
+	hash, err := auth.HashPasswordContext(ctx, next)
 	if err != nil {
 		return nil, err
 	}

@@ -77,9 +77,10 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().Bool("db.debug", false, "log every SQL statement")
 
 	cmd.PersistentFlags().String("auth.jwt-secret", "", "signing key for access tokens (generated at startup if unset)")
+	cmd.PersistentFlags().String("auth.bootstrap-secret", "", "secret required to create the first administrator")
 	cmd.PersistentFlags().Duration("auth.access-ttl", 15*time.Minute, "access token lifetime")
 	cmd.PersistentFlags().Duration("auth.refresh-ttl", 30*24*time.Hour, "refresh token lifetime")
-	cmd.PersistentFlags().Bool("auth.allow-register", true, "seed self-registration on first run; an admin changes it in the UI afterwards")
+	cmd.PersistentFlags().Bool("auth.allow-register", false, "seed public registration on first run; an admin changes it in the UI afterwards")
 
 	cmd.PersistentFlags().String("http.addr", ":8080",
 		"HTTP listen address (host:port; bind 127.0.0.1 to accept only proxied traffic)")
@@ -142,7 +143,7 @@ func RootCmd() *cobra.Command {
 	for _, name := range []string{
 		"config", "log-level", "log-format",
 		"db.url", "db.debug",
-		"auth.jwt-secret", "auth.access-ttl", "auth.refresh-ttl", "auth.allow-register",
+		"auth.jwt-secret", "auth.bootstrap-secret", "auth.access-ttl", "auth.refresh-ttl", "auth.allow-register",
 		"http.addr", "http.rate.rps", "http.rate.burst", "http.trusted-proxies", "http.allowed-origins", "http.public-url",
 		"http.tls.enabled", "http.tls.cert", "http.tls.key",
 		"storage.uploads", "storage.max-upload-mb",

@@ -11,6 +11,7 @@ import (
 // metaHandler serves the public health and capability endpoints.
 type metaHandler struct {
 	settings  *service.SettingsService
+	auth      *service.AuthService
 	passkeys  bool
 	twoFactor bool
 }
@@ -38,10 +39,16 @@ func (h *metaHandler) config(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	bootstrapRequired, err := h.auth.BootstrapRequired(r.Context())
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]bool{
-		"allowRegister": allowRegister,
-		"passkeys":      h.passkeys,
-		"twoFactor":     h.twoFactor,
+		"allowRegister":     allowRegister || bootstrapRequired,
+		"bootstrapRequired": bootstrapRequired,
+		"passkeys":          h.passkeys,
+		"twoFactor":         h.twoFactor,
 	})
 }
 

@@ -89,6 +89,7 @@ export interface InstanceSettings {
 
 export interface ServerConfig {
   allowRegister: boolean;
+  bootstrapRequired: boolean;
   passkeys: boolean;
   twoFactor: boolean;
 }

@@ -33,6 +33,23 @@ type User struct {
 	UpdatedAt       time.Time  `bun:"updated_at,notnull" json:"updatedAt"`
 }
 
+// PendingEnrollment is a bounded, unverified public signup. It becomes a User
+// only after the emailed token is redeemed and a password is chosen.
+type PendingEnrollment struct {
+	bun.BaseModel `bun:"table:pending_enrollments,alias:pe"`
+
+	Email     string `bun:"email,pk" json:"-"`
+	TokenHash string `bun:"token_hash,unique,notnull" json:"-"`
+	Locale    string `bun:"locale,notnull" json:"-"`
+	TimeZone  string `bun:"time_zone,notnull" json:"-"`
+	// Bootstrap is true only when the configured first-admin secret was
+	// supplied. Such a token is invalid after any account exists.
+	Bootstrap bool `bun:"bootstrap,notnull" json:"-"`
+
+	ExpiresAt time.Time `bun:"expires_at,notnull" json:"-"`
+	CreatedAt time.Time `bun:"created_at,notnull" json:"-"`
+}
+
 // RefreshToken is a persisted, rotatable refresh token (stored hashed).
 type RefreshToken struct {
 	bun.BaseModel `bun:"table:refresh_tokens,alias:rt"`
@@ -317,10 +334,8 @@ type Preference struct {
 	Theme        string `bun:"theme,notnull" json:"theme"`          // light | dark | system
 	WeekStart    int    `bun:"week_start,notnull" json:"weekStart"` // 0 = Sunday
 	ReviewPeriod int    `bun:"review_period,notnull" json:"reviewPeriod"`
-	// AutoDeleteAttachments is a pointer because this column was added to a
-	// table that already had rows: schema sync adds new columns nullable with
-	// no default (see addMissingColumns), so a plain bool would fail to scan
-	// an existing row's NULL. Nil reads as off, same as false.
+	// AutoDeleteAttachments is a pointer because older databases can contain
+	// NULL in this column. Nil reads as off, same as false.
 	AutoDeleteAttachments *bool     `bun:"auto_delete_attachments" json:"autoDeleteAttachments"`
 	UpdatedAt             time.Time `bun:"updated_at,notnull" json:"updatedAt"`
 }

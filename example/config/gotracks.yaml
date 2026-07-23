@@ -21,10 +21,13 @@ auth:
   # Leave empty and a temporary key is created at startup — every restart then
   # signs everyone out.
   jwt-secret: ""
+  # Required only until the first administrator activates their emailed link.
+  # Generate with: openssl rand -hex 32
+  bootstrap-secret: ""
   access-ttl: 15m
   refresh-ttl: 720h
-  # Seeds self-registration on first run; afterwards the admin UI owns it.
-  allow-register: true
+  # Seeds public registration after bootstrap; afterwards the admin UI owns it.
+  allow-register: false
 
 http:
   # host:port. Use "127.0.0.1:8080" to accept only traffic from a reverse proxy

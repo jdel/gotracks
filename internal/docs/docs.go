@@ -2965,6 +2965,9 @@ const docTemplate = `{
         "api.registerRequest": {
             "type": "object",
             "properties": {
+                "bootstrapSecret": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },

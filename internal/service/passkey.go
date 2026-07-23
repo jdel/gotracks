@@ -115,7 +115,7 @@ func (s *PasskeyService) putCeremony(
 	if err != nil {
 		return "", err
 	}
-	if err := s.ceremonies.Put(ctx, &domain.Ephemeral{
+	if err := s.ceremonies.ReplaceForUser(ctx, &domain.Ephemeral{
 		ID:        id,
 		Kind:      kind,
 		UserID:    userID,

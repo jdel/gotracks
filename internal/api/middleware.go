@@ -189,6 +189,31 @@ type RateLimiter struct {
 	lastSeen map[string]time.Time
 }
 
+// AbuseLimiter combines per-client and process-wide budgets for a costly
+// public route. Distributed callers can evade the first budget but not the
+// second.
+type AbuseLimiter struct {
+	clients *RateLimiter
+	global  *rate.Limiter
+}
+
+func NewAbuseLimiter(clientRPS float64, clientBurst int, globalRPS float64, globalBurst int) *AbuseLimiter {
+	return &AbuseLimiter{
+		clients: NewRateLimiter(clientRPS, clientBurst),
+		global:  rate.NewLimiter(rate.Limit(globalRPS), globalBurst),
+	}
+}
+
+func (l *AbuseLimiter) Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !l.global.Allow() || !l.clients.limiter(clientKey(r)).Allow() {
+			writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // NewRateLimiter builds a per-IP rate limiter and starts a cleanup loop.
 func NewRateLimiter(rps float64, burst int) *RateLimiter {
 	rl := &RateLimiter{

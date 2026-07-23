@@ -99,7 +99,9 @@ func TestMigrateAdoptsCurrentUntrackedSchema(t *testing.T) {
 	if err := bdb.NewRaw("SELECT name FROM bun_migrations ORDER BY name").Scan(ctx, &migrationNames); err != nil {
 		t.Fatal(err)
 	}
-	if len(migrationNames) != 1 || migrationNames[0] != "202607230001" {
+	if len(migrationNames) != 2 ||
+		migrationNames[0] != "202607230001" ||
+		migrationNames[1] != "202607230002" {
 		t.Fatalf("unexpected applied migrations: %v", migrationNames)
 	}
 }

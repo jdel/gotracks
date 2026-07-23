@@ -66,7 +66,7 @@ func (s *AdminService) CreateUser(ctx context.Context, email string, isAdmin boo
 	if err != nil {
 		return nil, err
 	}
-	hash, err := auth.HashPassword(placeholder)
+	hash, err := auth.HashPasswordContext(ctx, placeholder)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (s *AdminService) UpdateUser(ctx context.Context, id int64, email, password
 		if err := auth.ValidatePassword(*password); err != nil {
 			return nil, err
 		}
-		hash, err := auth.HashPassword(*password)
+		hash, err := auth.HashPasswordContext(ctx, *password)
 		if err != nil {
 			return nil, err
 		}

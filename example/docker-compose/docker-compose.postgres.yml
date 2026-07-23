@@ -1,6 +1,6 @@
 # gotracks backed by Postgres.
 #
-#   cp .env.example .env    # then set GOTRACKS_AUTH_JWT_SECRET
+#   cp .env.example .env    # then set both GOTRACKS_AUTH_*_SECRET values
 #   docker compose -f docker-compose.postgres.yml up -d
 services:
   db:

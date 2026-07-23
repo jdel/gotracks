@@ -232,6 +232,8 @@ definitions:
     type: object
   api.registerRequest:
     properties:
+      bootstrapSecret:
+        type: string
       email:
         type: string
       locale:

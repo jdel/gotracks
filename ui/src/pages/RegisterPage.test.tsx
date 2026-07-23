@@ -19,6 +19,11 @@ function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
     registered.push(JSON.parse(String(init?.body ?? "{}")));
     return Promise.resolve({ ok: true, status: 204 } as Response);
   }
+  if (url.includes("/config")) {
+    return Promise.resolve(jsonResponse({
+      allowRegister: true, bootstrapRequired: false, passkeys: false, twoFactor: false,
+    }));
+  }
   if (url.includes("/me")) return Promise.resolve(jsonResponse({}, 401));
   if (url.includes("/preferences")) return Promise.resolve(jsonResponse({}, 401));
   return Promise.resolve(jsonResponse({}, 404));
@@ -70,5 +75,26 @@ describe("registration language", () => {
     expect(registered[0]).not.toHaveProperty("password");
     expect(registered[0].locale).toBe("fr");
     expect(await screen.findByText(/Consultez votre boîte/)).toBeDefined();
+  });
+
+  it("sends the operator secret when bootstrapping the first administrator", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockImplementation((input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/config")) {
+        return Promise.resolve(jsonResponse({
+          allowRegister: true, bootstrapRequired: true, passkeys: false, twoFactor: false,
+        }));
+      }
+      return fakeFetch(input, init);
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText("Email"), "root@example.com");
+    await user.type(await screen.findByLabelText("Bootstrap secret"), "configured-bootstrap-secret");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(registered[0].bootstrapSecret).toBe("configured-bootstrap-secret");
   });
 });

@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/jdel/gotracks/internal/domain"
@@ -24,7 +23,8 @@ type authHandler struct {
 }
 
 type registerRequest struct {
-	Email string `json:"email"`
+	Email           string `json:"email"`
+	BootstrapSecret string `json:"bootstrapSecret"`
 	// Locale is the language picked on the form. Optional: an absent or
 	// unsupported value leaves the account on the default.
 	Locale string `json:"locale"`
@@ -100,17 +100,9 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	u, err := h.auth.Enroll(r.Context(), req.Email, req.Locale, req.TimeZone)
-	if errors.Is(err, service.ErrEmailTaken) {
-		h.email.RequestInvitation(r.Context(), req.Email)
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	if err != nil {
-		writeServiceError(w, err)
-		return
-	}
-	if err := h.email.SendInvitation(r.Context(), u); err != nil {
+	if err := h.email.Enroll(
+		r.Context(), req.Email, req.Locale, req.TimeZone, req.BootstrapSecret,
+	); err != nil {
 		writeServiceError(w, err)
 		return
 	}

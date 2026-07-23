@@ -36,6 +36,7 @@ func configFromViper() (*config.Config, error) {
 		AccessTokenTTL:    viper.GetDuration("auth.access-ttl"),
 		RefreshTokenTTL:   viper.GetDuration("auth.refresh-ttl"),
 		AllowRegister:     viper.GetBool("auth.allow-register"),
+		BootstrapSecret:   viper.GetString("auth.bootstrap-secret"),
 		RateLimitRPS:      viper.GetFloat64("http.rate.rps"),
 		RateLimitBurst:    viper.GetInt("http.rate.burst"),
 		PublicURL:         strings.TrimRight(viper.GetString("http.public-url"), "/"),
@@ -114,6 +115,9 @@ func configFromViper() (*config.Config, error) {
 		cfg.JWTSecret = generated
 		log.Warn().Msg("no auth.jwt-secret set; generated a temporary one, every restart signs all users out")
 	}
+	if cfg.BootstrapSecret != "" && len(cfg.BootstrapSecret) < 16 {
+		return nil, fmt.Errorf("auth.bootstrap-secret must be at least 16 characters")
+	}
 	return cfg, nil
 }
 
@@ -145,6 +149,13 @@ func serve(ctx context.Context) error {
 	}
 
 	store := repo.NewStore(database)
+	userCount, err := store.Users.Count(ctx)
+	if err != nil {
+		return err
+	}
+	if userCount == 0 && cfg.BootstrapSecret == "" {
+		return fmt.Errorf("auth.bootstrap-secret is required while the instance has no administrator")
+	}
 	tm := auth.NewTokenManager(cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	settings := service.NewSettingsService(store.Settings, cfg.AllowRegister)
 
@@ -230,6 +241,7 @@ func serve(ctx context.Context) error {
 	// a single source, the other a slow spread across many.
 	authSvc.SetLoginAttempts(store.LoginAttempts)
 	authSvc.SetPreferences(store.Preferences)
+	authSvc.SetEnrollments(store.Enrollments, cfg.BootstrapSecret)
 
 	// The log mailer is a complete development transport: links are printed to
 	// the server log instead of delivered, but invitation, verification,
@@ -315,6 +327,9 @@ func serve(ctx context.Context) error {
 				// runs it; the delete is idempotent.
 				if err := store.Ephemeral.PurgeExpired(ctx, time.Now()); err != nil {
 					log.Warn().Err(err).Msg("could not purge expired sign-in state")
+				}
+				if err := store.Enrollments.PurgeExpired(ctx, time.Now()); err != nil {
+					log.Warn().Err(err).Msg("could not purge expired enrollments")
 				}
 			case <-ctx.Done():
 				return

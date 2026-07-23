@@ -2,9 +2,12 @@ package repo
 
 import (
 	"context"
+	"encoding/binary"
+	"hash/fnv"
 	"time"
 
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
 
 	"github.com/jdel/gotracks/internal/domain"
 )
@@ -17,6 +20,38 @@ func (r *ephemeralRepo) Put(ctx context.Context, e *domain.Ephemeral) error {
 	}
 	_, err := r.db.NewInsert().Model(e).Exec(ctx)
 	return err
+}
+
+func ephemeralLockKey(kind string, userID int64) int64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(kind))
+	var id [8]byte
+	binary.BigEndian.PutUint64(id[:], uint64(userID))
+	_, _ = h.Write(id[:])
+	return int64(h.Sum64() & (1<<63 - 1))
+}
+
+func (r *ephemeralRepo) ReplaceForUser(ctx context.Context, e *domain.Ephemeral) error {
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = time.Now()
+	}
+	return r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if tx.Dialect().Name() == dialect.PG {
+			if _, err := tx.ExecContext(
+				ctx, "SELECT pg_advisory_xact_lock(?)", ephemeralLockKey(e.Kind, e.UserID),
+			); err != nil {
+				return err
+			}
+		}
+		// The delete obtains SQLite's writer lock and invalidates any older
+		// ceremony for this flow/account before the replacement is inserted.
+		if _, err := tx.NewDelete().Model((*domain.Ephemeral)(nil)).
+			Where("kind = ? AND user_id = ?", e.Kind, e.UserID).Exec(ctx); err != nil {
+			return err
+		}
+		_, err := tx.NewInsert().Model(e).Exec(ctx)
+		return err
+	})
 }
 
 // Peek returns a live entry. An expired row is treated as absent rather than

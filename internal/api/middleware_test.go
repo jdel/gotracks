@@ -112,6 +112,40 @@ func TestRateLimiterSeparatesRealClients(t *testing.T) {
 	}
 }
 
+func TestAbuseLimiterEnforcesPerClientBudget(t *testing.T) {
+	limiter := NewAbuseLimiter(0, 1, 1000, 10)
+	handler := limiter.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	for i, want := range []int{http.StatusNoContent, http.StatusTooManyRequests} {
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		req.RemoteAddr = "192.0.2.10:1234"
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != want {
+			t.Fatalf("request %d status = %d, want %d", i+1, rec.Code, want)
+		}
+	}
+}
+
+func TestAbuseLimiterEnforcesGlobalBudgetAcrossClients(t *testing.T) {
+	limiter := NewAbuseLimiter(1000, 10, 0, 2)
+	handler := limiter.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	for i, want := range []int{http.StatusNoContent, http.StatusNoContent, http.StatusTooManyRequests} {
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		req.RemoteAddr = fmt.Sprintf("192.0.2.%d:1234", i+1)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != want {
+			t.Fatalf("request %d status = %d, want %d", i+1, rec.Code, want)
+		}
+	}
+}
+
 // resolved runs a request through RealIP and reports the address it settled on.
 func resolved(t *testing.T, remoteAddr, xff string, trusted []netip.Prefix) string {
 	t.Helper()

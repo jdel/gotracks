@@ -13,6 +13,9 @@ import (
 // ErrNotFound is returned when a lookup matches no row.
 var ErrNotFound = errors.New("repo: not found")
 
+// ErrCapacity is returned when a bounded pending-state table is full.
+var ErrCapacity = errors.New("repo: capacity reached")
+
 // UserRepo stores user accounts.
 type UserRepo interface {
 	Create(ctx context.Context, u *domain.User) error
@@ -23,6 +26,18 @@ type UserRepo interface {
 	List(ctx context.Context) ([]*domain.User, error)
 	Count(ctx context.Context) (int, error)
 	CountAdmins(ctx context.Context) (int, error)
+}
+
+// PendingEnrollmentRepo stores public signups before mailbox proof.
+type PendingEnrollmentRepo interface {
+	// Replace stores at most one live token per email and never permits more
+	// than max live rows globally.
+	Replace(ctx context.Context, pending *domain.PendingEnrollment, max int) error
+	ByTokenHash(ctx context.Context, tokenHash string) (*domain.PendingEnrollment, error)
+	// Activate atomically consumes a live token and creates its user. The first
+	// account requires a bootstrap-authorized row and is the sole first admin.
+	Activate(ctx context.Context, tokenHash, passwordHash string) (*domain.PendingEnrollment, *domain.User, error)
+	PurgeExpired(ctx context.Context, now time.Time) error
 }
 
 // SettingsRepo stores server-wide settings (a single row).
@@ -98,6 +113,8 @@ type UsageReportRepo interface {
 // instance, so a flow started on one can be finished on another.
 type EphemeralRepo interface {
 	Put(ctx context.Context, e *domain.Ephemeral) error
+	// ReplaceForUser keeps one live entry for a flow/account pair.
+	ReplaceForUser(ctx context.Context, e *domain.Ephemeral) error
 	// Peek reads a live entry without consuming it.
 	Peek(ctx context.Context, kind, id string) (*domain.Ephemeral, error)
 	// Take consumes a single-use entry. Exactly one caller can succeed for a
@@ -272,6 +289,7 @@ type NoteRepo interface {
 // Store aggregates all repositories.
 type Store struct {
 	Users         UserRepo
+	Enrollments   PendingEnrollmentRepo
 	RefreshTokens RefreshTokenRepo
 	Contexts      ContextRepo
 	Projects      ProjectRepo

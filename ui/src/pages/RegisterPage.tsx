@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLocale, useT } from "@/lib/i18n";
+import { useServerConfig } from "@/hooks/useSettings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function RegisterPage() {
@@ -14,7 +15,9 @@ export function RegisterPage() {
   // The language is chosen on the sign-in page (it persists on the device), and
   // travels with the signup so the account starts in it.
   const { locale } = useLocale();
+  const { data: config } = useServerConfig();
   const [email, setEmail] = useState("");
+  const [bootstrapSecret, setBootstrapSecret] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -24,7 +27,7 @@ export function RegisterPage() {
     setError("");
     setBusy(true);
     try {
-      await register(email, locale);
+      await register(email, locale, bootstrapSecret || undefined);
       setSent(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("auth.registerFailed"));
@@ -53,11 +56,24 @@ export function RegisterPage() {
                 <Label htmlFor="email">{t("auth.email")}</Label>
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
+              {config?.bootstrapRequired && (
+                <div className="space-y-2">
+                  <Label htmlFor="bootstrap-secret">{t("auth.bootstrapSecret")}</Label>
+                  <Input
+                    id="bootstrap-secret"
+                    type="password"
+                    autoComplete="off"
+                    value={bootstrapSecret}
+                    onChange={(e) => setBootstrapSecret(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">{t("auth.bootstrapSecretHelp")}</p>
+                </div>
+              )}
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button
                 type="submit"
                 className="w-full"
-                disabled={busy || !email.trim()}
+                disabled={busy || !email.trim() || Boolean(config?.bootstrapRequired && !bootstrapSecret)}
               >
                 {busy ? t("auth.creating") : t("auth.createAccount")}
               </Button>

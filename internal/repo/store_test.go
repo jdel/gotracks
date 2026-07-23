@@ -79,6 +79,101 @@ func TestUserCreateAndLookup(t *testing.T) {
 	})
 }
 
+func TestPendingEnrollmentCapacityAndReplacement(t *testing.T) {
+	eachEngine(t, func(t *testing.T, store *repo.Store) {
+		ctx := context.Background()
+		pending := func(email, token string) *domain.PendingEnrollment {
+			return &domain.PendingEnrollment{
+				Email: email, TokenHash: token, Locale: "en", TimeZone: "UTC",
+				ExpiresAt: time.Now().Add(time.Hour), CreatedAt: time.Now(),
+			}
+		}
+		if err := store.Enrollments.Replace(ctx, pending("a@example.com", "a1"), 2); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.Enrollments.Replace(ctx, pending("b@example.com", "b1"), 2); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.Enrollments.Replace(
+			ctx, pending("c@example.com", "c1"), 2,
+		); !errors.Is(err, repo.ErrCapacity) {
+			t.Fatalf("third pending enrollment = %v, want ErrCapacity", err)
+		}
+		if err := store.Enrollments.Replace(ctx, pending("a@example.com", "a2"), 2); err != nil {
+			t.Fatalf("replacement at capacity: %v", err)
+		}
+		if _, err := store.Enrollments.ByTokenHash(ctx, "a1"); !errors.Is(err, repo.ErrNotFound) {
+			t.Fatalf("old token survived replacement: %v", err)
+		}
+		if _, err := store.Enrollments.ByTokenHash(ctx, "a2"); err != nil {
+			t.Fatalf("replacement token missing: %v", err)
+		}
+	})
+}
+
+func TestPendingEnrollmentActivatesOnceUnderConcurrency(t *testing.T) {
+	eachEngine(t, func(t *testing.T, store *repo.Store) {
+		ctx := context.Background()
+		if err := store.Enrollments.Replace(ctx, &domain.PendingEnrollment{
+			Email: "root@example.com", TokenHash: "token", Locale: "en", TimeZone: "UTC",
+			Bootstrap: true, ExpiresAt: time.Now().Add(time.Hour), CreatedAt: time.Now(),
+		}, 10); err != nil {
+			t.Fatal(err)
+		}
+
+		start := make(chan struct{})
+		errs := make(chan error, 2)
+		for range 2 {
+			go func() {
+				<-start
+				_, _, err := store.Enrollments.Activate(ctx, "token", "password-hash")
+				errs <- err
+			}()
+		}
+		close(start)
+		successes := 0
+		for range 2 {
+			if err := <-errs; err == nil {
+				successes++
+			}
+		}
+		if successes != 1 {
+			t.Fatalf("successful activations = %d, want 1", successes)
+		}
+		users, err := store.Users.List(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(users) != 1 || !users[0].IsAdmin {
+			t.Fatalf("users after concurrent activation = %#v", users)
+		}
+	})
+}
+
+func TestEphemeralReplacementBoundsOneFlowPerUser(t *testing.T) {
+	eachEngine(t, func(t *testing.T, store *repo.Store) {
+		ctx := context.Background()
+		for _, id := range []string{"first", "second"} {
+			if err := store.Ephemeral.ReplaceForUser(ctx, &domain.Ephemeral{
+				ID: id, Kind: "passkey-signin", UserID: 42,
+				ExpiresAt: time.Now().Add(time.Minute),
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		count, err := store.Ephemeral.CountForUser(ctx, "passkey-signin", 42)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if count != 1 {
+			t.Fatalf("live ceremonies = %d, want 1", count)
+		}
+		if _, err := store.Ephemeral.Peek(ctx, "passkey-signin", "first"); !errors.Is(err, repo.ErrNotFound) {
+			t.Fatalf("old ceremony survived replacement: %v", err)
+		}
+	})
+}
+
 func TestTwoFactorStepIsConsumedOnce(t *testing.T) {
 	eachEngine(t, func(t *testing.T, store *repo.Store) {
 		ctx := context.Background()

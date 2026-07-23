@@ -79,9 +79,9 @@ func TestLockoutIsPerAccount(t *testing.T) {
 	}
 }
 
-// Counting only real accounts would make username guessing free, and the
-// difference in behaviour would itself reveal which logins exist.
-func TestFailuresAgainstUnknownLoginsAreCounted(t *testing.T) {
+// Arbitrary identifiers must not create durable rows. Dummy Argon2 work still
+// makes each guess expensive and the per-route/IP limits bound its rate.
+func TestFailuresAgainstUnknownLoginsDoNotGrowState(t *testing.T) {
 	svc, store := lockoutFixture(t)
 	ctx := context.Background()
 
@@ -90,12 +90,8 @@ func TestFailuresAgainstUnknownLoginsAreCounted(t *testing.T) {
 			t.Fatalf("attempt %d: want ErrInvalidCredentials, got %v", i+1, err)
 		}
 	}
-	a, err := store.LoginAttempts.Get(ctx, "ghost@example.com")
-	if err != nil {
-		t.Fatalf("no record for an unknown login: %v", err)
-	}
-	if a.LockedUntil == nil {
-		t.Error("an unknown login was never locked, so guessing names is unbounded")
+	if _, err := store.LoginAttempts.Get(ctx, "ghost@example.com"); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("unknown login created durable state: %v", err)
 	}
 }
 
@@ -168,15 +164,18 @@ func TestPurgeDropsStaleRecords(t *testing.T) {
 	svc, store := lockoutFixture(t)
 	ctx := context.Background()
 
-	_, _ = svc.AuthenticatePassword(ctx, "ghost@example.com", "wrong")
-	if _, err := store.LoginAttempts.Get(ctx, "ghost@example.com"); err != nil {
+	if _, _, err := svc.Register(ctx, "known@example.com", goodPassword, ""); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = svc.AuthenticatePassword(ctx, "known@example.com", "wrong")
+	if _, err := store.LoginAttempts.Get(ctx, "known@example.com"); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 	// Everything older than now is stale.
 	if err := store.LoginAttempts.PurgeBefore(ctx, time.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.LoginAttempts.Get(ctx, "ghost@example.com"); !errors.Is(err, repo.ErrNotFound) {
+	if _, err := store.LoginAttempts.Get(ctx, "known@example.com"); !errors.Is(err, repo.ErrNotFound) {
 		t.Errorf("stale record survived the purge: %v", err)
 	}
 }

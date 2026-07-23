@@ -188,9 +188,13 @@ func (s *EmailService) SendInvitation(ctx context.Context, u *domain.User) error
 	if err != nil {
 		return err
 	}
+	return s.sendInvitation(ctx, u.Email, token)
+}
+
+func (s *EmailService) sendInvitation(ctx context.Context, email, token string) error {
 	href := s.link("/accept-invitation", token)
 	return s.mailer.Send(ctx, mail.Message{
-		To:      u.Email,
+		To:      email,
 		Subject: "Your gotracks invitation",
 		Text: "You have been invited to gotracks. Choose your password to activate your account:\n\n" + href +
 			"\n\nThe link is valid for 48 hours and can be used once. If you were not expecting this invitation, ignore this message.",
@@ -198,6 +202,24 @@ func (s *EmailService) SendInvitation(ctx context.Context, u *domain.User) error
 			`<p><a href="` + href + `">Choose my password</a></p>` +
 			`<p>The link is valid for 48 hours and can be used once. If you were not expecting this invitation, ignore this message.</p>`,
 	})
+}
+
+// Enroll stores a bounded public signup and emails its activation token.
+// Existing accounts are intentionally silent to avoid enumeration.
+func (s *EmailService) Enroll(
+	ctx context.Context, email, locale, timeZone, bootstrapSecret string,
+) error {
+	address, token, err := s.auth.BeginEnrollment(
+		ctx, email, locale, timeZone, bootstrapSecret,
+	)
+	if errors.Is(err, ErrEmailTaken) {
+		s.RequestInvitation(ctx, email)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return s.sendInvitation(ctx, address, token)
 }
 
 // RequestInvitation resends enrollment mail without revealing whether the
@@ -417,6 +439,9 @@ func (s *EmailService) ResetPassword(ctx context.Context, token, newPassword str
 func (s *EmailService) AcceptInvitation(ctx context.Context, token, newPassword string) (*domain.User, error) {
 	if err := auth.ValidatePassword(newPassword); err != nil {
 		return nil, err
+	}
+	if s.auth.EnrollmentPending(ctx, token) {
+		return s.auth.AcceptEnrollment(ctx, token, newPassword)
 	}
 	u, err := s.consumeToken(ctx, kindInvitation, token)
 	if err != nil {
