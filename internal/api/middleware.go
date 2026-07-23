@@ -197,6 +197,7 @@ type AbuseLimiter struct {
 	global  *rate.Limiter
 }
 
+// NewAbuseLimiter builds a limiter with per-client and process-wide budgets.
 func NewAbuseLimiter(clientRPS float64, clientBurst int, globalRPS float64, globalBurst int) *AbuseLimiter {
 	return &AbuseLimiter{
 		clients: NewRateLimiter(clientRPS, clientBurst),
@@ -204,6 +205,7 @@ func NewAbuseLimiter(clientRPS float64, clientBurst int, globalRPS float64, glob
 	}
 }
 
+// Middleware rejects requests that exceed either abuse-prevention budget.
 func (l *AbuseLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !l.global.Allow() || !l.clients.limiter(clientKey(r)).Allow() {
