@@ -109,6 +109,17 @@ func (r *refreshTokenRepo) ByHash(ctx context.Context, hash string) (*domain.Ref
 	return t, mapErr(err)
 }
 
+func (r *refreshTokenRepo) Consume(ctx context.Context, hash string) error {
+	res, err := r.db.NewDelete().
+		Model((*domain.RefreshToken)(nil)).
+		Where("token_hash = ?", hash).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	return affected(res)
+}
+
 func (r *refreshTokenRepo) DeleteByHash(ctx context.Context, hash string) error {
 	_, err := r.db.NewDelete().Model((*domain.RefreshToken)(nil)).Where("token_hash = ?", hash).Exec(ctx)
 	return err

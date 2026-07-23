@@ -420,8 +420,14 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*TokenP
 	if err != nil {
 		return nil, ErrInvalidRefresh
 	}
-	// Rotate: delete the used token before issuing a new one.
-	if err := s.refreshTokens.DeleteByHash(ctx, hash); err != nil {
+
+	// Atomically consume the old token before issuing its successor. Several
+	// requests may read the same token, but exactly one delete can affect its
+	// row; every losing request is rejected as a replay.
+	if err := s.refreshTokens.Consume(ctx, hash); err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, ErrInvalidRefresh
+		}
 		return nil, err
 	}
 	return s.issue(ctx, u)

@@ -19,6 +19,8 @@ All notable changes to this project are documented here.
 
 - Authenticated requests now reject deleted users and use current administrator
   privileges instead of stale access-token claims.
+- Concurrent refresh requests can no longer reuse one token to create multiple
+  successor sessions.
 
 ## v0.2.0 - 2026-07-22
 

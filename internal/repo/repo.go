@@ -152,6 +152,9 @@ type StatsRepo interface {
 type RefreshTokenRepo interface {
 	Create(ctx context.Context, t *domain.RefreshToken) error
 	ByHash(ctx context.Context, hash string) (*domain.RefreshToken, error)
+	// Consume atomically removes a single-use token. A token already consumed
+	// by another request returns ErrNotFound.
+	Consume(ctx context.Context, hash string) error
 	DeleteByHash(ctx context.Context, hash string) error
 	DeleteForUser(ctx context.Context, userID int64) error
 }
