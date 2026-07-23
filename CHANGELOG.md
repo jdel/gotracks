@@ -30,6 +30,8 @@ All notable changes to this project are documented here.
   redeem one sign-in challenge more than once.
 - Login failure counters now advance atomically under concurrency, and unknown
   accounts perform the same Argon2 work as known accounts.
+- User-authored text now has server-enforced size limits, and implicit
+  contexts, projects, tags, and recurring actions respect account quotas.
 
 ## v0.2.0 - 2026-07-22
 

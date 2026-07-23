@@ -70,7 +70,7 @@ func (s *ContextService) Get(ctx context.Context, userID, id int64) (*domain.Con
 // Create adds a new context, appended at the end.
 func (s *ContextService) Create(ctx context.Context, userID int64, name, state string) (*domain.Context, error) {
 	name = strings.TrimSpace(name)
-	if name == "" {
+	if err := validateName(name); err != nil {
 		return nil, ErrValidation
 	}
 	if state == "" {
@@ -108,7 +108,11 @@ func (s *ContextService) Update(ctx context.Context, userID, id int64, name, sta
 		return nil, err
 	}
 	if name != "" {
-		c.Name = strings.TrimSpace(name)
+		name = strings.TrimSpace(name)
+		if err := validateName(name); err != nil {
+			return nil, err
+		}
+		c.Name = name
 	}
 	if state != "" {
 		if !validContextState(state) {

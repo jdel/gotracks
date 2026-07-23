@@ -59,7 +59,7 @@ func (s *TodoService) SetProjects(p repo.ProjectRepo) { s.projects = p }
 // applyNames resolves any name-based context/project on the input into ids,
 // creating what does not exist. Explicit ids always win over names.
 func (s *TodoService) applyNames(ctx context.Context, userID int64, in *TodoInput) error {
-	resolver := nameResolver{contexts: s.contexts, projects: s.projects}
+	resolver := nameResolver{contexts: s.contexts, projects: s.projects, quotas: s.quotas}
 	projectName := in.ProjectName
 	if in.ClearProject {
 		projectName = nil
@@ -119,7 +119,7 @@ func (s *TodoService) Get(ctx context.Context, userID, id int64) (*domain.Todo, 
 
 // Create adds a new action. A future show_from defers it (tickler).
 func (s *TodoService) Create(ctx context.Context, userID int64, in TodoInput) (*domain.Todo, error) {
-	if in.Description == nil || strings.TrimSpace(*in.Description) == "" {
+	if err := validateTodoInput(in, true); err != nil {
 		return nil, ErrValidation
 	}
 	// Names are resolved (and created) before the id is required.
@@ -140,7 +140,7 @@ func (s *TodoService) Create(ctx context.Context, userID int64, in TodoInput) (*
 		return nil, err
 	}
 	if in.HasTags {
-		if err := s.quotas.CheckTags(ctx, userID, len(normalizeTags(in.Tags))); err != nil {
+		if err := s.quotas.CheckTags(ctx, userID, normalizeTags(in.Tags)); err != nil {
 			return nil, err
 		}
 	}
@@ -191,6 +191,9 @@ func (s *TodoService) Create(ctx context.Context, userID int64, in TodoInput) (*
 
 // Update applies a partial change to a todo.
 func (s *TodoService) Update(ctx context.Context, userID, id int64, in TodoInput) (*domain.Todo, error) {
+	if err := validateTodoInput(in, false); err != nil {
+		return nil, err
+	}
 	t, err := s.todos.ByID(ctx, userID, id)
 	if err != nil {
 		return nil, err
@@ -214,7 +217,7 @@ func (s *TodoService) Update(ctx context.Context, userID, id int64, in TodoInput
 		t.ProjectID = in.ProjectID
 	}
 	if in.HasTags {
-		if err := s.quotas.CheckTags(ctx, userID, len(normalizeTags(in.Tags))); err != nil {
+		if err := s.quotas.CheckTags(ctx, userID, normalizeTags(in.Tags)); err != nil {
 			return nil, err
 		}
 	}
@@ -393,4 +396,24 @@ func normalizeTags(names []string) []string {
 		out = append(out, n)
 	}
 	return out
+}
+
+func validateTodoInput(in TodoInput, creating bool) error {
+	if creating && in.Description == nil {
+		return ErrValidation
+	}
+	if in.Description != nil {
+		if err := validateRequired(*in.Description, MaxDescriptionCharacters); err != nil {
+			return err
+		}
+	}
+	if err := validateOptional(in.Notes, MaxNotesCharacters); err != nil {
+		return err
+	}
+	for _, name := range normalizeTags(in.Tags) {
+		if err := validateName(name); err != nil {
+			return err
+		}
+	}
+	return nil
 }

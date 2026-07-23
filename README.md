@@ -104,6 +104,15 @@ dashes replaced by underscores.
 | `--mail.mailjet.api-key` / `.secret-key` | `GOTRACKS_MAIL_MAILJET_API_KEY` / `_SECRET_KEY` | — | Mailjet key pair |
 | `--mail.resend.api-key` | `GOTRACKS_MAIL_RESEND_API_KEY` | — | Resend API key |
 
+### Stored text limits
+
+User-authored text is bounded by Unicode character count so row quotas also
+bound database growth. Context, project, tag and passkey names, plus attachment
+filenames and attachment content types allow 200 characters; action, recurrence
+and project descriptions allow 1,000; note bodies and action/recurrence notes
+allow 1,000. These limits are enforced by the API and cannot be disabled by
+configuration.
+
 ### Usage report
 
 `GET /api/v1/admin/reports/usage` returns every account's consumption, served

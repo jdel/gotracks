@@ -159,11 +159,12 @@ func (s *QuotaService) CheckRecurring(ctx context.Context, userID int64) error {
 //
 // The per-request cap matters most: tags are created as a side effect of an
 // action's tag list, so one request could otherwise write thousands of rows.
-func (s *QuotaService) CheckTags(ctx context.Context, userID int64, adding int) error {
+func (s *QuotaService) CheckTags(ctx context.Context, userID int64, names []string) error {
 	if s == nil {
 		return nil
 	}
-	if s.quotas.TagsPerTodo > 0 && adding > s.quotas.TagsPerTodo {
+	names = normalizeTags(names)
+	if s.quotas.TagsPerTodo > 0 && len(names) > s.quotas.TagsPerTodo {
 		return &QuotaError{
 			Resource: "tags on one action",
 			Limit:    fmt.Sprintf("%d", s.quotas.TagsPerTodo),
@@ -173,11 +174,28 @@ func (s *QuotaService) CheckTags(ctx context.Context, userID int64, adding int) 
 	if s.quotas.Tags <= 0 {
 		return nil
 	}
-	used, err := s.tags.CountForUser(ctx, userID)
+	existing, err := s.tags.List(ctx, userID)
 	if err != nil {
 		return err
 	}
-	return checkCount(s.quotas.Tags, used, "tags", "Remove tags you no longer use.")
+	known := make(map[string]struct{}, len(existing))
+	for _, tag := range existing {
+		known[tag.Name] = struct{}{}
+	}
+	adding := 0
+	for _, name := range names {
+		if _, ok := known[name]; !ok {
+			adding++
+		}
+	}
+	if len(existing)+adding <= s.quotas.Tags {
+		return nil
+	}
+	return &QuotaError{
+		Resource: "tags",
+		Limit:    fmt.Sprintf("%d", s.quotas.Tags),
+		Remedy:   "Remove tags you no longer use.",
+	}
 }
 
 // CheckStorage reports whether adding size bytes would exceed the allowance.

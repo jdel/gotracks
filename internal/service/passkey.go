@@ -366,9 +366,13 @@ func encodeCredential(c *webauthn.Credential, userID int64, name string) (*domai
 	if strings.TrimSpace(name) == "" {
 		name = "Passkey"
 	}
+	name = strings.TrimSpace(name)
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
 	return &domain.Credential{
 		UserID:          userID,
-		Name:            strings.TrimSpace(name),
+		Name:            name,
 		CredentialID:    base64.RawURLEncoding.EncodeToString(c.ID),
 		PublicKey:       base64.RawURLEncoding.EncodeToString(c.PublicKey),
 		AttestationType: c.AttestationType,

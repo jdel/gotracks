@@ -59,6 +59,13 @@ func (s *AttachmentService) ListAll(ctx context.Context, userID int64) ([]*domai
 func (s *AttachmentService) Save(
 	ctx context.Context, userID, todoID int64, fileName, contentType string, src io.Reader,
 ) (*domain.Attachment, error) {
+	fileName = filepath.Base(fileName)
+	if err := validateRequired(fileName, MaxFileNameCharacters); err != nil {
+		return nil, err
+	}
+	if !withinCharacters(contentType, MaxContentTypeCharacters) {
+		return nil, ErrValidation
+	}
 	if _, err := s.todos.ByID(ctx, userID, todoID); err != nil {
 		return nil, err
 	}
@@ -107,7 +114,7 @@ func (s *AttachmentService) Save(
 	a := &domain.Attachment{
 		UserID:      userID,
 		TodoID:      todoID,
-		FileName:    filepath.Base(fileName),
+		FileName:    fileName,
 		ContentType: contentType,
 		Size:        written,
 		StoredName:  stored,

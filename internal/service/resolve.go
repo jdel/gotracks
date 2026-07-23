@@ -16,6 +16,7 @@ import (
 type nameResolver struct {
 	contexts repo.ContextRepo
 	projects repo.ProjectRepo
+	quotas   *QuotaService
 }
 
 // checkProject verifies that an explicitly supplied project id exists and
@@ -36,12 +37,15 @@ func (r nameResolver) Context(ctx context.Context, userID int64, name string) (i
 	// The composer sigil is not part of the name: store it bare, exactly as the
 	// manual "add context" form does (and mirroring how Project strips "#").
 	name = strings.TrimPrefix(strings.TrimSpace(name), "@")
-	if name == "" || r.contexts == nil {
+	if validateName(name) != nil || r.contexts == nil {
 		return 0, ErrValidation
 	}
 	if existing, err := r.contexts.ByName(ctx, userID, name); err == nil {
 		return existing.ID, nil
 	} else if !errors.Is(err, repo.ErrNotFound) {
+		return 0, err
+	}
+	if err := r.quotas.CheckContext(ctx, userID); err != nil {
 		return 0, err
 	}
 
@@ -67,12 +71,16 @@ func (r nameResolver) Context(ctx context.Context, userID int64, name string) (i
 // Project returns the id of the named project, creating it if needed.
 func (r nameResolver) Project(ctx context.Context, userID int64, name string) (int64, error) {
 	name = strings.TrimSpace(name)
-	if name == "" || r.projects == nil {
+	name = strings.TrimPrefix(name, "#")
+	if validateName(name) != nil || r.projects == nil {
 		return 0, ErrValidation
 	}
 	if existing, err := r.projects.ByName(ctx, userID, name); err == nil {
 		return existing.ID, nil
 	} else if !errors.Is(err, repo.ErrNotFound) {
+		return 0, err
+	}
+	if err := r.quotas.CheckProject(ctx, userID); err != nil {
 		return 0, err
 	}
 
@@ -84,7 +92,7 @@ func (r nameResolver) Project(ctx context.Context, userID int64, name string) (i
 	// Projects keep the name as typed; "#" is only composer syntax.
 	p := &domain.Project{
 		UserID:    userID,
-		Name:      strings.TrimPrefix(name, "#"),
+		Name:      name,
 		State:     domain.StateActive,
 		Position:  max + 1,
 		CreatedAt: now,

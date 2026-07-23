@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jdel/gotracks/internal/domain"
 	"github.com/jdel/gotracks/internal/repo"
@@ -76,7 +77,7 @@ func TestQuotaMessageNamesLimitAndRemedy(t *testing.T) {
 
 	// The per-request tag cap is a different shape — it bounds one action, not
 	// the account — so it needs its own wording rather than the shared one.
-	tagErr := quotas.CheckTags(ctx, 1, 3)
+	tagErr := quotas.CheckTags(ctx, 1, []string{"a", "b", "c"})
 	for _, want := range []string{"2 tags on one action", "Use fewer tags"} {
 		if !strings.Contains(tagErr.Error(), want) {
 			t.Errorf("tags-per-action message missing %q: %v", want, tagErr)
@@ -277,5 +278,142 @@ func TestAccountTagTotalIsEnforced(t *testing.T) {
 		Tags: []string{"c"}, HasTags: true,
 	}); !errors.Is(err, service.ErrQuotaExceeded) {
 		t.Fatalf("account tag total not enforced: %v", err)
+	}
+}
+
+func TestTagQuotaCountsOnlyNewNames(t *testing.T) {
+	todoSvc, _, _, ctxID := quotaFixture(t, service.Quotas{Tags: 3, TagsPerTodo: 10})
+	ctx := context.Background()
+
+	if _, err := todoSvc.Create(ctx, 1, service.TodoInput{
+		ContextID: &ctxID, Description: strPtr("fills the tag quota"),
+		Tags: []string{"a", "b", "c"}, HasTags: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := todoSvc.Create(ctx, 1, service.TodoInput{
+		ContextID: &ctxID, Description: strPtr("reuses existing tags"),
+		Tags: []string{"a", "b"}, HasTags: true,
+	}); err != nil {
+		t.Fatalf("existing tags were charged against the total again: %v", err)
+	}
+}
+
+func TestTagQuotaIncludesEveryNewNameInRequest(t *testing.T) {
+	todoSvc, _, _, ctxID := quotaFixture(t, service.Quotas{Tags: 3, TagsPerTodo: 10})
+	ctx := context.Background()
+
+	if _, err := todoSvc.Create(ctx, 1, service.TodoInput{
+		ContextID: &ctxID, Description: strPtr("existing tags"),
+		Tags: []string{"a", "b"}, HasTags: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := todoSvc.Create(ctx, 1, service.TodoInput{
+		ContextID: &ctxID, Description: strPtr("too many new tags"),
+		Tags: []string{"b", "c", "d"}, HasTags: true,
+	}); !errors.Is(err, service.ErrQuotaExceeded) {
+		t.Fatalf("incoming new tags bypassed the account total: %v", err)
+	}
+}
+
+func TestImplicitNamesRespectContextAndProjectQuotas(t *testing.T) {
+	todoSvc, quotas, store, ctxID := quotaFixture(t, service.Quotas{Contexts: 1, Projects: 1})
+	todoSvc.SetProjects(store.Projects)
+	ctx := context.Background()
+
+	contextName := "over context limit"
+	if _, err := todoSvc.Create(ctx, 1, service.TodoInput{
+		ContextName: &contextName, Description: strPtr("implicit context"),
+	}); !errors.Is(err, service.ErrQuotaExceeded) {
+		t.Fatalf("implicit context bypassed its quota: %v", err)
+	}
+
+	projectName := "existing"
+	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projects.SetQuotas(quotas)
+	if _, err := projects.Create(ctx, 1, service.ProjectInput{Name: &projectName}); err != nil {
+		t.Fatal(err)
+	}
+	anotherProject := "over project limit"
+	if _, err := todoSvc.Create(ctx, 1, service.TodoInput{
+		ContextID: &ctxID, ProjectName: &anotherProject, Description: strPtr("implicit project"),
+	}); !errors.Is(err, service.ErrQuotaExceeded) {
+		t.Fatalf("implicit project bypassed its quota: %v", err)
+	}
+	if _, err := projects.ResolveByName(ctx, 1, "note project"); !errors.Is(err, service.ErrQuotaExceeded) {
+		t.Fatalf("note project resolution bypassed its quota: %v", err)
+	}
+
+	recurring := newRecurringService(t, store)
+	recurring.SetProjects(store.Projects)
+	recurring.SetQuotas(quotas)
+	period := domain.PeriodDaily
+	if _, err := recurring.Create(ctx, 1, service.RecurringInput{
+		ContextID: &ctxID, ProjectName: strPtr("recurring project"),
+		Description: strPtr("recurring"), Period: &period,
+	}); !errors.Is(err, service.ErrQuotaExceeded) {
+		t.Fatalf("recurring project resolution bypassed its quota: %v", err)
+	}
+}
+
+func TestRecurringSpawnRespectsTodoQuota(t *testing.T) {
+	todoSvc, quotas, store, ctxID := quotaFixture(t, service.Quotas{Todos: 1})
+	ctx := context.Background()
+	if _, err := todoSvc.Create(ctx, 1, service.TodoInput{
+		ContextID: &ctxID, Description: strPtr("fills action quota"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	recurring := newRecurringService(t, store)
+	recurring.SetQuotas(quotas)
+	period := domain.PeriodDaily
+	if _, err := recurring.Create(ctx, 1, service.RecurringInput{
+		ContextID: &ctxID, Description: strPtr("cannot spawn"), Period: &period,
+	}); !errors.Is(err, service.ErrQuotaExceeded) {
+		t.Fatalf("recurrence bypassed the action quota: %v", err)
+	}
+	count, err := store.Recurring.CountForUser(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("failed recurrence left %d stored pattern(s)", count)
+	}
+}
+
+func TestLaterRecurringSpawnRespectsTodoQuota(t *testing.T) {
+	todoSvc, quotas, store, ctxID := quotaFixture(t, service.Quotas{Todos: 2})
+	ctx := context.Background()
+	if _, err := todoSvc.Create(ctx, 1, service.TodoInput{
+		ContextID: &ctxID, Description: strPtr("ordinary action"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	recurring := newRecurringService(t, store)
+	recurring.SetQuotas(quotas)
+	period := domain.PeriodDaily
+	pattern, err := recurring.Create(ctx, 1, service.RecurringInput{
+		ContextID: &ctxID, Description: strPtr("recurring"), Period: &period,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	todos, err := store.Todos.List(ctx, 1, repo.TodoFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, todo := range todos {
+		if todo.RecurringTodoID != nil {
+			todo.State = domain.StateCompleted
+			if err := store.Todos.Update(ctx, todo); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := recurring.SpawnNext(ctx, 1, pattern.ID, time.Now()); !errors.Is(err, service.ErrQuotaExceeded) {
+		t.Fatalf("later occurrence bypassed the action quota: %v", err)
 	}
 }

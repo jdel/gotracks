@@ -59,7 +59,7 @@ func (e *ProjectNotesInUseError) Error() string { return "project has notes" }
 // not exist yet — the same on-the-fly creation "#project" gets when typed
 // into a todo or a recurring pattern.
 func (s *ProjectService) ResolveByName(ctx context.Context, userID int64, name string) (int64, error) {
-	return nameResolver{projects: s.projects}.Project(ctx, userID, name)
+	return nameResolver{projects: s.projects, quotas: s.quotas}.Project(ctx, userID, name)
 }
 
 // List returns projects (optionally filtered by state) with open-action counts.
@@ -86,7 +86,10 @@ func (s *ProjectService) Get(ctx context.Context, userID, id int64) (*domain.Pro
 
 // Create adds a project, appended at the end.
 func (s *ProjectService) Create(ctx context.Context, userID int64, in ProjectInput) (*domain.Project, error) {
-	if in.Name == nil || strings.TrimSpace(*in.Name) == "" {
+	if in.Name == nil || validateName(*in.Name) != nil {
+		return nil, ErrValidation
+	}
+	if err := validateOptional(in.Description, MaxDescriptionCharacters); err != nil {
 		return nil, ErrValidation
 	}
 	if err := s.quotas.CheckProject(ctx, userID); err != nil {
@@ -132,12 +135,15 @@ func (s *ProjectService) Update(ctx context.Context, userID, id int64, in Projec
 		return nil, err
 	}
 	if in.Name != nil {
-		if strings.TrimSpace(*in.Name) == "" {
+		if err := validateName(*in.Name); err != nil {
 			return nil, ErrValidation
 		}
 		p.Name = strings.TrimSpace(*in.Name)
 	}
 	if in.Description != nil {
+		if err := validateOptional(in.Description, MaxDescriptionCharacters); err != nil {
+			return nil, err
+		}
 		p.Description = *in.Description
 	}
 	if in.State != nil {

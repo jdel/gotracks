@@ -31,7 +31,7 @@ func (s *RecurringService) SetProjects(p repo.ProjectRepo) { s.projects = p }
 
 // applyNames fills ContextID/ProjectID from names, creating what is missing.
 func (s *RecurringService) applyNames(ctx context.Context, userID int64, in *RecurringInput) error {
-	resolver := nameResolver{contexts: s.contexts, projects: s.projects}
+	resolver := nameResolver{contexts: s.contexts, projects: s.projects, quotas: s.quotas}
 	return resolver.Apply(ctx, userID, &in.ContextID, in.ContextName, &in.ProjectID, in.ProjectName)
 }
 
@@ -68,8 +68,8 @@ func (s *RecurringService) Get(ctx context.Context, userID, id int64) (*domain.R
 
 // Create adds a pattern and immediately spawns its first todo if one is due.
 func (s *RecurringService) Create(ctx context.Context, userID int64, in RecurringInput) (*domain.RecurringTodo, error) {
-	if in.Description == nil || strings.TrimSpace(*in.Description) == "" {
-		return nil, ErrValidation
+	if err := validateRecurringInput(in, true); err != nil {
+		return nil, err
 	}
 	if err := s.applyNames(ctx, userID, &in); err != nil {
 		return nil, err
@@ -123,6 +123,16 @@ func (s *RecurringService) Create(ctx context.Context, userID int64, in Recurrin
 	rec.StartFrom = in.StartFrom
 	rec.EndDate = in.EndDate
 
+	// A pattern whose end date is already behind its first occurrence stores
+	// no action, so it does not need an action slot. Every other new pattern
+	// spawns immediately (active or deferred) after it is stored.
+	after := startOfDay(now).AddDate(0, 0, -1)
+	if !NextOccurrence(rec, after).IsZero() {
+		if err := s.quotas.CheckTodo(ctx, userID); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := s.recurring.Create(ctx, rec); err != nil {
 		return nil, err
 	}
@@ -134,6 +144,9 @@ func (s *RecurringService) Create(ctx context.Context, userID int64, in Recurrin
 
 // Update applies a partial change to a pattern.
 func (s *RecurringService) Update(ctx context.Context, userID, id int64, in RecurringInput) (*domain.RecurringTodo, error) {
+	if err := validateRecurringInput(in, false); err != nil {
+		return nil, err
+	}
 	rec, err := s.recurring.ByID(ctx, userID, id)
 	if err != nil {
 		return nil, err
@@ -268,6 +281,9 @@ func (s *RecurringService) spawnIfDue(ctx context.Context, rec *domain.Recurring
 		rec.UpdatedAt = now
 		return false, s.recurring.Update(ctx, rec)
 	}
+	if err := s.quotas.CheckTodo(ctx, rec.UserID); err != nil {
+		return false, err
+	}
 
 	// The instance is always created so the next occurrence is visible somewhere.
 	// If it should not be worked on yet, it lands in the tickler as deferred and
@@ -318,4 +334,40 @@ func validPeriod(p string) bool {
 		return true
 	}
 	return false
+}
+
+func validateRecurringInput(in RecurringInput, creating bool) error {
+	if creating && in.Description == nil {
+		return ErrValidation
+	}
+	if in.Description != nil {
+		if err := validateRequired(*in.Description, MaxDescriptionCharacters); err != nil {
+			return err
+		}
+	}
+	if err := validateOptional(in.Notes, MaxNotesCharacters); err != nil {
+		return err
+	}
+	if in.Weekdays != nil && !validWeekdays(*in.Weekdays) {
+		return ErrValidation
+	}
+	return nil
+}
+
+func validWeekdays(value string) bool {
+	if value == "" {
+		return true
+	}
+	seen := make(map[string]struct{}, 7)
+	for _, day := range strings.Split(value, ",") {
+		day = strings.TrimSpace(day)
+		if len(day) != 1 || day[0] < '0' || day[0] > '6' {
+			return false
+		}
+		if _, exists := seen[day]; exists {
+			return false
+		}
+		seen[day] = struct{}{}
+	}
+	return true
 }

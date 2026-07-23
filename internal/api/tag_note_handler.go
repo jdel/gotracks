@@ -133,6 +133,10 @@ func (h *noteHandler) create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "body is required")
 		return
 	}
+	if err := service.ValidateNoteBody(req.Body); err != nil {
+		writeServiceError(w, err)
+		return
+	}
 	projectID, ok := h.resolveProject(w, r, uid, req)
 	if !ok {
 		return
@@ -182,6 +186,10 @@ func (h *noteHandler) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Body != "" {
+		if err := service.ValidateNoteBody(req.Body); err != nil {
+			writeServiceError(w, err)
+			return
+		}
 		n.Body = req.Body
 	}
 	if req.ClearProject {
