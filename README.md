@@ -19,8 +19,6 @@ starring and reference **notes**.
 - **Database:** SQLite by default, optional external Postgres — same binary
 - **Deploy:** single binary with the frontend embedded, or Docker
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for phase status and the feature backlog.
-
 ## Quick start (development)
 
 ```bash
