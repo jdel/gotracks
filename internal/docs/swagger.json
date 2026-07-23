@@ -3206,7 +3206,7 @@
             "type": "object",
             "properties": {
                 "autoDeleteAttachments": {
-                    "description": "AutoDeleteAttachments is a pointer because this column was added to a\ntable that already had rows: schema sync adds new columns nullable with\nno default (see addMissingColumns), so a plain bool would fail to scan\nan existing row's NULL. Nil reads as off, same as false.",
+                    "description": "AutoDeleteAttachments is a pointer because older databases can contain\nNULL in this column. Nil reads as off, same as false.",
                     "type": "boolean"
                 },
                 "dateFormat": {
