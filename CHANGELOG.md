@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## v0.3.0 - 2026-07-23
 
 ### Breaking changes
 
@@ -26,6 +26,7 @@ All notable changes to this project are documented here.
 
 ### Fixed
 
+- The UI build now supports TypeScript 6.
 - Public authentication work is now bounded by route and process-wide limits;
   public enrollment creates a capped pending record instead of a user, Argon2
   concurrency is capped, unknown logins create no rows, and passkey ceremonies
@@ -40,6 +41,18 @@ All notable changes to this project are documented here.
   accounts perform the same Argon2 work as known accounts.
 - User-authored text now has server-enforced size limits, and implicit
   contexts, projects, tags, and recurring actions respect account quotas.
+
+### Dependencies
+
+- Refreshed UI dependencies with a 48-hour publication safety window, with
+  explicitly reviewed exceptions for React 19.2.8 and
+  `@vitejs/plugin-react` 6.0.4.
+
+### Chore
+
+- Restricted GitHub Actions permissions, refreshed action versions, and
+  removed duplicate pull-request checks.
+- Removed stale planning documents.
 
 ## v0.2.0 - 2026-07-22
 
