@@ -5,6 +5,8 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { AcceptInvitationPage, ResetPasswordPage } from "@/pages/ResetPasswordPage";
 import { VerifyEmailPage } from "@/pages/VerifyEmailPage";
+import { DeleteAccountPage } from "@/pages/DeleteAccountPage";
+import { ChangeEmailPage } from "@/pages/ChangeEmailPage";
 import { ContextsPage } from "@/pages/ContextsPage";
 import { HomePage } from "@/pages/HomePage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
@@ -44,6 +46,8 @@ export function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/delete-account" element={<DeleteAccountPage />} />
+      <Route path="/change-email" element={<ChangeEmailPage />} />
       <Route
         element={
           <RequireAuth>

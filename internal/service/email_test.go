@@ -135,6 +135,118 @@ func TestUnknownTokensAreRejected(t *testing.T) {
 	if err := svc.ResetPassword(ctx, "made-up", emailPassword); !errors.Is(err, service.ErrEmailToken) {
 		t.Errorf("reset accepted an unknown token: %v", err)
 	}
+	if _, err := svc.RedeemAccountDeletion(ctx, "made-up"); !errors.Is(err, service.ErrEmailToken) {
+		t.Errorf("account deletion accepted an unknown token: %v", err)
+	}
+}
+
+func TestAccountDeletionEmailRoundTrip(t *testing.T) {
+	svc, authSvc, store, m := emailFixture(t, true)
+	ctx := context.Background()
+	u, _, err := authSvc.Register(ctx, "alice@example.com", emailPassword, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.SendAccountDeletion(ctx, u.ID); err != nil {
+		t.Fatalf("send deletion email: %v", err)
+	}
+	msg := mustLast(t, m)
+	if msg.To != u.Email || msg.Subject != "Confirm your gotracks account deletion" {
+		t.Fatalf("unexpected deletion message: %#v", msg)
+	}
+	if !strings.Contains(msg.Text, "https://tracks.example.com/delete-account?token=") {
+		t.Fatalf("the deletion link is not absolute:\n%s", msg.Text)
+	}
+	if !strings.Contains(msg.Text, "permanently delete") || !strings.Contains(msg.Text, "cannot be recovered") {
+		t.Fatalf("the deletion message does not explain the irreversible loss:\n%s", msg.Text)
+	}
+
+	token := tokenFrom(t, msg.Text)
+	stored, err := store.Ephemeral.Peek(ctx, "account-deletion", auth.HashEmailToken(token))
+	if err != nil {
+		t.Fatalf("deletion token was not persisted: %v", err)
+	}
+	remaining := time.Until(stored.ExpiresAt)
+	if remaining < 29*time.Minute || remaining > 31*time.Minute {
+		t.Fatalf("deletion token lifetime = %v, want 30m", remaining)
+	}
+
+	userID, err := svc.RedeemAccountDeletion(ctx, token)
+	if err != nil {
+		t.Fatalf("redeem deletion token: %v", err)
+	}
+	if userID != u.ID {
+		t.Fatalf("redeemed user = %d, want %d", userID, u.ID)
+	}
+	if _, err := svc.RedeemAccountDeletion(ctx, token); !errors.Is(err, service.ErrEmailToken) {
+		t.Fatalf("a spent deletion link worked again: %v", err)
+	}
+}
+
+func TestEmailChangeWaitsForNewAddressVerification(t *testing.T) {
+	svc, authSvc, store, m := emailFixture(t, true)
+	ctx := context.Background()
+	u, pair, err := authSvc.Register(ctx, "old@example.com", emailPassword, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.SendEmailChange(ctx, u.ID, "  NEW@Example.com "); err != nil {
+		t.Fatalf("send email change: %v", err)
+	}
+	msg := mustLast(t, m)
+	if msg.To != "new@example.com" || msg.Subject != "Confirm your new gotracks email address" {
+		t.Fatalf("unexpected email-change message: %#v", msg)
+	}
+	if !strings.Contains(msg.Text, "https://tracks.example.com/change-email?token=") {
+		t.Fatalf("the email-change link is not absolute:\n%s", msg.Text)
+	}
+	if _, err := store.Users.ByEmail(ctx, "old@example.com"); err != nil {
+		t.Fatalf("the old email changed before verification: %v", err)
+	}
+
+	token := tokenFrom(t, msg.Text)
+	stored, err := store.Ephemeral.Peek(ctx, "email-change", auth.HashEmailToken(token))
+	if err != nil {
+		t.Fatalf("email-change token was not persisted: %v", err)
+	}
+	if string(stored.Payload) != "new@example.com" {
+		t.Fatalf("stored new email = %q", stored.Payload)
+	}
+
+	if err := svc.ConfirmEmailChange(ctx, token); err != nil {
+		t.Fatalf("confirm email change: %v", err)
+	}
+	if _, err := store.Users.ByEmail(ctx, "new@example.com"); err != nil {
+		t.Fatalf("new email was not saved: %v", err)
+	}
+	if _, err := store.Users.ByEmail(ctx, "old@example.com"); !errors.Is(err, repo.ErrNotFound) {
+		t.Fatalf("old email still resolves: %v", err)
+	}
+	if _, err := authSvc.Refresh(ctx, pair.RefreshToken); !errors.Is(err, service.ErrInvalidRefresh) {
+		t.Fatalf("existing session survived email change: %v", err)
+	}
+	if got := mustLast(t, m); got.To != "old@example.com" || !strings.Contains(got.Text, "changed to new@example.com") {
+		t.Fatalf("old address was not notified: %#v", got)
+	}
+	if err := svc.ConfirmEmailChange(ctx, token); !errors.Is(err, service.ErrEmailToken) {
+		t.Fatalf("a spent email-change link worked again: %v", err)
+	}
+}
+
+func TestEmailChangeRejectsAnAddressAlreadyInUse(t *testing.T) {
+	svc, authSvc, _, m := emailFixture(t, true)
+	ctx := context.Background()
+	u, _, _ := authSvc.Register(ctx, "old@example.com", emailPassword, "")
+	_, _, _ = authSvc.Register(ctx, "taken@example.com", emailPassword, "")
+
+	if err := svc.SendEmailChange(ctx, u.ID, "taken@example.com"); !errors.Is(err, service.ErrEmailTaken) {
+		t.Fatalf("duplicate email change = %v, want ErrEmailTaken", err)
+	}
+	if m.count() != 0 {
+		t.Fatalf("sent %d messages for a duplicate address", m.count())
+	}
 }
 
 // Only a hash is stored, so a database copy yields no working links.
@@ -310,8 +422,12 @@ func TestInvitationSetsPasswordAndVerifiesAddress(t *testing.T) {
 	}
 
 	const password = "Invited-Passw0rd!"
-	if err := svc.AcceptInvitation(ctx, tokenFrom(t, msg.Text), password); err != nil {
+	activated, err := svc.AcceptInvitation(ctx, tokenFrom(t, msg.Text), password)
+	if err != nil {
 		t.Fatalf("accept invitation: %v", err)
+	}
+	if activated.ID != u.ID || activated.EmailVerifiedAt == nil {
+		t.Fatalf("activated account = %#v", activated)
 	}
 	fresh, err := store.Users.ByID(ctx, u.ID)
 	if err != nil {
@@ -413,13 +529,13 @@ func TestInvitationIsSingleUseAndWeakPasswordDoesNotBurnIt(t *testing.T) {
 	}
 	token := tokenFrom(t, mustLast(t, m).Text)
 
-	if err := svc.AcceptInvitation(ctx, token, "weak"); !errors.Is(err, auth.ErrWeakPassword) {
+	if _, err := svc.AcceptInvitation(ctx, token, "weak"); !errors.Is(err, auth.ErrWeakPassword) {
 		t.Fatalf("want ErrWeakPassword, got %v", err)
 	}
-	if err := svc.AcceptInvitation(ctx, token, "Invited-Passw0rd!"); err != nil {
+	if _, err := svc.AcceptInvitation(ctx, token, "Invited-Passw0rd!"); err != nil {
 		t.Fatalf("the rejected password consumed the invitation: %v", err)
 	}
-	if err := svc.AcceptInvitation(ctx, token, "An0ther-Passw0rd!"); !errors.Is(err, service.ErrEmailToken) {
+	if _, err := svc.AcceptInvitation(ctx, token, "An0ther-Passw0rd!"); !errors.Is(err, service.ErrEmailToken) {
 		t.Fatalf("a spent invitation worked again: %v", err)
 	}
 }

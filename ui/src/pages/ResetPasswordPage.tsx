@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useT } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth";
 
 /** Landing page for the link in a password-reset email. */
 export function ResetPasswordPage() {
@@ -27,6 +28,7 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
   const reset = useResetPassword();
   const accept = useAcceptInvitation();
   const navigate = useNavigate();
+  const { establishSession } = useAuth();
   const t = useT();
 
   const [password, setPassword] = useState("");
@@ -42,7 +44,13 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
       return;
     }
     try {
-      await (invitation ? accept : reset).mutateAsync({ token, newPassword: password });
+      if (invitation) {
+        const response = await accept.mutateAsync({ token, newPassword: password });
+        establishSession(response);
+        navigate("/", { replace: true });
+        return;
+      }
+      await reset.mutateAsync({ token, newPassword: password });
       setDone(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("reset.errGeneric"));

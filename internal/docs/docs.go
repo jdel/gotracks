@@ -673,6 +673,78 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/auth/account/deletion/confirm": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Confirm permanent account deletion",
+                "parameters": [
+                    {
+                        "description": "Mailed deletion token",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.tokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "account deleted"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    },
+                    "409": {
+                        "description": "last administrator",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/email/change/confirm": {
+            "post": {
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Confirm a new email address",
+                "parameters": [
+                    {
+                        "description": "Mailed email-change token",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.tokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "email changed"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/email/resend": {
             "post": {
                 "tags": [
@@ -745,8 +817,11 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "account activated"
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.authResponse"
+                        }
                     },
                     "400": {
                         "description": "Bad Request",
@@ -1307,6 +1382,71 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/me/deletion": {
+            "post": {
+                "tags": [
+                    "account"
+                ],
+                "summary": "Request deletion of my account",
+                "responses": {
+                    "204": {
+                        "description": "confirmation email sent"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/me/email-change": {
+            "post": {
+                "tags": [
+                    "account"
+                ],
+                "summary": "Request a change to my email address",
+                "parameters": [
+                    {
+                        "description": "Proposed new email address",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.emailChangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "verification email sent"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/api.errorBody"
                         }
@@ -2662,6 +2802,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.emailChangeRequest": {
+            "type": "object",
+            "properties": {
+                "newEmail": {
                     "type": "string"
                 }
             }

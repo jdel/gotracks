@@ -81,6 +81,39 @@ export const en = {
   "settings.saved": "Saved.",
   "settings.export": "Export your data",
 
+  "accountDeletion.settingsTitle": "Delete your account",
+  "accountDeletion.settingsDescription":
+    "Request a secure email link to permanently delete your account and everything associated with it.",
+  "accountDeletion.settingsButton": "Delete my account",
+  "accountDeletion.requestTitle": "Request permanent account deletion?",
+  "accountDeletion.warning": "All of your data will be lost forever.",
+  "accountDeletion.requestButton": "Email me a deletion link",
+  "accountDeletion.emailSent": "Check your email for the final deletion link. Nothing has been deleted yet.",
+  "accountDeletion.requestError": "The deletion email could not be sent.",
+  "accountDeletion.finalTitle": "Permanently delete your account",
+  "accountDeletion.finalDescription":
+    "This immediately deletes your account, actions, projects, notes, settings, credentials, and uploaded files. There is no recovery period and no undo.",
+  "accountDeletion.exportBeforeDeleting":
+    "Download your JSON export before deleting your account if you want to keep a copy of your data.",
+  "accountDeletion.finalButton": "Permanently delete my account",
+  "accountDeletion.confirmError": "Your account could not be deleted.",
+  "accountDeletion.incomplete": "This deletion link is incomplete.",
+  "accountDeletion.deleted": "Your account has been permanently deleted.",
+  "accountDeletion.returnToSignIn": "Return to sign in",
+
+  "emailChange.settingsTitle": "Change your email",
+  "emailChange.settingsDescription":
+    "We will send a verification link to the new address. Your current email stays active until the link is confirmed.",
+  "emailChange.newEmail": "New email address",
+  "emailChange.send": "Send verification email",
+  "emailChange.sent": "Check the new address for a verification link. Your current email is unchanged until you confirm it.",
+  "emailChange.requestError": "The verification email could not be sent.",
+  "emailChange.confirmTitle": "Confirm your new email",
+  "emailChange.confirming": "Confirming your new email address…",
+  "emailChange.done": "Your email address has been changed. Sign in again with the new address.",
+  "emailChange.incomplete": "This email-change link is incomplete.",
+  "emailChange.confirmError": "Your email address could not be changed.",
+
   "stats.title": "Statistics",
   "stats.subtitle": "How your system is doing.",
   "stats.total": "Total actions",
@@ -577,6 +610,39 @@ export const fr: Partial<Dict> = {
     "Si activé, terminer une action supprime ses pièces jointes sans demander.",
   "settings.saved": "Enregistré.",
   "settings.export": "Exporter vos données",
+
+  "accountDeletion.settingsTitle": "Supprimer votre compte",
+  "accountDeletion.settingsDescription":
+    "Demandez un lien sécurisé par e-mail pour supprimer définitivement votre compte et toutes les données associées.",
+  "accountDeletion.settingsButton": "Supprimer mon compte",
+  "accountDeletion.requestTitle": "Demander la suppression définitive du compte ?",
+  "accountDeletion.warning": "Toutes vos données seront perdues pour toujours.",
+  "accountDeletion.requestButton": "M'envoyer un lien de suppression",
+  "accountDeletion.emailSent": "Consultez votre messagerie pour le lien de suppression final. Rien n'a encore été supprimé.",
+  "accountDeletion.requestError": "L'e-mail de suppression n'a pas pu être envoyé.",
+  "accountDeletion.finalTitle": "Supprimer définitivement votre compte",
+  "accountDeletion.finalDescription":
+    "Cette action supprime immédiatement votre compte, vos actions, projets, notes, réglages, identifiants et fichiers téléversés. Il n'y a ni délai de récupération ni annulation.",
+  "accountDeletion.exportBeforeDeleting":
+    "Téléchargez votre export JSON avant de supprimer votre compte si vous souhaitez conserver une copie de vos données.",
+  "accountDeletion.finalButton": "Supprimer définitivement mon compte",
+  "accountDeletion.confirmError": "Votre compte n'a pas pu être supprimé.",
+  "accountDeletion.incomplete": "Ce lien de suppression est incomplet.",
+  "accountDeletion.deleted": "Votre compte a été définitivement supprimé.",
+  "accountDeletion.returnToSignIn": "Retour à la connexion",
+
+  "emailChange.settingsTitle": "Modifier votre adresse e-mail",
+  "emailChange.settingsDescription":
+    "Nous enverrons un lien de vérification à la nouvelle adresse. Votre adresse actuelle reste active jusqu'à la confirmation du lien.",
+  "emailChange.newEmail": "Nouvelle adresse e-mail",
+  "emailChange.send": "Envoyer l'e-mail de vérification",
+  "emailChange.sent": "Consultez la nouvelle adresse pour le lien de vérification. Votre adresse actuelle reste inchangée jusqu'à sa confirmation.",
+  "emailChange.requestError": "L'e-mail de vérification n'a pas pu être envoyé.",
+  "emailChange.confirmTitle": "Confirmer votre nouvelle adresse e-mail",
+  "emailChange.confirming": "Confirmation de votre nouvelle adresse e-mail…",
+  "emailChange.done": "Votre adresse e-mail a été modifiée. Reconnectez-vous avec la nouvelle adresse.",
+  "emailChange.incomplete": "Ce lien de modification d'adresse e-mail est incomplet.",
+  "emailChange.confirmError": "Votre adresse e-mail n'a pas pu être modifiée.",
 
   "stats.title": "Statistiques",
   "stats.subtitle": "L'état de votre système.",

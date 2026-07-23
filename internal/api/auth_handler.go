@@ -19,6 +19,7 @@ type authHandler struct {
 	twoFactor *service.TwoFactorService
 	passkeys  *service.PasskeyService
 	email     *service.EmailService
+	admin     *service.AdminService
 	quotas    *service.QuotaService
 }
 
@@ -55,6 +56,10 @@ type authResponse struct {
 // either the current password, or a completed passkey assertion.
 type emailRequest struct {
 	Email string `json:"email"`
+}
+
+type emailChangeRequest struct {
+	NewEmail string `json:"newEmail"`
 }
 
 type tokenRequest struct {
@@ -302,6 +307,50 @@ func (h *authHandler) resendVerification(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// requestEmailChange sends a verification link to a proposed new address. The
+// current address stays active until the mailed token is redeemed.
+//
+//	@Summary	Request a change to my email address
+//	@Tags		account
+//	@Security	BearerAuth
+//	@Param		body	body	emailChangeRequest	true	"Proposed new email address"
+//	@Success	204	"verification email sent"
+//	@Failure	400	{object}	errorBody
+//	@Failure	409	{object}	errorBody
+//	@Router		/api/v1/me/email-change [post]
+func (h *authHandler) requestEmailChange(w http.ResponseWriter, r *http.Request) {
+	var req emailChangeRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if err := h.email.SendEmailChange(r.Context(), claimsFrom(r).UserID, req.NewEmail); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// confirmEmailChange replaces the address after the new mailbox is proven.
+//
+//	@Summary	Confirm a new email address
+//	@Tags		auth
+//	@Param		body	body	tokenRequest	true	"Mailed email-change token"
+//	@Success	204	"email changed"
+//	@Failure	400	{object}	errorBody
+//	@Failure	409	{object}	errorBody
+//	@Router		/api/v1/auth/email/change/confirm [post]
+func (h *authHandler) confirmEmailChange(w http.ResponseWriter, r *http.Request) {
+	var req tokenRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if err := h.email.ConfirmEmailChange(r.Context(), req.Token); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // forgotPassword mails a reset link. Always answers 204.
 //
 //	@Summary	Request a password-reset email
@@ -339,12 +388,13 @@ func (h *authHandler) resetPassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// acceptInvitation sets the first password and verifies the invited address.
+// acceptInvitation sets the first password, verifies the invited address and
+// returns the initial authenticated session.
 //
 //	@Summary	Accept a user invitation
 //	@Tags		auth
 //	@Param		body	body	resetPasswordRequest	true	"Invitation token and password"
-//	@Success	204	"account activated"
+//	@Success	200	{object}	authResponse
 //	@Failure	400	{object}	errorBody
 //	@Router		/api/v1/auth/invitation/accept [post]
 func (h *authHandler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
@@ -352,7 +402,63 @@ func (h *authHandler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if err := h.email.AcceptInvitation(r.Context(), req.Token, req.NewPassword); err != nil {
+	u, err := h.email.AcceptInvitation(r.Context(), req.Token, req.NewPassword)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	tokens, err := h.auth.IssueFor(r.Context(), u)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, authResponse{User: u, Tokens: tokens})
+}
+
+// requestAccountDeletion sends a final-confirmation link to the authenticated
+// account's stored address. The request accepts no destination or account ID,
+// so a caller cannot redirect another user's destructive link.
+//
+//	@Summary	Request deletion of my account
+//	@Tags		account
+//	@Security	BearerAuth
+//	@Success	204	"confirmation email sent"
+//	@Failure	401	{object}	errorBody
+//	@Router		/api/v1/me/deletion [post]
+func (h *authHandler) requestAccountDeletion(w http.ResponseWriter, r *http.Request) {
+	userID := claimsFrom(r).UserID
+	if err := h.admin.CanDeleteOwnAccount(r.Context(), userID); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	if err := h.email.SendAccountDeletion(r.Context(), userID); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// confirmAccountDeletion permanently deletes the account authorized by a
+// single-use emailed token. No active session is needed on the landing page.
+//
+//	@Summary	Confirm permanent account deletion
+//	@Tags		auth
+//	@Param		body	body	tokenRequest	true	"Mailed deletion token"
+//	@Success	204	"account deleted"
+//	@Failure	400	{object}	errorBody
+//	@Failure	409	{object}	errorBody	"last administrator"
+//	@Router		/api/v1/auth/account/deletion/confirm [post]
+func (h *authHandler) confirmAccountDeletion(w http.ResponseWriter, r *http.Request) {
+	var req tokenRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	userID, err := h.email.RedeemAccountDeletion(r.Context(), req.Token)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	if err := h.admin.DeleteOwnAccount(r.Context(), userID); err != nil {
 		writeServiceError(w, err)
 		return
 	}

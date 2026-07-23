@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { TwoFactorChallenge, User } from "./types";
+import type { AuthResponse, TwoFactorChallenge, User } from "./types";
 
 export interface AuthContextValue {
   user: User | null;
@@ -14,6 +14,8 @@ export interface AuthContextValue {
   register: (email: string, locale?: string) => Promise<void>;
   /** completeSSO stores tokens handed back by the OIDC callback. */
   completeSSO: (accessToken: string, refreshToken: string) => Promise<void>;
+  /** establishSession stores a complete authenticated API response. */
+  establishSession: (response: AuthResponse) => void;
   /** signInWithPasskey runs the WebAuthn ceremony for the named account. */
   signInWithPasskey: (email: string) => Promise<void>;
   logout: () => void;

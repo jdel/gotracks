@@ -82,6 +82,11 @@ definitions:
       password:
         type: string
     type: object
+  api.emailChangeRequest:
+    properties:
+      newEmail:
+        type: string
+    type: object
   api.emailRequest:
     properties:
       email:
@@ -1151,6 +1156,52 @@ paths:
       summary: Complete a two-factor sign-in
       tags:
       - auth
+  /api/v1/auth/account/deletion/confirm:
+    post:
+      parameters:
+      - description: Mailed deletion token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.tokenRequest'
+      responses:
+        "204":
+          description: account deleted
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+        "409":
+          description: last administrator
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      summary: Confirm permanent account deletion
+      tags:
+      - auth
+  /api/v1/auth/email/change/confirm:
+    post:
+      parameters:
+      - description: Mailed email-change token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.tokenRequest'
+      responses:
+        "204":
+          description: email changed
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      summary: Confirm a new email address
+      tags:
+      - auth
   /api/v1/auth/email/resend:
     post:
       parameters:
@@ -1195,8 +1246,10 @@ paths:
         schema:
           $ref: '#/definitions/api.resetPasswordRequest'
       responses:
-        "204":
-          description: account activated
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.authResponse'
         "400":
           description: Bad Request
           schema:
@@ -1553,6 +1606,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Get the current account
+      tags:
+      - account
+  /api/v1/me/deletion:
+    post:
+      responses:
+        "204":
+          description: confirmation email sent
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Request deletion of my account
+      tags:
+      - account
+  /api/v1/me/email-change:
+    post:
+      parameters:
+      - description: Proposed new email address
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.emailChangeRequest'
+      responses:
+        "204":
+          description: verification email sent
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Request a change to my email address
       tags:
       - account
   /api/v1/me/password:

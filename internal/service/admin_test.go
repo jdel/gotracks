@@ -74,6 +74,9 @@ func TestDeleteUserPurgesEverythingItOwned(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := store.LoginAttempts.RecordFailure(ctx, victim.Email, time.Minute, 10); err != nil {
+		t.Fatal(err)
+	}
 	if err := store.Credentials.Create(ctx, &domain.Credential{
 		UserID: victim.ID, Name: "yubikey", CredentialID: "cred-1",
 		PublicKey: "pk", CreatedAt: time.Now(),
@@ -107,6 +110,9 @@ func TestDeleteUserPurgesEverythingItOwned(t *testing.T) {
 
 	if _, err := store.RefreshTokens.ByHash(ctx, "hash-1"); !errors.Is(err, repo.ErrNotFound) {
 		t.Errorf("refresh token survived user deletion: %v", err)
+	}
+	if _, err := store.LoginAttempts.Get(ctx, victim.Email); !errors.Is(err, repo.ErrNotFound) {
+		t.Errorf("login-attempt history survived user deletion: %v", err)
 	}
 	if creds, err := store.Credentials.ListForUser(ctx, victim.ID); err != nil {
 		t.Error(err)
@@ -189,6 +195,23 @@ func TestDeleteUserLeavesOtherAccountsAlone(t *testing.T) {
 	}
 	if _, err := todoSvc.Get(ctx, 1, keeper.ID); err != nil {
 		t.Fatalf("another user's todo was purged: %v", err)
+	}
+}
+
+func TestDeleteOwnAccountPreservesLastAdmin(t *testing.T) {
+	_, store, _ := newTodoService(t)
+	ctx := context.Background()
+	admin := service.NewAdminService(store, nil)
+
+	u := &domain.User{Email: "root@example.com", Password: "x", IsAdmin: true}
+	if err := store.Users.Create(ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	if err := admin.DeleteOwnAccount(ctx, u.ID); !errors.Is(err, service.ErrLastAdmin) {
+		t.Fatalf("delete last admin = %v, want ErrLastAdmin", err)
+	}
+	if _, err := store.Users.ByID(ctx, u.ID); err != nil {
+		t.Fatalf("last admin was deleted: %v", err)
 	}
 }
 

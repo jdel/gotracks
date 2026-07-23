@@ -162,6 +162,45 @@ func (s *AdminService) DeleteUser(ctx context.Context, callerID, id int64) error
 			return ErrLastAdmin
 		}
 	}
+	return s.purgeAccount(ctx, id)
+}
+
+// DeleteOwnAccount removes the requesting account and everything it owns.
+// Mailbox confirmation is enforced by the HTTP flow before this is called. As
+// with administrator-initiated deletion, the last administrator is preserved
+// so the instance cannot be left without administration by accident.
+func (s *AdminService) DeleteOwnAccount(ctx context.Context, id int64) error {
+	if err := s.CanDeleteOwnAccount(ctx, id); err != nil {
+		return err
+	}
+	return s.purgeAccount(ctx, id)
+}
+
+// CanDeleteOwnAccount checks the administration invariant before a deletion
+// email is sent. DeleteOwnAccount checks again at confirmation time because
+// the set of administrators may change while the link is in flight.
+func (s *AdminService) CanDeleteOwnAccount(ctx context.Context, id int64) error {
+	u, err := s.store.Users.ByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if u.IsAdmin {
+		admins, err := s.store.Users.CountAdmins(ctx)
+		if err != nil {
+			return err
+		}
+		if admins <= 1 {
+			return ErrLastAdmin
+		}
+	}
+	return nil
+}
+
+func (s *AdminService) purgeAccount(ctx context.Context, id int64) error {
+	u, err := s.store.Users.ByID(ctx, id)
+	if err != nil {
+		return err
+	}
 
 	// Credentials first: whatever fails later, the account can no longer be
 	// authenticated with.
@@ -181,6 +220,9 @@ func (s *AdminService) DeleteUser(ctx context.Context, callerID, id int64) error
 		return err
 	}
 	if err := s.store.UsageReports.DeleteForUser(ctx, id); err != nil {
+		return err
+	}
+	if err := s.store.LoginAttempts.Clear(ctx, u.Email); err != nil {
 		return err
 	}
 	// Files on disk, before the rows that name them.

@@ -36,7 +36,7 @@ type Config struct {
 	TLSKey  string
 
 	// PublicURL is the externally reachable base URL, used to build the links
-	// in verification and password-reset mail. Required once mail is enabled:
+	// in verification, password-reset, email-change and deletion mail. Required once mail is enabled:
 	// the server has no other way to know how a browser reaches it, and
 	// deriving it from a request Host header would let an attacker point a
 	// reset link at their own site.

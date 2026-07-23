@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, tokenStore } from "@/lib/api";
 import type {
   AdminUser,
+  AuthResponse,
   Attachment,
   AttachmentWithTodo,
   Preference,
@@ -330,6 +331,35 @@ export async function downloadExport(): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
+// Account deletion is requested from an authenticated session, then completed
+// from the single-use link sent to the account's stored email address.
+export function useRequestAccountDeletion() {
+  return useMutation({
+    mutationFn: () => api.post<void>("/me/deletion", {}),
+  });
+}
+
+export function useConfirmAccountDeletion() {
+  return useMutation({
+    mutationFn: (input: { token: string }) =>
+      api.raw("/auth/account/deletion/confirm", input),
+  });
+}
+
+export function useRequestEmailChange() {
+  return useMutation({
+    mutationFn: (input: { newEmail: string }) =>
+      api.post<void>("/me/email-change", input),
+  });
+}
+
+export function useConfirmEmailChange() {
+  return useMutation({
+    mutationFn: (input: { token: string }) =>
+      api.raw("/auth/email/change/confirm", input),
+  });
+}
+
 // Email verification and password reset. All pre-session, so they use api.raw.
 export function useForgotPassword() {
   return useMutation({
@@ -347,7 +377,7 @@ export function useResetPassword() {
 export function useAcceptInvitation() {
   return useMutation({
     mutationFn: (input: { token: string; newPassword: string }) =>
-      api.raw("/auth/invitation/accept", input),
+      api.raw("/auth/invitation/accept", input) as Promise<AuthResponse>,
   });
 }
 

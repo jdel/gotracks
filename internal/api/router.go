@@ -38,7 +38,7 @@ type Services struct {
 func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.FS) http.Handler {
 	mux := http.NewServeMux()
 
-	ah := &authHandler{auth: svc.Auth, twoFactor: svc.TwoFactor, passkeys: svc.Passkeys, email: svc.Email, quotas: svc.Quotas}
+	ah := &authHandler{auth: svc.Auth, twoFactor: svc.TwoFactor, passkeys: svc.Passkeys, email: svc.Email, admin: svc.Admin, quotas: svc.Quotas}
 	ch := &contextHandler{contexts: svc.Contexts}
 	requireAuth := RequireAuth(tm)
 
@@ -62,16 +62,20 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	if svc.Email != nil {
 		mux.HandleFunc("POST /api/v1/auth/email/verify", ah.verifyEmail)
 		mux.HandleFunc("POST /api/v1/auth/email/resend", ah.resendVerification)
+		mux.HandleFunc("POST /api/v1/auth/email/change/confirm", ah.confirmEmailChange)
 		mux.HandleFunc("POST /api/v1/auth/password/forgot", ah.forgotPassword)
 		mux.HandleFunc("POST /api/v1/auth/password/reset", ah.resetPassword)
 		mux.HandleFunc("POST /api/v1/auth/invitation/accept", ah.acceptInvitation)
+		mux.HandleFunc("POST /api/v1/auth/account/deletion/confirm", ah.confirmAccountDeletion)
 	}
 
 	// Current user (protected).
 	mux.Handle("GET /api/v1/me", requireAuth(http.HandlerFunc(ah.me)))
 	mux.Handle("GET /api/v1/usage", requireAuth(http.HandlerFunc(ah.usage)))
 	mux.Handle("POST /api/v1/me/password", requireAuth(http.HandlerFunc(ah.changePassword)))
+	mux.Handle("POST /api/v1/me/email-change", requireAuth(http.HandlerFunc(ah.requestEmailChange)))
 	mux.Handle("POST /api/v1/me/reauth/passkey/begin", requireAuth(http.HandlerFunc(ah.reauthPasskeyBegin)))
+	mux.Handle("POST /api/v1/me/deletion", requireAuth(http.HandlerFunc(ah.requestAccountDeletion)))
 
 	// Context endpoints (protected).
 	protect := func(h http.HandlerFunc) http.Handler { return requireAuth(h) }

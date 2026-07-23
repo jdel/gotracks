@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html"
 	"net/url"
 	"time"
 
@@ -32,6 +33,8 @@ const (
 	kindEmailVerify   = "email-verify"
 	kindPasswordReset = "password-reset"
 	kindInvitation    = "user-invitation"
+	kindAccountDelete = "account-deletion"
+	kindEmailChange   = "email-change"
 
 	// verifyTTL is generous: people read mail hours later.
 	verifyTTL = 24 * time.Hour
@@ -39,6 +42,11 @@ const (
 	resetTTL = 30 * time.Minute
 	// Invitations may be sent well before somebody checks their mailbox.
 	invitationTTL = 48 * time.Hour
+	// Account-deletion links authorize an irreversible operation and should not
+	// remain useful in an old inbox for long.
+	accountDeletionTTL = 30 * time.Minute
+	// Changing an address requires proving control of the new mailbox.
+	emailChangeTTL = 24 * time.Hour
 
 	// maxLiveTokensPerUser stops repeated requests filling the table.
 	maxLiveTokensPerUser = 5
@@ -104,6 +112,10 @@ func (s *EmailService) MarkVerified(ctx context.Context, u *domain.User) error {
 // life, and a database copy — a backup, a replica, an errant query — should not
 // hand out working reset links.
 func (s *EmailService) issueToken(ctx context.Context, kind string, userID int64, ttl time.Duration) (string, error) {
+	return s.issueTokenWithPayload(ctx, kind, userID, ttl, nil)
+}
+
+func (s *EmailService) issueTokenWithPayload(ctx context.Context, kind string, userID int64, ttl time.Duration, payload []byte) (string, error) {
 	n, err := s.tokens.CountForUser(ctx, kind, userID)
 	if err != nil {
 		return "", err
@@ -122,6 +134,7 @@ func (s *EmailService) issueToken(ctx context.Context, kind string, userID int64
 		ID:        auth.HashEmailToken(raw),
 		Kind:      kind,
 		UserID:    userID,
+		Payload:   payload,
 		ExpiresAt: time.Now().Add(ttl),
 	}); err != nil {
 		return "", err
@@ -262,6 +275,126 @@ func (s *EmailService) RequestReset(ctx context.Context, email string) {
 	}
 }
 
+// SendAccountDeletion mails a single-use link for the signed-in account to
+// confirm its irreversible deletion. The authenticated endpoint supplies the
+// user ID; the destination address is always loaded from the account and can
+// therefore not be redirected by request input.
+func (s *EmailService) SendAccountDeletion(ctx context.Context, userID int64) error {
+	u, err := s.users.ByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	token, err := s.issueToken(ctx, kindAccountDelete, userID, accountDeletionTTL)
+	if err != nil {
+		return err
+	}
+	href := s.link("/delete-account", token)
+	return s.mailer.Send(ctx, mail.Message{
+		To:      u.Email,
+		Subject: "Confirm your gotracks account deletion",
+		Text: "You requested to permanently delete your gotracks account and all of its data:\n\n" + href +
+			"\n\nThe link is valid for 30 minutes and can be used once. " +
+			"Nothing is deleted until you confirm. After confirmation, your account and data cannot be recovered.",
+		HTML: `<p>You requested to permanently delete your gotracks account and all of its data.</p>` +
+			`<p><a href="` + href + `">Review and confirm account deletion</a></p>` +
+			`<p>The link is valid for 30 minutes and can be used once. Nothing is deleted until you confirm. ` +
+			`After confirmation, your account and data cannot be recovered.</p>`,
+	})
+}
+
+// RedeemAccountDeletion consumes a mailed deletion token and returns the
+// account it authorized. The HTTP layer immediately passes the ID to the one
+// account-purge implementation shared with administrator deletion.
+func (s *EmailService) RedeemAccountDeletion(ctx context.Context, token string) (int64, error) {
+	e, err := s.tokens.Take(ctx, kindAccountDelete, auth.HashEmailToken(token))
+	if err != nil {
+		return 0, ErrEmailToken
+	}
+	if _, err := s.users.ByID(ctx, e.UserID); err != nil {
+		return 0, ErrEmailToken
+	}
+	return e.UserID, nil
+}
+
+// SendEmailChange sends proof of the requested address to that new mailbox.
+// The current account address remains unchanged until the link is redeemed.
+func (s *EmailService) SendEmailChange(ctx context.Context, userID int64, newEmail string) error {
+	newEmail = auth.NormaliseEmail(newEmail)
+	if err := auth.ValidateEmail(newEmail); err != nil {
+		return err
+	}
+	u, err := s.users.ByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if u.Email == newEmail {
+		return ErrEmailTaken
+	}
+	if _, err := s.users.ByEmail(ctx, newEmail); err == nil {
+		return ErrEmailTaken
+	} else if !errors.Is(err, repo.ErrNotFound) {
+		return err
+	}
+
+	token, err := s.issueTokenWithPayload(ctx, kindEmailChange, userID, emailChangeTTL, []byte(newEmail))
+	if err != nil {
+		return err
+	}
+	href := s.link("/change-email", token)
+	return s.mailer.Send(ctx, mail.Message{
+		To:      newEmail,
+		Subject: "Confirm your new gotracks email address",
+		Text: "Confirm this address as the new email for your gotracks account:\n\n" + href +
+			"\n\nThe link is valid for 24 hours and can be used once. " +
+			"Your current address remains active until you confirm this one.",
+		HTML: `<p>Confirm this address as the new email for your gotracks account:</p>` +
+			`<p><a href="` + href + `">Confirm my new email address</a></p>` +
+			`<p>The link is valid for 24 hours and can be used once. ` +
+			`Your current address remains active until you confirm this one.</p>`,
+	})
+}
+
+// ConfirmEmailChange proves control of the new mailbox, replaces the account
+// address, revokes existing sessions and notifies the previous address.
+func (s *EmailService) ConfirmEmailChange(ctx context.Context, token string) error {
+	e, err := s.tokens.Take(ctx, kindEmailChange, auth.HashEmailToken(token))
+	if err != nil {
+		return ErrEmailToken
+	}
+	newEmail := string(e.Payload)
+	if err := auth.ValidateEmail(newEmail); err != nil {
+		return ErrEmailToken
+	}
+	if _, err := s.users.ByEmail(ctx, newEmail); err == nil {
+		return ErrEmailTaken
+	} else if !errors.Is(err, repo.ErrNotFound) {
+		return err
+	}
+	u, err := s.users.ByID(ctx, e.UserID)
+	if err != nil {
+		return ErrEmailToken
+	}
+	oldEmail := u.Email
+	if err := s.auth.refreshTokens.DeleteForUser(ctx, u.ID); err != nil {
+		return err
+	}
+	u.Email = newEmail
+	u.UpdatedAt = time.Now()
+	if err := s.users.Update(ctx, u); err != nil {
+		return err
+	}
+	safeNewEmail := html.EscapeString(newEmail)
+	if err := s.mailer.Send(ctx, mail.Message{
+		To:      oldEmail,
+		Subject: "Your gotracks email address was changed",
+		Text:    "The email address for your gotracks account was changed to " + newEmail + ".\n\nIf you did not make this change, contact your instance administrator immediately.",
+		HTML:    `<p>The email address for your gotracks account was changed to ` + safeNewEmail + `.</p><p>If you did not make this change, contact your instance administrator immediately.</p>`,
+	}); err != nil {
+		log.Warn().Err(err).Msg("could not notify previous address of email change")
+	}
+	return nil
+}
+
 // ResetPassword completes a reset.
 //
 // Using the link proves control of the mailbox, so no current password is
@@ -282,18 +415,21 @@ func (s *EmailService) ResetPassword(ctx context.Context, token, newPassword str
 
 // AcceptInvitation activates a pending account. The password is checked before
 // consuming the token so a typo or weak choice does not destroy the invitation.
-func (s *EmailService) AcceptInvitation(ctx context.Context, token, newPassword string) error {
+func (s *EmailService) AcceptInvitation(ctx context.Context, token, newPassword string) (*domain.User, error) {
 	if err := auth.ValidatePassword(newPassword); err != nil {
-		return err
+		return nil, err
 	}
 	u, err := s.consumeToken(ctx, kindInvitation, token)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if u.EmailVerifiedAt != nil {
-		return ErrEmailToken
+		return nil, ErrEmailToken
 	}
-	return s.setPasswordAndVerify(ctx, u, newPassword)
+	if err := s.setPasswordAndVerify(ctx, u, newPassword); err != nil {
+		return nil, err
+	}
+	return s.users.ByID(ctx, u.ID)
 }
 
 // setPasswordAndVerify reloads the user before marking it verified. SetPassword

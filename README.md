@@ -248,22 +248,51 @@ GOTRACKS_MAIL_MAILJET_API_KEY=… GOTRACKS_MAIL_MAILJET_SECRET_KEY=…
 ```
 
 Leave `--mail.provider` unset and messages are written to the log instead of
-being sent, which is what you want in development. Configuration is validated
-at startup, so a missing key or a malformed sender address stops the server
-rather than surfacing when somebody first asks for a password reset.
+being sent, which is what you want in development. These logged messages contain
+fully functional invitation, verification, email-change, deletion and reset
+links, and the same verification rules remain enabled as with a real provider.
+Configuration is validated at startup, so a missing key or a malformed sender
+address stops the server rather than surfacing when somebody first asks for a
+password reset.
+
+Run the development backend at debug level to see the bodies and links. Setting
+the public URL makes the logged links directly clickable:
+
+```bash
+go run . serve --log-level debug --http.public-url http://localhost:8080
+```
 
 `--http.public-url` must be set once a provider is configured: verification,
-invitation and reset links are absolute, and the server refuses to start without
-it rather than guessing from a request header, which an attacker could point at
-their own site.
+invitation, reset, email-change and deletion links are absolute, and the server
+refuses to start without it rather than guessing from a request header, which
+an attacker could point at their own site.
 
 Public enrollment and administrator-created accounts both use invitations
 instead of accepting or generating an initial password. The single-use link is
 stored hashed in the database, expires after 48 hours, and works across server
 instances. Choosing a password through it both activates the account and
-verifies control of the email address. Administrators can resend invitations
-even when public enrollment is disabled. Without a mail provider, development
-invitations are written to the debug log instead of being delivered.
+verifies control of the email address, creates the initial session, and opens
+the application without asking for the same credentials again. Administrators
+can resend invitations even when public enrollment is disabled. Without a mail
+provider, development invitations are written to the debug log instead of
+being delivered.
+
+### Account email and deletion
+
+An account holder can request an email-address change from Settings. The
+current address remains active until a single-use link sent to the new mailbox
+is confirmed. Confirmation revokes existing sessions, requires signing in with
+the new address, and sends a security notice to the previous address.
+
+The bottom of Settings contains the account-deletion danger zone. Requesting
+deletion sends a single-use link to the account's stored email address; the
+link expires after 30 minutes and opens a final page that warns the user,
+then performs the irreversible deletion. The JSON export is placed directly
+above the deletion danger zone in Settings, and its confirmation modal reminds
+the user to keep a copy. The purge removes the account, credentials, sessions,
+preferences, actions, projects, notes, recurrence data, reports, attachment
+records, and uploaded files. The last administrator must appoint another
+administrator before deleting their own account.
 
 **Deliverability is the hard part.** Publish SPF, DKIM and DMARC records for
 the sending domain, or reset mail will land in spam and users will conclude the

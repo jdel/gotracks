@@ -240,7 +240,7 @@ func serve(ctx context.Context) error {
 	// Mail must be able to build absolute links back into the app.
 	if mailer.Name() != "log" && cfg.PublicURL == "" {
 		return fmt.Errorf("http.public-url is required when a mail provider is configured: " +
-			"verification, invitation and reset links have nowhere to point")
+			"account email links have nowhere to point")
 	}
 
 	authSvc := service.NewAuthService(store.Users, store.RefreshTokens, tm, settings)
@@ -249,13 +249,14 @@ func serve(ctx context.Context) error {
 	authSvc.SetLoginAttempts(store.LoginAttempts)
 	authSvc.SetPreferences(store.Preferences)
 
-	// Verification is only enforced when mail can actually be delivered.
-	// Without that guard, a deployment with no provider would refuse every
-	// sign-in it had just created an account for.
+	// The log mailer is a complete development transport: links are printed to
+	// the server log instead of delivered, but invitation, verification,
+	// email-change, deletion and reset rules behave exactly as they do with a
+	// network provider. This keeps local testing representative of production.
 	emailSvc := service.NewEmailService(
-		store.Users, store.Ephemeral, mailer, authSvc, cfg.PublicURL, mailer.Name() != "log")
-	if !emailSvc.VerificationRequired() {
-		log.Warn().Msg("email verification is disabled: no mail provider configured")
+		store.Users, store.Ephemeral, mailer, authSvc, cfg.PublicURL, true)
+	if mailer.Name() == "log" {
+		log.Warn().Msg("mail delivery is using the development log backend; message bodies will be written at debug level")
 	}
 
 	reports := service.NewUsageReportService(store.UsageReports, settings, service.Quotas{

@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+### Added
+
+- Added email-confirmed self-service account deletion with a Settings-side JSON
+  export reminder, final irreversible warning, complete data purge, and
+  protection for the last administrator.
+- Added verified email-address changes. The old address remains active until
+  the new mailbox confirms, existing sessions are revoked, and the previous
+  address receives a security notification.
+- Accepting an account invitation now creates the initial authenticated session
+  and opens the application directly after the password is chosen.
+
 ## v0.2.0 - 2026-07-22
 
 ### Breaking changes

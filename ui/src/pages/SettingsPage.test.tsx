@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { SettingsPage } from "./SettingsPage";
+
+const { requestEmailChange } = vi.hoisted(() => ({
+  requestEmailChange: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("@/components/PasswordSection", () => ({ PasswordSection: () => null }));
 vi.mock("@/components/PasskeySection", () => ({ PasskeySection: () => null }));
@@ -22,6 +27,8 @@ vi.mock("@/hooks/useSettings", () => ({
     isLoading: false,
   }),
   useUpdatePreferences: () => ({ mutate: vi.fn(), isPending: false }),
+  useRequestAccountDeletion: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRequestEmailChange: () => ({ mutateAsync: requestEmailChange, isPending: false }),
   useMyUsage: () => ({
     data: {
       storageBytes: 1024,
@@ -45,12 +52,39 @@ vi.mock("@/hooks/useSettings", () => ({
 }));
 
 describe("SettingsPage usage pane", () => {
-  it("shows account quota usage after the export pane", () => {
+  it("puts export immediately before account deletion", () => {
     render(<SettingsPage />);
 
     const exportTitle = screen.getByText("Export your data");
     const usageTitle = screen.getByText("Usage");
-    expect(exportTitle.compareDocumentPosition(usageTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const deleteTitle = screen.getByText("Delete your account");
+    expect(usageTitle.compareDocumentPosition(exportTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(exportTitle.compareDocumentPosition(deleteTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText("3 of 10")).toBeTruthy();
+  });
+
+  it("puts irreversible account deletion last and confirms before emailing", async () => {
+	const user = userEvent.setup();
+	render(<SettingsPage />);
+
+	const usageTitle = screen.getByText("Usage");
+	const deleteTitle = screen.getByText("Delete your account");
+	expect(usageTitle.compareDocumentPosition(deleteTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+	await user.click(screen.getByRole("button", { name: "Delete my account" }));
+	expect(screen.getByText("All of your data will be lost forever.")).toBeTruthy();
+	expect(screen.getByText("Download your JSON export before deleting your account if you want to keep a copy of your data.")).toBeTruthy();
+	expect(screen.getByRole("button", { name: "Email me a deletion link" })).toBeTruthy();
+  });
+
+  it("keeps the current email until a new address is verified", async () => {
+    const user = userEvent.setup();
+    render(<SettingsPage />);
+
+    await user.type(screen.getByLabelText("New email address"), "new@example.com");
+    await user.click(screen.getByRole("button", { name: "Send verification email" }));
+
+    expect(requestEmailChange).toHaveBeenCalledWith({ newEmail: "new@example.com" });
+    expect(await screen.findByText("Check the new address for a verification link. Your current email is unchanged until you confirm it.")).toBeTruthy();
   });
 });

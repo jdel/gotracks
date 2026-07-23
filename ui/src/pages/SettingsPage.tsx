@@ -1,11 +1,14 @@
-import { useState } from "react";
-import { Download, Check } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Download, Check, Trash2 } from "lucide-react";
 import {
   downloadExport,
   useMyUsage,
   usePreferences,
+  useRequestAccountDeletion,
+  useRequestEmailChange,
   useUpdatePreferences,
 } from "@/hooks/useSettings";
+import { apiMessage } from "@/lib/api";
 import { availableLocales, useLocale, useT } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +21,7 @@ import { PasswordSection } from "@/components/PasswordSection";
 import { PasskeySection } from "@/components/PasskeySection";
 import { TwoFactorSection } from "@/components/TwoFactorSection";
 import { UsageBars } from "@/components/UsageBars";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import type { Preference } from "@/lib/types";
 
 const DATE_FORMATS = [
@@ -33,7 +37,15 @@ export function SettingsPage() {
   const { data: prefs, isLoading } = usePreferences();
   const { data: usage, isLoading: usageLoading, error: usageError } = useMyUsage();
   const update = useUpdatePreferences();
+  const requestDeletion = useRequestAccountDeletion();
+  const requestEmailChange = useRequestEmailChange();
   const [saved, setSaved] = useState(false);
+  const [deletionOpen, setDeletionOpen] = useState(false);
+  const [deletionSent, setDeletionSent] = useState(false);
+  const [deletionError, setDeletionError] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [emailChangeSent, setEmailChangeSent] = useState(false);
+  const [emailChangeError, setEmailChangeError] = useState("");
 
   function set(patch: Partial<Preference>) {
     update.mutate(patch, {
@@ -42,6 +54,30 @@ export function SettingsPage() {
         setTimeout(() => setSaved(false), 1500);
       },
     });
+  }
+
+  async function requestAccountDeletion() {
+    setDeletionError("");
+    try {
+      await requestDeletion.mutateAsync();
+      setDeletionOpen(false);
+      setDeletionSent(true);
+    } catch (err) {
+      setDeletionError(apiMessage(err, t("accountDeletion.requestError")));
+    }
+  }
+
+  async function changeEmail(e: FormEvent) {
+    e.preventDefault();
+    setEmailChangeError("");
+    setEmailChangeSent(false);
+    try {
+      await requestEmailChange.mutateAsync({ newEmail });
+      setEmailChangeSent(true);
+      setNewEmail("");
+    } catch (err) {
+      setEmailChangeError(apiMessage(err, t("emailChange.requestError")));
+    }
   }
 
   if (isLoading || !prefs) {
@@ -160,22 +196,37 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t("emailChange.settingsTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-4" onSubmit={(e) => void changeEmail(e)}>
+            <p className="text-sm text-muted-foreground">{t("emailChange.settingsDescription")}</p>
+            <div className="space-y-2">
+              <Label htmlFor="new-email">{t("emailChange.newEmail")}</Label>
+              <Input
+                id="new-email"
+                type="email"
+                autoComplete="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+            </div>
+            {emailChangeSent && <p className="text-sm text-emerald-600">{t("emailChange.sent")}</p>}
+            {emailChangeError && <p className="text-sm text-destructive">{emailChangeError}</p>}
+            <Button type="submit" variant="outline" disabled={!newEmail || requestEmailChange.isPending}>
+              {requestEmailChange.isPending ? t("common.working") : t("emailChange.send")}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
       <PasswordSection />
 
       <PasskeySection />
 
       <TwoFactorSection />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("settings.export")}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => void downloadExport()}>
-            <Download /> JSON
-          </Button>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -187,6 +238,54 @@ export function SettingsPage() {
           {usage && <UsageBars usage={usage} />}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t("settings.export")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" size="sm" onClick={() => void downloadExport()}>
+            <Download /> JSON
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/60">
+        <CardHeader>
+          <CardTitle className="text-base text-destructive">{t("accountDeletion.settingsTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t("accountDeletion.settingsDescription")}</p>
+          {deletionSent && <p className="text-sm text-emerald-600">{t("accountDeletion.emailSent")}</p>}
+          {deletionError && <p className="text-sm text-destructive">{deletionError}</p>}
+          <Button
+            variant="destructive"
+            size="lg"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              setDeletionError("");
+              setDeletionOpen(true);
+            }}
+          >
+            <Trash2 /> {t("accountDeletion.settingsButton")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <ConfirmDialog
+        open={deletionOpen}
+        onOpenChange={setDeletionOpen}
+        title={t("accountDeletion.requestTitle")}
+        description={
+          <span>
+            <span className="block">{t("accountDeletion.warning")}</span>
+            <span className="mt-2 block">{t("accountDeletion.exportBeforeDeleting")}</span>
+          </span>
+        }
+        confirmLabel={t("accountDeletion.requestButton")}
+        busy={requestDeletion.isPending}
+        onConfirm={() => void requestAccountDeletion()}
+      />
 
     </PageContainer>
   );
