@@ -76,6 +76,11 @@ func NewAuthService(
 	return &AuthService{users: users, refreshTokens: rts, tokens: tm, settings: settings}
 }
 
+// CurrentUser returns the authoritative account state for access-token checks.
+func (s *AuthService) CurrentUser(ctx context.Context, id int64) (*domain.User, error) {
+	return s.users.ByID(ctx, id)
+}
+
 // IssueFor mints a token pair for an already-authenticated user, used by the
 // passkey and SSO flows which verify identity by other means.
 func (s *AuthService) IssueFor(ctx context.Context, u *domain.User) (*TokenPair, error) {

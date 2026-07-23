@@ -14,6 +14,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/jdel/gotracks/internal/auth"
+	"github.com/jdel/gotracks/internal/domain"
 )
 
 type ctxKey int
@@ -26,6 +27,8 @@ const (
 
 // Middleware is a standard net/http middleware.
 type Middleware func(http.Handler) http.Handler
+
+type currentUserLookup func(context.Context, int64) (*domain.User, error)
 
 // Chain applies middlewares so the first listed runs outermost.
 func Chain(h http.Handler, mws ...Middleware) http.Handler {
@@ -235,7 +238,7 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 }
 
 // RequireAuth validates the Bearer access token and stores claims in context.
-func RequireAuth(tm *auth.TokenManager) Middleware {
+func RequireAuth(tm *auth.TokenManager, currentUser currentUserLookup) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			header := r.Header.Get("Authorization")
@@ -249,6 +252,17 @@ func RequireAuth(tm *auth.TokenManager) Middleware {
 				writeError(w, http.StatusUnauthorized, "invalid token")
 				return
 			}
+
+			user, err := currentUser(r.Context(), claims.UserID)
+			if err != nil || user == nil {
+				writeError(w, http.StatusUnauthorized, "invalid token")
+				return
+			}
+
+			// Authorization comes from current account state, never from the
+			// potentially stale role embedded in the access token.
+			claims.IsAdmin = user.IsAdmin
+
 			ctx := context.WithValue(r.Context(), ctxKeyClaims, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

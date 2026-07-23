@@ -15,6 +15,11 @@ All notable changes to this project are documented here.
 - Accepting an account invitation now creates the initial authenticated session
   and opens the application directly after the password is chosen.
 
+### Fixed
+
+- Authenticated requests now reject deleted users and use current administrator
+  privileges instead of stale access-token claims.
+
 ## v0.2.0 - 2026-07-22
 
 ### Breaking changes

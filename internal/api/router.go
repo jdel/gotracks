@@ -40,7 +40,7 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 
 	ah := &authHandler{auth: svc.Auth, twoFactor: svc.TwoFactor, passkeys: svc.Passkeys, email: svc.Email, admin: svc.Admin, quotas: svc.Quotas}
 	ch := &contextHandler{contexts: svc.Contexts}
-	requireAuth := RequireAuth(tm)
+	requireAuth := RequireAuth(tm, svc.Auth.CurrentUser)
 
 	// Health check (public).
 	mh := &metaHandler{settings: svc.Settings, oidc: svc.OIDC != nil, passkeys: svc.Passkeys != nil, twoFactor: svc.TwoFactor != nil}

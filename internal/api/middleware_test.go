@@ -1,15 +1,73 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/config"
+	"github.com/jdel/gotracks/internal/domain"
 )
+
+func TestRequireAuthUsesCurrentAccountState(t *testing.T) {
+	tm := auth.NewTokenManager(
+		[]byte("test-secret"),
+		15*time.Minute,
+		30*24*time.Hour,
+	)
+
+	staleAdminToken, err := tm.NewAccessToken(42, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staleUserToken, err := tm.NewAccessToken(42, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	current := &domain.User{ID: 42}
+	lookup := func(context.Context, int64) (*domain.User, error) {
+		if current == nil {
+			return nil, errors.New("user no longer exists")
+		}
+		return current, nil
+	}
+
+	h := RequireAuth(tm, lookup)(RequireAdmin(http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		},
+	)))
+
+	request := func(token string) int {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	if got := request(staleAdminToken); got != http.StatusForbidden {
+		t.Fatalf("demoted admin status = %d, want %d", got, http.StatusForbidden)
+	}
+
+	current.IsAdmin = true
+	if got := request(staleUserToken); got != http.StatusNoContent {
+		t.Fatalf("promoted user status = %d, want %d", got, http.StatusNoContent)
+	}
+
+	current = nil
+	if got := request(staleAdminToken); got != http.StatusUnauthorized {
+		t.Fatalf("deleted user status = %d, want %d", got, http.StatusUnauthorized)
+	}
+}
 
 // X-Forwarded-For is set by the client. Keying the limiter on it would let one
 // socket mint a fresh bucket per request, leaving login unprotected.
