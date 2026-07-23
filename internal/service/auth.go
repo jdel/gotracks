@@ -44,6 +44,12 @@ const (
 // later SSO sign-in is allowed to reuse.
 const oidcPassword = "!oidc"
 
+// dummyPasswordHash has the same Argon2id parameters and encoded lengths as a
+// real password hash. Its arbitrary all-zero digest is intentionally not a
+// credential; verifying against it only makes unknown-account login perform
+// the same expensive work as a wrong password for an existing account.
+const dummyPasswordHash = "$argon2id$v=19$m=65536,t=1,p=4$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
 // AuthService handles registration, login and token rotation.
 type AuthService struct {
 	users         repo.UserRepo
@@ -282,8 +288,9 @@ func (s *AuthService) AuthenticatePassword(ctx context.Context, email, password 
 	u, err := s.users.ByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
-			// Counted too: otherwise guessing addresses is free, and the
-			// timing difference would say which ones exist.
+			// Do the same Argon2 work as a known account before returning. The
+			// result can never authenticate; only its timing is relevant.
+			_, _ = auth.VerifyPassword(password, dummyPasswordHash)
 			s.recordFailure(ctx, email)
 			return nil, ErrInvalidCredentials
 		}

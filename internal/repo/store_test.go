@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
@@ -105,6 +107,47 @@ func TestTwoFactorStepIsConsumedOnce(t *testing.T) {
 		}
 		if stored.LastStep != 101 {
 			t.Fatalf("last step = %d, want 101", stored.LastStep)
+		}
+	})
+}
+
+func TestLoginFailuresIncrementAtomically(t *testing.T) {
+	eachEngine(t, func(t *testing.T, store *repo.Store) {
+		const failures = 40
+		ctx := context.Background()
+		start := make(chan struct{})
+		errs := make(chan error, failures)
+		var wg sync.WaitGroup
+
+		for range failures {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-start
+				_, err := store.LoginAttempts.RecordFailure(
+					ctx, "alice@example.com", time.Minute, 10,
+				)
+				errs <- err
+			}()
+		}
+		close(start)
+		wg.Wait()
+		close(errs)
+
+		for err := range errs {
+			if err != nil {
+				t.Fatalf("record concurrent failure: %v", err)
+			}
+		}
+		attempt, err := store.LoginAttempts.Get(ctx, "alice@example.com")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if attempt.Failures != failures {
+			t.Fatalf("failures = %d, want %d", attempt.Failures, failures)
+		}
+		if attempt.LockedUntil == nil {
+			t.Fatal("concurrent failures did not lock the account")
 		}
 	})
 }

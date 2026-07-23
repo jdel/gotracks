@@ -227,44 +227,52 @@ func (r *loginAttemptRepo) Get(ctx context.Context, email string) (*domain.Login
 	return a, nil
 }
 
-// RecordFailure increments the counter, locking the login once it reaches the
-// threshold. Read-modify-write rather than an atomic increment: the row is
-// per-login, contention is limited to concurrent guesses at one account, and
-// over-counting under a race errs on the safe side.
+// RecordFailure increments the counter atomically, locking the login once it
+// reaches the threshold.
 func (r *loginAttemptRepo) RecordFailure(
 	ctx context.Context, email string, lockFor time.Duration, threshold int,
 ) (*domain.LoginAttempt, error) {
 	key := normaliseKey(email)
 	now := time.Now()
+	lockedUntil := now.Add(lockFor)
 
-	a, err := r.Get(ctx, key)
-	if errors.Is(err, ErrNotFound) {
-		a = &domain.LoginAttempt{Email: key}
-	} else if err != nil {
-		return nil, err
+	increment := func() (bool, error) {
+		res, err := r.db.NewUpdate().Model((*domain.LoginAttempt)(nil)).
+			Set("failures = failures + 1").
+			Set("locked_until = CASE WHEN failures + 1 >= ? THEN ? ELSE locked_until END",
+				threshold, lockedUntil).
+			Set("updated_at = ?", now).
+			Where("email = ?", key).Exec(ctx)
+		if err != nil {
+			return false, err
+		}
+		n, err := res.RowsAffected()
+		return n > 0, err
 	}
 
-	a.Failures++
-	a.UpdatedAt = now
-	if a.Failures >= threshold {
-		until := now.Add(lockFor)
-		a.LockedUntil = &until
-	}
-
-	res, err := r.db.NewUpdate().Model(a).
-		Column("failures", "locked_until", "updated_at").
-		Where("email = ?", key).Exec(ctx)
+	updated, err := increment()
 	if err != nil {
 		return nil, err
 	}
-	if n, err := res.RowsAffected(); err != nil {
-		return nil, err
-	} else if n == 0 {
+	if !updated {
+		a := &domain.LoginAttempt{Email: key, Failures: 1, UpdatedAt: now}
+		if threshold <= 1 {
+			a.LockedUntil = &lockedUntil
+		}
 		if _, err := r.db.NewInsert().Model(a).Exec(ctx); err != nil {
-			return nil, err
+			// Another request may have inserted the same key after our update
+			// matched nothing. Retrying the atomic increment preserves both
+			// failures without relying on dialect-specific upsert syntax.
+			updated, updateErr := increment()
+			if updateErr != nil {
+				return nil, updateErr
+			}
+			if !updated {
+				return nil, err
+			}
 		}
 	}
-	return a, nil
+	return r.Get(ctx, key)
 }
 
 func (r *loginAttemptRepo) Clear(ctx context.Context, email string) error {

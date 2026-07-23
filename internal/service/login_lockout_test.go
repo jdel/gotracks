@@ -99,6 +99,38 @@ func TestFailuresAgainstUnknownLoginsAreCounted(t *testing.T) {
 	}
 }
 
+func TestUnknownLoginDoesComparablePasswordWork(t *testing.T) {
+	svc, _ := lockoutFixture(t)
+	ctx := context.Background()
+	if _, _, err := svc.Register(ctx, "known@example.com", goodPassword, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	var knownDuration, unknownDuration time.Duration
+	for range 3 {
+		start := time.Now()
+		if _, err := svc.AuthenticatePassword(ctx, "known@example.com", "wrong"); !errors.Is(err, service.ErrInvalidCredentials) {
+			t.Fatalf("known account error = %v, want ErrInvalidCredentials", err)
+		}
+		knownDuration += time.Since(start)
+
+		start = time.Now()
+		if _, err := svc.AuthenticatePassword(ctx, "unknown@example.com", "wrong"); !errors.Is(err, service.ErrInvalidCredentials) {
+			t.Fatalf("unknown account error = %v, want ErrInvalidCredentials", err)
+		}
+		unknownDuration += time.Since(start)
+	}
+
+	// This deliberately uses a broad bound: it detects the old near-instant
+	// unknown-account path without asserting scheduler-sensitive equality.
+	shortest := min(knownDuration, unknownDuration)
+	longest := max(knownDuration, unknownDuration)
+	if shortest*4 < longest {
+		t.Fatalf("password work differs too much: known=%s unknown=%s",
+			knownDuration, unknownDuration)
+	}
+}
+
 // Casing must not reset the counter.
 func TestLockoutIgnoresEmailCasing(t *testing.T) {
 	svc, _ := lockoutFixture(t)

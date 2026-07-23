@@ -23,6 +23,8 @@ All notable changes to this project are documented here.
   successor sessions.
 - Concurrent two-factor requests can no longer reuse one TOTP timestep or
   redeem one sign-in challenge more than once.
+- Login failure counters now advance atomically under concurrency, and unknown
+  accounts perform the same Argon2 work as known accounts.
 
 ## v0.2.0 - 2026-07-22
 
