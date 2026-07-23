@@ -248,9 +248,8 @@ func (s *EmailService) RequestReset(ctx context.Context, email string) {
 	if err != nil {
 		return
 	}
-	// An SSO account has no local password to reset, and an unverified address
-	// has not been proven to belong to whoever is asking.
-	if u.Password == oidcPassword || (s.enforcing && u.EmailVerifiedAt == nil) {
+	// An unverified address has not been proven to belong to whoever is asking.
+	if s.enforcing && u.EmailVerifiedAt == nil {
 		return
 	}
 

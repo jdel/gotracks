@@ -224,7 +224,7 @@ type UsageSnapshot struct {
 }
 
 // Ephemeral is short-lived server-side state addressed by an unguessable
-// token: an OIDC CSRF state, a WebAuthn ceremony, a pending two-factor
+// token: a WebAuthn ceremony, a pending two-factor
 // challenge or enrolment.
 //
 // These all used to live in per-process maps, which is correct for one instance

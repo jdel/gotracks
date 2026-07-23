@@ -11,7 +11,6 @@ import (
 // metaHandler serves the public health and capability endpoints.
 type metaHandler struct {
 	settings  *service.SettingsService
-	oidc      bool
 	passkeys  bool
 	twoFactor bool
 }
@@ -41,7 +40,6 @@ func (h *metaHandler) config(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{
 		"allowRegister": allowRegister,
-		"oidc":          h.oidc,
 		"passkeys":      h.passkeys,
 		"twoFactor":     h.twoFactor,
 	})

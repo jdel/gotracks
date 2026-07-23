@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { KeyRound, Fingerprint, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Fingerprint, ShieldCheck, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { useForgotPassword, useServerConfig } from "@/hooks/useSettings";
@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { TwoFactorChallenge } from "@/lib/types";
 
 export function LoginPage() {
-  const { login, completeTwoFactor, completeSSO, signInWithPasskey } = useAuth();
+  const { login, completeTwoFactor, signInWithPasskey } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,18 +47,6 @@ export function LoginPage() {
   const t = useT();
   const { locale, setLocale } = useLocale();
   const { data: config } = useServerConfig();
-
-  // The OIDC callback hands tokens back in the URL fragment; consume them once.
-  useEffect(() => {
-    if (!window.location.hash.includes("access=")) return;
-    const params = new URLSearchParams(window.location.hash.slice(1));
-    const access = params.get("access");
-    const refresh = params.get("refresh");
-    if (access && refresh) {
-      history.replaceState(null, "", window.location.pathname);
-      void completeSSO(access, refresh).then(() => navigate("/"));
-    }
-  }, [completeSSO, navigate]);
 
   // A passkey identifies the account, but the server still needs to know which
   // account to challenge, so the email field is used to look up its keys.
@@ -235,18 +223,6 @@ export function LoginPage() {
                 onClick={onPasskey}
               >
                 <Fingerprint /> {t("auth.passkeySignIn")}
-              </Button>
-            )}
-            {config?.oidc && (
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  window.location.href = "/api/v1/auth/oidc/start";
-                }}
-              >
-                <KeyRound /> {t("auth.ssoSignIn")}
               </Button>
             )}
             {/* Sign-up is hidden when an admin has closed registration. */}

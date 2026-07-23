@@ -22,7 +22,7 @@ function fakeFetch(input: RequestInfo | URL): Promise<Response> {
     return Promise.resolve(jsonResponse(prefsResponse.body, prefsResponse.status));
   }
   if (url.includes("/config")) {
-    return Promise.resolve(jsonResponse({ allowRegister: true, oidc: false, passkeys: false, twoFactor: false }));
+    return Promise.resolve(jsonResponse({ allowRegister: true, passkeys: false, twoFactor: false }));
   }
   if (url.includes("/me")) return Promise.resolve(jsonResponse({}, 401));
   return Promise.resolve(jsonResponse({}, 404));

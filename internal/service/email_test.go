@@ -343,23 +343,6 @@ func TestResetAndResendAreSilentForUnknownAddresses(t *testing.T) {
 	}
 }
 
-// An SSO account has no local password, so there is nothing to reset and a
-// mail would only be confusing.
-func TestNoResetForSSOAccounts(t *testing.T) {
-	svc, authSvc, _, m := emailFixture(t, true)
-	ctx := context.Background()
-	u, _, err := authSvc.LoginOIDC(ctx, &auth.OIDCUser{Subject: "s", Email: "bob@example.com"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = svc.MarkVerified(ctx, u)
-
-	svc.RequestReset(ctx, "bob@example.com")
-	if m.count() != 0 {
-		t.Error("a reset mail was sent for an SSO-only account")
-	}
-}
-
 // With no mail provider, verification must not be enforced — otherwise a
 // deployment refuses every sign-in for accounts it just created.
 func TestVerificationNotEnforcedWithoutMail(t *testing.T) {

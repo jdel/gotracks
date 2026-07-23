@@ -59,10 +59,3 @@ webauthn:
   rp-id: ""
   rp-origin: ""
   rp-name: gotracks
-
-# Single sign-on. All four fields are required to enable it.
-oidc:
-  issuer: ""
-  client-id: ""
-  client-secret: ""
-  redirect-url: ""

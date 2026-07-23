@@ -95,10 +95,6 @@ dashes replaced by underscores.
 | `--webauthn.rp-id` | `GOTRACKS_WEBAUTHN_RP_ID` | *from public URL* | Passkey relying party id (bare domain); override |
 | `--webauthn.rp-origin` | `GOTRACKS_WEBAUTHN_RP_ORIGIN` | *from public URL* | Passkey origin(s), comma-separated; override |
 | `--webauthn.rp-name` | `GOTRACKS_WEBAUTHN_RP_NAME` | `gotracks` | Name shown in the passkey prompt |
-| `--oidc.issuer` | `GOTRACKS_OIDC_ISSUER` | — | OIDC issuer URL (with the three below) |
-| `--oidc.client-id` | `GOTRACKS_OIDC_CLIENT_ID` | — | OIDC client id |
-| `--oidc.client-secret` | `GOTRACKS_OIDC_CLIENT_SECRET` | — | OIDC client secret |
-| `--oidc.redirect-url` | `GOTRACKS_OIDC_REDIRECT_URL` | — | OIDC redirect URL |
 | `--mail.provider` | `GOTRACKS_MAIL_PROVIDER` | — | `smtp`, `mailjet` or `resend`; empty logs instead of sending |
 | `--mail.from` | `GOTRACKS_MAIL_FROM` | — | Sender address (required when a provider is set) |
 | `--mail.from-name` | `GOTRACKS_MAIL_FROM_NAME` | `gotracks` | Sender display name |
@@ -379,7 +375,7 @@ main.go              entry point (ldflags inject the version)
 cmd/                 cobra commands: root (config, logging), serve, where
 internal/
   api/               router (stdlib mux), middleware, handlers
-  auth/              argon2 passwords, JWT, OIDC
+  auth/              argon2 passwords, JWT
   config/            resolved configuration
   db/                bun setup, driver select, schema sync
   domain/            data models

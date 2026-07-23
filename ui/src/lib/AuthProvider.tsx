@@ -61,11 +61,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
   }
 
-  async function completeSSO(accessToken: string, refreshToken: string) {
-    tokenStore.set({ accessToken, refreshToken, expiresAt: "" });
-    setUser(await api.get<User>("/me"));
-  }
-
   function establishSession(response: AuthResponse) {
     tokenStore.set(response.tokens);
     setUser(response.user);
@@ -80,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, ready, login, completeTwoFactor, register, completeSSO, establishSession, signInWithPasskey, logout }}
+      value={{ user, ready, login, completeTwoFactor, register, establishSession, signInWithPasskey, logout }}
     >
       {children}
     </AuthContext.Provider>

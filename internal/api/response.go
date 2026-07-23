@@ -83,8 +83,6 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	case errors.Is(err, auth.ErrWeakPassword):
 		writeError(w, http.StatusBadRequest,
 			"password must be at least 10 characters and include an uppercase letter, a lowercase letter, a number and a symbol")
-	case errors.Is(err, service.ErrNoLocalPassword):
-		writeError(w, http.StatusConflict, "this account signs in through your identity provider; change the password there")
 	case errors.Is(err, service.ErrTwoFactorChallenge):
 		writeError(w, http.StatusBadRequest, "two-factor challenge expired, please sign in again")
 	case errors.Is(err, service.ErrTwoFactorCode):

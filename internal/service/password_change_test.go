@@ -9,8 +9,7 @@ import (
 	"github.com/jdel/gotracks/internal/service"
 )
 
-// authFixture builds an AuthService over a fresh in-memory database, reusing
-// the constructor helper from auth_oidc_test.go.
+// authFixture builds an AuthService over a fresh in-memory database.
 func authFixture(t *testing.T) *service.AuthService {
 	t.Helper()
 	_, store, _ := newTodoService(t)
@@ -98,21 +97,6 @@ func TestChangePasswordRejectsEmptyNewPassword(t *testing.T) {
 	}
 }
 
-// An SSO account has no local password, so there is nothing to change and the
-// sentinel stored in its place must never be treated as one.
-func TestChangePasswordRefusedForSSOAccount(t *testing.T) {
-	svc := authFixture(t)
-	ctx := context.Background()
-	u, _, err := svc.LoginOIDC(ctx, &auth.OIDCUser{Subject: "sub-1", Email: "bob@example.com"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := svc.ChangePassword(ctx, u.ID, "!oidc", "New-Passw0rd!"); !errors.Is(err, service.ErrNoLocalPassword) {
-		t.Fatalf("want ErrNoLocalPassword, got %v", err)
-	}
-}
-
 // SetPassword skips the current-password check, so it is only ever safe behind
 // a proof the caller supplied — today a passkey assertion. These pin the parts
 // that hold regardless of how that proof was obtained.
@@ -139,7 +123,7 @@ func TestSetPasswordReplacesCredentialAndRevokesSessions(t *testing.T) {
 	}
 }
 
-func TestSetPasswordRejectsEmptyAndSSO(t *testing.T) {
+func TestSetPasswordRejectsWeakPassword(t *testing.T) {
 	svc := authFixture(t)
 	ctx := context.Background()
 	u, _, err := svc.Register(ctx, "a@example.com", "Old-Passw0rd!", "")
@@ -153,14 +137,6 @@ func TestSetPasswordRejectsEmptyAndSSO(t *testing.T) {
 	}
 	if _, err := svc.SetPassword(ctx, u.ID, "short1!A"); !errors.Is(err, auth.ErrWeakPassword) {
 		t.Fatalf("want ErrWeakPassword for a too-short password, got %v", err)
-	}
-
-	sso, _, err := svc.LoginOIDC(ctx, &auth.OIDCUser{Subject: "sub-1", Email: "bob@example.com"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.SetPassword(ctx, sso.ID, "New-Passw0rd!"); !errors.Is(err, service.ErrNoLocalPassword) {
-		t.Fatalf("want ErrNoLocalPassword, got %v", err)
 	}
 }
 
@@ -196,16 +172,5 @@ func TestRegistrationRejectsInvalidEmail(t *testing.T) {
 		if _, _, err := svc.Register(ctx, email, "Str0ng!Passw0rd", ""); !errors.Is(err, auth.ErrInvalidEmail) {
 			t.Errorf("Register(%q) = %v, want ErrInvalidEmail", email, err)
 		}
-	}
-}
-
-// A provider that will not release an address cannot be used to sign in, since
-// there would be no identity to attach the account to.
-func TestOIDCRequiresAnEmail(t *testing.T) {
-	svc := authFixture(t)
-	ctx := context.Background()
-
-	if _, _, err := svc.LoginOIDC(ctx, &auth.OIDCUser{Subject: "sub-1", PreferredUsername: "alice"}); !errors.Is(err, auth.ErrInvalidEmail) {
-		t.Fatalf("want ErrInvalidEmail when the provider asserts no address, got %v", err)
 	}
 }

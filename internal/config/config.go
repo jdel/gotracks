@@ -74,18 +74,6 @@ type Config struct {
 	RPID     string
 	RPOrigin string
 	RPName   string
-
-	// OIDC single sign-on (all four required to enable it).
-	OIDCIssuer       string
-	OIDCClientID     string
-	OIDCClientSecret string
-	OIDCRedirectURL  string
-}
-
-// OIDCEnabled reports whether single sign-on is fully configured.
-func (c *Config) OIDCEnabled() bool {
-	return c.OIDCIssuer != "" && c.OIDCClientID != "" &&
-		c.OIDCClientSecret != "" && c.OIDCRedirectURL != ""
 }
 
 // HSTSEnabled reports whether Strict-Transport-Security should be sent. Only

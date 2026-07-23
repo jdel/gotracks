@@ -190,13 +190,13 @@ func TestEphemeralCountAndPurge(t *testing.T) {
 	})
 }
 
-// Deleting an account must take its pending flows with it, without touching
-// the account-less OIDC states that share the table.
-func TestEphemeralDeleteForUserSparesAnonymousState(t *testing.T) {
+// Deleting an account must take its pending flows with it without touching
+// another user's pending flows.
+func TestEphemeralDeleteForUserIsScoped(t *testing.T) {
 	eachEngine(t, func(t *testing.T, store *repo.Store) {
 		ctx := context.Background()
 		put(t, store, "mine", "login", 7, time.Minute)
-		put(t, store, "oidc", "oidc-state", 0, time.Minute)
+		put(t, store, "theirs", "login", 8, time.Minute)
 
 		if err := store.Ephemeral.DeleteForUser(ctx, 7); err != nil {
 			t.Fatal(err)
@@ -204,8 +204,8 @@ func TestEphemeralDeleteForUserSparesAnonymousState(t *testing.T) {
 		if _, err := store.Ephemeral.Peek(ctx, "login", "mine"); !errors.Is(err, repo.ErrNotFound) {
 			t.Errorf("the user's entry survived: %v", err)
 		}
-		if _, err := store.Ephemeral.Peek(ctx, "oidc-state", "oidc"); err != nil {
-			t.Errorf("an unrelated anonymous state was deleted: %v", err)
+		if _, err := store.Ephemeral.Peek(ctx, "login", "theirs"); err != nil {
+			t.Errorf("another user's entry was deleted: %v", err)
 		}
 	})
 }

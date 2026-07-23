@@ -12,8 +12,6 @@ export interface AuthContextValue {
   /** completeTwoFactor finishes a sign-in that stopped at the second factor. */
   completeTwoFactor: (challengeId: string, code: string) => Promise<void>;
   register: (email: string, locale?: string) => Promise<void>;
-  /** completeSSO stores tokens handed back by the OIDC callback. */
-  completeSSO: (accessToken: string, refreshToken: string) => Promise<void>;
   /** establishSession stores a complete authenticated API response. */
   establishSession: (response: AuthResponse) => void;
   /** signInWithPasskey runs the WebAuthn ceremony for the named account. */

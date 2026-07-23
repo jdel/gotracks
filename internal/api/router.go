@@ -29,7 +29,6 @@ type Services struct {
 	Reports     *service.UsageReportService
 	Email       *service.EmailService
 	TwoFactor   *service.TwoFactorService
-	OIDC        *auth.OIDCProvider
 	Tags        repo.TagRepo
 	Notes       repo.NoteRepo
 }
@@ -43,7 +42,7 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	requireAuth := RequireAuth(tm, svc.Auth.CurrentUser)
 
 	// Health check (public).
-	mh := &metaHandler{settings: svc.Settings, oidc: svc.OIDC != nil, passkeys: svc.Passkeys != nil, twoFactor: svc.TwoFactor != nil}
+	mh := &metaHandler{settings: svc.Settings, passkeys: svc.Passkeys != nil, twoFactor: svc.TwoFactor != nil}
 	mux.HandleFunc("GET /healthz", mh.healthz)
 
 	// Swagger UI + spec at /doc (public).
@@ -180,14 +179,6 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 
 	// Public capabilities, so the sign-in page knows what to offer.
 	mux.HandleFunc("GET /api/v1/config", mh.config)
-
-	// Single sign-on (public). Always expose status so the SPA can hide the button.
-	oh := &oidcHandler{provider: svc.OIDC, auth: svc.Auth}
-	mux.HandleFunc("GET /api/v1/auth/oidc/status", oh.status)
-	if svc.OIDC != nil {
-		mux.HandleFunc("GET /api/v1/auth/oidc/start", oh.start)
-		mux.HandleFunc("GET /api/v1/auth/oidc/callback", oh.callback)
-	}
 
 	// SPA fallback for everything else.
 	if staticFS != nil {

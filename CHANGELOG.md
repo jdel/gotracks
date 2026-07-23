@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+### Breaking changes
+
+- Removed OIDC configuration, API routes, automatic SSO account provisioning,
+  and the login-page SSO flow. Authentication is now local accounts only.
+
 ### Added
 
 - Added email-confirmed self-service account deletion with a Settings-side JSON

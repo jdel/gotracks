@@ -54,11 +54,6 @@ func configFromViper() (*config.Config, error) {
 		RPID:     viper.GetString("webauthn.rp-id"),
 		RPOrigin: viper.GetString("webauthn.rp-origin"),
 		RPName:   viper.GetString("webauthn.rp-name"),
-
-		OIDCIssuer:       viper.GetString("oidc.issuer"),
-		OIDCClientID:     viper.GetString("oidc.client-id"),
-		OIDCClientSecret: viper.GetString("oidc.client-secret"),
-		OIDCRedirectURL:  viper.GetString("oidc.redirect-url"),
 	}
 
 	for _, o := range strings.Split(viper.GetString("http.allowed-origins"), ",") {
@@ -215,19 +210,6 @@ func serve(ctx context.Context) error {
 		log.Info().Str("rpID", cfg.RPID).Str("origin", cfg.RPOrigin).Msg("passkeys enabled")
 	}
 
-	// Single sign-on is optional; a discovery failure must not stop the server.
-	var oidcProvider *auth.OIDCProvider
-	if cfg.OIDCEnabled() {
-		oidcProvider, err = auth.NewOIDCProvider(
-			ctx, cfg.OIDCIssuer, cfg.OIDCClientID, cfg.OIDCClientSecret, cfg.OIDCRedirectURL,
-			service.NewOIDCStateStore(store.Ephemeral))
-		if err != nil {
-			log.Error().Err(err).Msg("oidc disabled: discovery failed")
-		} else {
-			log.Info().Str("issuer", cfg.OIDCIssuer).Msg("oidc enabled")
-		}
-	}
-
 	projectSvc := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
 	projectSvc.SetQuotas(quotas)
 
@@ -287,7 +269,6 @@ func serve(ctx context.Context) error {
 		Reports:     reports,
 		Email:       emailSvc,
 		TwoFactor:   twoFactor,
-		OIDC:        oidcProvider,
 		Tags:        store.Tags,
 		Notes:       store.Notes,
 	}

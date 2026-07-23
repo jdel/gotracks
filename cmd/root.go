@@ -139,11 +139,6 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().String("webauthn.rp-origin", "", "passkey origin(s), comma-separated; defaults to the http.public-url origin")
 	cmd.PersistentFlags().String("webauthn.rp-name", "gotracks", "name shown in the passkey prompt")
 
-	cmd.PersistentFlags().String("oidc.issuer", "", "OIDC issuer URL")
-	cmd.PersistentFlags().String("oidc.client-id", "", "OIDC client id")
-	cmd.PersistentFlags().String("oidc.client-secret", "", "OIDC client secret")
-	cmd.PersistentFlags().String("oidc.redirect-url", "", "OIDC redirect URL")
-
 	for _, name := range []string{
 		"config", "log-level", "log-format",
 		"db.url", "db.debug",
@@ -158,7 +153,6 @@ func RootCmd() *cobra.Command {
 		"mail.smtp.encryption",
 		"mail.mailjet.api-key", "mail.mailjet.secret-key", "mail.resend.api-key",
 		"webauthn.rp-id", "webauthn.rp-origin", "webauthn.rp-name",
-		"oidc.issuer", "oidc.client-id", "oidc.client-secret", "oidc.redirect-url",
 	} {
 		_ = viper.BindPFlag(name, cmd.PersistentFlags().Lookup(name))
 	}

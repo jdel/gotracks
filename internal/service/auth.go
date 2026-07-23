@@ -19,9 +19,6 @@ var (
 	ErrEmailTaken         = errors.New("email already registered")
 	ErrRegisterDisabled   = errors.New("registration is disabled")
 	ErrInvalidRefresh     = errors.New("invalid or expired refresh token")
-	// ErrNoLocalPassword is returned for an account that signs in through the
-	// identity provider and therefore has no password to change.
-	ErrNoLocalPassword = errors.New("account has no local password")
 	// ErrAccountLocked is returned once a login has failed too many times in a
 	// row. It is deliberately distinct from ErrInvalidCredentials so the user is
 	// told to wait rather than left retrying a correct password.
@@ -37,12 +34,6 @@ const (
 	// loginAttemptRetention is when a quiet record is forgotten.
 	loginAttemptRetention = 24 * time.Hour
 )
-
-// oidcPassword marks an account as SSO-only. It is not a valid argon2id hash
-// (those always start with "$argon2id$"), so VerifyPassword can never accept
-// any password for such an account, and it identifies the accounts that a
-// later SSO sign-in is allowed to reuse.
-const oidcPassword = "!oidc"
 
 // dummyPasswordHash has the same Argon2id parameters and encoded lengths as a
 // real password hash. Its arbitrary all-zero digest is intentionally not a
@@ -87,8 +78,8 @@ func (s *AuthService) CurrentUser(ctx context.Context, id int64) (*domain.User, 
 	return s.users.ByID(ctx, id)
 }
 
-// IssueFor mints a token pair for an already-authenticated user, used by the
-// passkey and SSO flows which verify identity by other means.
+// IssueFor mints a token pair for an already-authenticated user, used by
+// passkey flows which verify identity by other means.
 func (s *AuthService) IssueFor(ctx context.Context, u *domain.User) (*TokenPair, error) {
 	return s.issue(ctx, u)
 }
@@ -203,68 +194,6 @@ func (s *AuthService) createRegisteredUser(ctx context.Context, email, hash, loc
 	return u, nil
 }
 
-// LoginOIDC signs in (or provisions) a user identified by an OIDC provider.
-// An account previously provisioned by SSO under the same login is reused;
-// otherwise an account is created without a usable password, so it can only be
-// accessed through the identity provider.
-//
-// An existing *password* account of the same name is never claimed: the issuer
-// only vouches for the subject, and preferred_username is often self-service at
-// the provider, so linking by name would let anyone who can set their username
-// sign in as the local account that happens to share it — including the admin
-// created on first run.
-func (s *AuthService) LoginOIDC(ctx context.Context, id *auth.OIDCUser) (*domain.User, *TokenPair, error) {
-	// The account is the address the provider asserts. A provider that will
-	// not release one cannot be used to sign in, because there would be no
-	// identity to attach the account to.
-	email := auth.NormaliseEmail(id.Email)
-	if err := auth.ValidateEmail(email); err != nil {
-		return nil, nil, err
-	}
-
-	u, err := s.users.ByEmail(ctx, email)
-	if err == nil && u.Password != oidcPassword {
-		return nil, nil, ErrEmailTaken
-	}
-	if errors.Is(err, repo.ErrNotFound) {
-		count, cErr := s.users.Count(ctx)
-		if cErr != nil {
-			return nil, nil, cErr
-		}
-		// "Registration disabled" must hold for every route in, not just the
-		// password one. The first account is always allowed so a fresh instance
-		// can still be set up through SSO.
-		if count > 0 {
-			allowed, aErr := s.settings.AllowRegister(ctx)
-			if aErr != nil {
-				return nil, nil, aErr
-			}
-			if !allowed {
-				return nil, nil, ErrRegisterDisabled
-			}
-		}
-		now := time.Now()
-		u = &domain.User{
-			Email:     email,
-			Password:  oidcPassword,
-			IsAdmin:   count == 0,
-			CreatedAt: now,
-			UpdatedAt: now,
-		}
-		if err := s.users.Create(ctx, u); err != nil {
-			return nil, nil, err
-		}
-	} else if err != nil {
-		return nil, nil, err
-	}
-
-	pair, err := s.issue(ctx, u)
-	if err != nil {
-		return nil, nil, err
-	}
-	return u, pair, nil
-}
-
 // Me returns the user for an authenticated request.
 func (s *AuthService) Me(ctx context.Context, userID int64) (*domain.User, error) {
 	return s.users.ByID(ctx, userID)
@@ -362,9 +291,6 @@ func (s *AuthService) SetPassword(ctx context.Context, userID int64, next string
 	if err != nil {
 		return nil, err
 	}
-	if u.Password == oidcPassword {
-		return nil, ErrNoLocalPassword
-	}
 	return s.replacePassword(ctx, u, next)
 }
 
@@ -377,11 +303,6 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID int64, current,
 	u, err := s.users.ByID(ctx, userID)
 	if err != nil {
 		return nil, err
-	}
-	// An SSO account has a sentinel in place of a hash; there is nothing here
-	// to change, and the provider owns the credential.
-	if u.Password == oidcPassword {
-		return nil, ErrNoLocalPassword
 	}
 	ok, err := auth.VerifyPassword(current, u.Password)
 	if err != nil || !ok {

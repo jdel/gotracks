@@ -38,7 +38,6 @@ export const en = {
   "auth.emailFirst": "Enter your email address first.",
   "auth.emailFirstPasskey": "Enter your email first, then use your passkey.",
   "auth.passkeySignIn": "Sign in with a passkey",
-  "auth.ssoSignIn": "Sign in with SSO",
   "auth.twoFactorTitle": "Two-factor authentication",
   "auth.twoFactorCodeHelp": "Enter the 6-digit code from your authenticator app.",
   "auth.twoFactorRecoveryHelp":
@@ -568,7 +567,6 @@ export const fr: Partial<Dict> = {
   "auth.emailFirst": "Saisissez d'abord votre adresse e-mail.",
   "auth.emailFirstPasskey": "Saisissez votre e-mail, puis utilisez votre clé d'accès.",
   "auth.passkeySignIn": "Se connecter avec une clé d'accès",
-  "auth.ssoSignIn": "Se connecter avec le SSO",
   "auth.twoFactorTitle": "Authentification à deux facteurs",
   "auth.twoFactorCodeHelp": "Saisissez le code à 6 chiffres de votre application d'authentification.",
   "auth.twoFactorRecoveryHelp":
