@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/rs/zerolog/log"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
 	"github.com/uptrace/bun/dialect/pgdialect"
@@ -19,6 +18,7 @@ import (
 	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/driver/sqliteshim"
 	"github.com/uptrace/bun/extra/bundebug"
+	"github.com/uptrace/bun/migrate"
 
 	"github.com/jdel/gotracks/internal/domain"
 )
@@ -127,63 +127,97 @@ func models() []any {
 	}
 }
 
-// Migrate brings the schema up to date: it creates missing tables and adds
-// columns that models have gained since a database was first created.
-//
-// CREATE TABLE IF NOT EXISTS alone is not enough — it silently does nothing for
-// a table that already exists, so a database created by an older build would be
-// missing every column added later.
-func Migrate(ctx context.Context, db *bun.DB) error {
-	for _, m := range models() {
-		if _, err := db.NewCreateTable().Model(m).IfNotExists().Exec(ctx); err != nil {
-			return fmt.Errorf("create table for %T: %w", m, err)
+var migrations = migrate.NewMigrations()
+
+// Migrate applies pending schema migrations. Databases created before migration
+// tracking was introduced are adopted only when their schema contains the
+// complete baseline.
+func Migrate(ctx context.Context, db *bun.DB) (err error) {
+	trackingColumns, err := existingColumns(ctx, db, "bun_migrations")
+	if err != nil {
+		return fmt.Errorf("inspect migration tracking: %w", err)
+	}
+	legacy := false
+	if len(trackingColumns) == 0 {
+		legacy, err = legacySchema(ctx, db)
+		if err != nil {
+			return err
 		}
-		if err := addMissingColumns(ctx, db, m); err != nil {
-			return fmt.Errorf("sync columns for %T: %w", m, err)
+	}
+
+	migrator := migrate.NewMigrator(db, migrations, migrate.WithMarkAppliedOnSuccess(true))
+	if err := migrator.Init(ctx); err != nil {
+		return fmt.Errorf("initialize migrations: %w", err)
+	}
+	if err := migrator.Lock(ctx); err != nil {
+		return err
+	}
+	defer func() {
+		if unlockErr := migrator.Unlock(context.WithoutCancel(ctx)); err == nil && unlockErr != nil {
+			err = fmt.Errorf("unlock migrations: %w", unlockErr)
 		}
+	}()
+
+	if legacy {
+		applied, err := migrator.AppliedMigrations(ctx)
+		if err != nil {
+			return fmt.Errorf("read applied migrations: %w", err)
+		}
+		if len(applied) == 0 {
+			baseline := migrations.Sorted()[0]
+			baseline.GroupID = 1
+			if err := migrator.MarkApplied(ctx, &baseline); err != nil {
+				return fmt.Errorf("adopt baseline migration: %w", err)
+			}
+		}
+	}
+
+	if _, err := migrator.Migrate(ctx); err != nil {
+		return fmt.Errorf("apply migrations: %w", err)
 	}
 	return nil
 }
 
-// addMissingColumns compares a model against the live table and issues
-// ALTER TABLE ... ADD COLUMN for anything absent.
-//
-// Added columns are always nullable and without a default, which is the only
-// form both SQLite and Postgres accept unconditionally on a populated table.
-func addMissingColumns(ctx context.Context, db *bun.DB, model any) error {
-	table := db.Dialect().Tables().Get(reflect.TypeOf(model).Elem())
-	if table == nil {
-		return fmt.Errorf("unknown model")
-	}
-
-	existing, err := existingColumns(ctx, db, table.Name)
-	if err != nil {
-		return err
-	}
-	// A freshly created table reports no columns on some drivers; nothing to do.
-	if len(existing) == 0 {
-		return nil
-	}
-
-	for _, field := range table.Fields {
-		if existing[field.Name] {
+// legacySchema reports whether domain tables already exist and verifies that
+// an untracked database matches the baseline before it is adopted.
+func legacySchema(ctx context.Context, db *bun.DB) (bool, error) {
+	found := false
+	var missingTable string
+	for _, model := range models() {
+		table := db.Dialect().Tables().Get(reflect.TypeOf(model).Elem())
+		if table == nil {
+			return false, fmt.Errorf("unknown model %T", model)
+		}
+		existing, err := existingColumns(ctx, db, table.Name)
+		if err != nil {
+			return false, fmt.Errorf("inspect table %q: %w", table.Name, err)
+		}
+		if len(existing) == 0 {
+			if missingTable == "" {
+				missingTable = table.Name
+			}
 			continue
 		}
-		sqlType := field.CreateTableSQLType
-		if sqlType == "" {
-			sqlType = field.DiscoveredSQLType
+		found = true
+		for _, field := range table.Fields {
+			if !existing[field.Name] {
+				return false, fmt.Errorf(
+					"untracked schema does not match baseline: table %q is missing column %q",
+					table.Name, field.Name,
+				)
+			}
 		}
-		if sqlType == "" {
-			return fmt.Errorf("no SQL type for column %q", field.Name)
-		}
-		q := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s",
-			table.Name, field.Name, sqlType)
-		if _, err := db.ExecContext(ctx, q); err != nil {
-			return fmt.Errorf("add column %q: %w", field.Name, err)
-		}
-		log.Info().Str("table", table.Name).Str("addedColumn", field.Name).Msg("schema updated")
 	}
-	return nil
+	if !found {
+		return false, nil
+	}
+	if missingTable != "" {
+		return false, fmt.Errorf(
+			"untracked schema does not match baseline: table %q is missing",
+			missingTable,
+		)
+	}
+	return true, nil
 }
 
 // existingColumns lists the column names of a table for the active dialect.

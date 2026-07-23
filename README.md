@@ -386,12 +386,11 @@ internal/
   api/               router (stdlib mux), middleware, handlers
   auth/              argon2 passwords, JWT
   config/            resolved configuration
-  db/                bun setup, driver select, schema sync
+  db/                bun setup, driver select, versioned migrations
   domain/            data models
   repo/              storage interfaces + bun implementation
   service/           application logic
   web/               go:embed of the built frontend (dist is committed)
 ui/                  React + Vite + shadcn/ui frontend
 example/             docker-compose and config examples
-migrations/          (reserved for versioned migrations)
 ```

@@ -11,6 +11,8 @@ All notable changes to this project are documented here.
 
 ### Added
 
+- Added ordered Bun database migrations with startup locking, safe adoption of
+  existing current schemas, and applied-version tracking.
 - Added email-confirmed self-service account deletion with a Settings-side JSON
   export reminder, final irreversible warning, complete data purge, and
   protection for the last administrator.

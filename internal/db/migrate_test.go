@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/uptrace/bun"
@@ -27,14 +28,11 @@ func open(t *testing.T) *bun.DB {
 	return bdb
 }
 
-// Reproduces the upgrade path that broke a real database: a todos table created
-// by an older build, missing columns the model has gained since. Migrate must
-// add them rather than leaving the table stale.
-func TestMigrateAddsColumnsToExistingTable(t *testing.T) {
+// An untracked partial schema must not be guessed at or silently marked current.
+func TestMigrateRejectsIncompleteUntrackedSchema(t *testing.T) {
 	bdb := open(t)
 	ctx := context.Background()
 
-	// An "old" todos table: no recurring_todo_id, no starred, no show_from.
 	_, err := bdb.ExecContext(ctx, `CREATE TABLE todos (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		user_id BIGINT NOT NULL,
@@ -53,57 +51,56 @@ func TestMigrateAddsColumnsToExistingTable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// A row that already existed before the upgrade.
-	if _, err := bdb.ExecContext(ctx, `INSERT INTO todos
-		(user_id, context_id, description, state, position, created_at, updated_at)
-		VALUES (1, 1, 'pre-existing', 'active', 1, '2026-01-01', '2026-01-01')`); err != nil {
+	err = db.Migrate(ctx, bdb)
+	if err == nil || !strings.Contains(err.Error(), `table "todos" is missing column`) {
+		t.Fatalf("expected an incompatible-schema error, got %v", err)
+	}
+
+	var applied int
+	if err := bdb.NewRaw(
+		"SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'bun_migrations'",
+	).Scan(ctx, &applied); err != nil {
+		t.Fatal(err)
+	}
+	if applied != 0 {
+		t.Fatal("an incompatible schema must not initialize migration tracking")
+	}
+}
+
+func TestMigrateAdoptsCurrentUntrackedSchema(t *testing.T) {
+	bdb := open(t)
+	ctx := context.Background()
+	if err := db.Migrate(ctx, bdb); err != nil {
+		t.Fatal(err)
+	}
+
+	todo := &domain.Todo{UserID: 1, ContextID: 1, Description: "keep me", State: domain.StateActive}
+	if _, err := bdb.NewInsert().Model(todo).Exec(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bdb.ExecContext(ctx, "DROP TABLE bun_migrations"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bdb.ExecContext(ctx, "DROP TABLE bun_migration_locks"); err != nil {
 		t.Fatal(err)
 	}
 
 	if err := db.Migrate(ctx, bdb); err != nil {
-		t.Fatalf("migrate: %v", err)
+		t.Fatalf("adopt current schema: %v", err)
 	}
-
-	// Reading that old row must work: its new columns are NULL, and a NOT NULL
-	// model field like starred has to scan cleanly rather than blowing up.
-	var old domain.Todo
-	if err := bdb.NewSelect().Model(&old).Where("t.description = ?", "pre-existing").Scan(ctx); err != nil {
-		t.Fatalf("select pre-existing row after migrate: %v", err)
+	var description string
+	if err := bdb.NewRaw("SELECT description FROM todos WHERE id = ?", todo.ID).Scan(ctx, &description); err != nil {
+		t.Fatal(err)
 	}
-	if old.Starred {
-		t.Fatal("pre-existing row should default to not starred")
+	if description != todo.Description {
+		t.Fatalf("existing row changed during adoption: %q", description)
 	}
-	if old.RecurringTodoID != nil {
-		t.Fatal("pre-existing row should have no recurring pattern")
+	var migrationNames []string
+	if err := bdb.NewRaw("SELECT name FROM bun_migrations ORDER BY name").Scan(ctx, &migrationNames); err != nil {
+		t.Fatal(err)
 	}
-
-	// The columns added after that table was created must now exist.
-	for _, col := range []string{"recurring_todo_id", "starred", "show_from"} {
-		var n int
-		err := bdb.NewRaw(
-			"SELECT COUNT(*) FROM pragma_table_info('todos') WHERE name = ?", col,
-		).Scan(ctx, &n)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if n != 1 {
-			t.Fatalf("column %q missing after migrate", col)
-		}
-	}
-
-	// And the model must actually be usable against the upgraded table.
-	todo := &domain.Todo{
-		UserID: 1, ContextID: 1, Description: "works now", State: domain.StateActive,
-	}
-	if _, err := bdb.NewInsert().Model(todo).Exec(ctx); err != nil {
-		t.Fatalf("insert into upgraded table: %v", err)
-	}
-	var got domain.Todo
-	if err := bdb.NewSelect().Model(&got).Where("t.id = ?", todo.ID).Scan(ctx); err != nil {
-		t.Fatalf("select from upgraded table: %v", err)
-	}
-	if got.Description != "works now" {
-		t.Fatalf("unexpected row: %+v", got)
+	if len(migrationNames) != 1 || migrationNames[0] != "202607230001" {
+		t.Fatalf("unexpected applied migrations: %v", migrationNames)
 	}
 }
 
@@ -196,16 +193,25 @@ func TestOpenInMemory(t *testing.T) {
 	}
 }
 
-// A table missing entirely is still created.
-func TestMigrateCreatesMissingTables(t *testing.T) {
+// A tracked baseline interrupted after creating only some tables is retried.
+func TestMigrateRetriesIncompleteBaseline(t *testing.T) {
 	bdb := open(t)
 	ctx := context.Background()
 	if err := db.Migrate(ctx, bdb); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := bdb.ExecContext(ctx, "DELETE FROM bun_migrations"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bdb.ExecContext(ctx, "DROP TABLE preferences"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrate(ctx, bdb); err != nil {
+		t.Fatalf("retry baseline: %v", err)
+	}
 	if _, err := bdb.NewInsert().
 		Model(&domain.Preference{UserID: 1, DateFormat: "d", TimeZone: "UTC", Locale: "en", Theme: "system"}).
 		Exec(ctx); err != nil {
-		t.Fatalf("insert into newly created table: %v", err)
+		t.Fatalf("insert into recreated table: %v", err)
 	}
 }
