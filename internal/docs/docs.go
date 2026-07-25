@@ -174,6 +174,244 @@ const docTemplate = `{
                 ]
             }
         },
+        "/api/v1/admin/audit": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Search the audit log",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Earliest occurrence, RFC 3339",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Latest occurrence, RFC 3339",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Match an address as actor or target",
+                        "name": "actor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact action",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "success or failure",
+                        "name": "outcome",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "1-based page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows per page",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.AuditPage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/admin/audit/actions": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Audit action vocabulary",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/admin/audit/export": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Export the filtered audit log",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "json or csv",
+                        "name": "format",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/admin/legal": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Legal editor state",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.legalEditorBody"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/admin/legal/{locale}/{kind}": {
+            "put": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Replace a legal document",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Interface locale",
+                        "name": "locale",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "terms, privacy or cookies",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Document; empty resets to the shipped text",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.legalDocumentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Restore a legal document to the shipped text",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Interface locale",
+                        "name": "locale",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "terms, privacy or cookies",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/admin/reports/usage": {
             "get": {
                 "tags": [
@@ -807,12 +1045,12 @@ const docTemplate = `{
                 "summary": "Accept a user invitation",
                 "parameters": [
                     {
-                        "description": "Invitation token and password",
+                        "description": "Invitation token, password and consent",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.resetPasswordRequest"
+                            "$ref": "#/definitions/api.acceptInvitationRequest"
                         }
                     }
                 ],
@@ -1091,10 +1329,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "boolean"
-                            }
+                            "$ref": "#/definitions/api.publicConfig"
                         }
                     }
                 }
@@ -1279,7 +1514,7 @@ const docTemplate = `{
         "/api/v1/export": {
             "get": {
                 "produces": [
-                    "application/json"
+                    "application/zip"
                 ],
                 "tags": [
                     "transfer"
@@ -1304,6 +1539,33 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ]
+            }
+        },
+        "/api/v1/legal": {
+            "get": {
+                "tags": [
+                    "legal"
+                ],
+                "summary": "Legal documents",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Language to serve",
+                        "name": "locale",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.Document"
+                            }
+                        }
+                    }
+                }
             }
         },
         "/api/v1/me": {
@@ -1449,6 +1711,73 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": true
                         }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/me/sessions": {
+            "get": {
+                "tags": [
+                    "account"
+                ],
+                "summary": "List my active sessions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.Session"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "account"
+                ],
+                "summary": "Sign out everywhere else",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/me/sessions/{id}": {
+            "delete": {
+                "tags": [
+                    "account"
+                ],
+                "summary": "Revoke one of my sessions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
                     }
                 },
                 "security": [
@@ -2611,6 +2940,27 @@ const docTemplate = `{
                 ]
             }
         },
+        "/api/v1/version": {
+            "get": {
+                "tags": [
+                    "meta"
+                ],
+                "summary": "Build version",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.versionBody"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
         "/healthz": {
             "get": {
                 "tags": [
@@ -2632,6 +2982,20 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "api.acceptInvitationRequest": {
+            "type": "object",
+            "properties": {
+                "acceptLegal": {
+                    "type": "boolean"
+                },
+                "newPassword": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
         "api.adminUser": {
             "type": "object",
             "properties": {
@@ -2795,6 +3159,39 @@ const docTemplate = `{
                 }
             }
         },
+        "api.legalDocumentRequest": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "description": "Body replaces the shipped text. Empty resets to it.",
+                    "type": "string"
+                }
+            }
+        },
+        "api.legalEditorBody": {
+            "type": "object",
+            "properties": {
+                "defaults": {
+                    "description": "Defaults is what the binary ships, so the editor can reset to it without\nhard-coding the text twice.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "overrides": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "api.loginRequest": {
             "type": "object",
             "properties": {
@@ -2901,6 +3298,26 @@ const docTemplate = `{
                 },
                 "state": {
                     "type": "string"
+                }
+            }
+        },
+        "api.publicConfig": {
+            "type": "object",
+            "properties": {
+                "allowRegister": {
+                    "type": "boolean"
+                },
+                "bootstrapRequired": {
+                    "type": "boolean"
+                },
+                "legal": {
+                    "type": "boolean"
+                },
+                "passkeys": {
+                    "type": "boolean"
+                },
+                "twoFactor": {
+                    "type": "boolean"
                 }
             }
         },
@@ -3072,6 +3489,14 @@ const docTemplate = `{
                 }
             }
         },
+        "api.versionBody": {
+            "type": "object",
+            "properties": {
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Attachment": {
             "type": "object",
             "properties": {
@@ -3120,6 +3545,51 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "todoState": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.AuditEvent": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "actorEmail": {
+                    "type": "string"
+                },
+                "actorId": {
+                    "description": "ActorID is who did it, nil when nobody was signed in — a stranger\nregistering, or a failed sign-in.",
+                    "type": "integer"
+                },
+                "detail": {
+                    "description": "Detail is a short human-readable note: which field changed, why a\nregistration was refused. Never a credential.",
+                    "type": "string"
+                },
+                "hash": {
+                    "description": "Hash is a SHA-256, hex-encoded, of the exact bytes an export produced.\nSet only on an export event, so a copy of the file can be proven genuine\nwithout the log keeping a second copy of everyone's history at rest.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "occurredAt": {
+                    "type": "string"
+                },
+                "outcome": {
+                    "type": "string"
+                },
+                "targetEmail": {
+                    "type": "string"
+                },
+                "targetId": {
+                    "description": "TargetID and TargetEmail are who it was done to, when that differs from\nthe actor: an administrator deleting somebody else's account.",
+                    "type": "integer"
+                },
+                "userAgent": {
                     "type": "string"
                 }
             }
@@ -3497,6 +3967,20 @@ const docTemplate = `{
                 }
             }
         },
+        "service.AuditPage": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.AuditEvent"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "service.Challenge": {
             "type": "object",
             "properties": {
@@ -3519,6 +4003,21 @@ const docTemplate = `{
                 },
                 "open": {
                     "type": "integer"
+                }
+            }
+        },
+        "service.Document": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "customised": {
+                    "description": "Customised reports whether the operator replaced the shipped text, so the\neditor can offer to put it back.",
+                    "type": "boolean"
+                },
+                "kind": {
+                    "type": "string"
                 }
             }
         },
@@ -3591,6 +4090,30 @@ const docTemplate = `{
                 },
                 "usageReportAtMinute": {
                     "type": "integer"
+                }
+            }
+        },
+        "service.Session": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "description": "Current marks the session the request was made from.",
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "lastUsed": {
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "userAgent": {
+                    "type": "string"
                 }
             }
         },

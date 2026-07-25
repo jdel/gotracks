@@ -1,5 +1,14 @@
 basePath: /
 definitions:
+  api.acceptInvitationRequest:
+    properties:
+      acceptLegal:
+        type: boolean
+      newPassword:
+        type: string
+      token:
+        type: string
+    type: object
   api.adminUser:
     properties:
       createdAt:
@@ -115,6 +124,30 @@ definitions:
       usageReportTimeZone:
         type: string
     type: object
+  api.legalDocumentRequest:
+    properties:
+      body:
+        description: Body replaces the shipped text. Empty resets to it.
+        type: string
+    type: object
+  api.legalEditorBody:
+    properties:
+      defaults:
+        additionalProperties:
+          additionalProperties:
+            type: string
+          type: object
+        description: |-
+          Defaults is what the binary ships, so the editor can reset to it without
+          hard-coding the text twice.
+        type: object
+      overrides:
+        additionalProperties:
+          additionalProperties:
+            type: string
+          type: object
+        type: object
+    type: object
   api.loginRequest:
     properties:
       email:
@@ -191,6 +224,19 @@ definitions:
         type: integer
       state:
         type: string
+    type: object
+  api.publicConfig:
+    properties:
+      allowRegister:
+        type: boolean
+      bootstrapRequired:
+        type: boolean
+      legal:
+        type: boolean
+      passkeys:
+        type: boolean
+      twoFactor:
+        type: boolean
     type: object
   api.recurringRequest:
     properties:
@@ -307,6 +353,11 @@ definitions:
       password:
         type: string
     type: object
+  api.versionBody:
+    properties:
+      version:
+        type: string
+    type: object
   domain.Attachment:
     properties:
       contentType:
@@ -339,6 +390,46 @@ definitions:
       todoId:
         type: integer
       todoState:
+        type: string
+    type: object
+  domain.AuditEvent:
+    properties:
+      action:
+        type: string
+      actorEmail:
+        type: string
+      actorId:
+        description: |-
+          ActorID is who did it, nil when nobody was signed in — a stranger
+          registering, or a failed sign-in.
+        type: integer
+      detail:
+        description: |-
+          Detail is a short human-readable note: which field changed, why a
+          registration was refused. Never a credential.
+        type: string
+      hash:
+        description: |-
+          Hash is a SHA-256, hex-encoded, of the exact bytes an export produced.
+          Set only on an export event, so a copy of the file can be proven genuine
+          without the log keeping a second copy of everyone's history at rest.
+        type: string
+      id:
+        type: integer
+      ip:
+        type: string
+      occurredAt:
+        type: string
+      outcome:
+        type: string
+      targetEmail:
+        type: string
+      targetId:
+        description: |-
+          TargetID and TargetEmail are who it was done to, when that differs from
+          the actor: an administrator deleting somebody else's account.
+        type: integer
+      userAgent:
         type: string
     type: object
   domain.Context:
@@ -607,6 +698,15 @@ definitions:
           when a limit is lowered.
         type: integer
     type: object
+  service.AuditPage:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/domain.AuditEvent'
+        type: array
+      total:
+        type: integer
+    type: object
   service.Challenge:
     properties:
       challengeId:
@@ -622,6 +722,18 @@ definitions:
         type: string
       open:
         type: integer
+    type: object
+  service.Document:
+    properties:
+      body:
+        type: string
+      customised:
+        description: |-
+          Customised reports whether the operator replaced the shipped text, so the
+          editor can offer to put it back.
+        type: boolean
+      kind:
+        type: string
     type: object
   service.MonthCount:
     properties:
@@ -674,6 +786,22 @@ definitions:
         type: integer
       usageReportAtMinute:
         type: integer
+    type: object
+  service.Session:
+    properties:
+      current:
+        description: Current marks the session the request was made from.
+        type: boolean
+      id:
+        type: string
+      ip:
+        type: string
+      lastUsed:
+        type: string
+      startedAt:
+        type: string
+      userAgent:
+        type: string
     type: object
   service.Stats:
     properties:
@@ -852,6 +980,153 @@ paths:
       summary: Regenerate recovery codes
       tags:
       - twofactor
+  /api/v1/admin/audit:
+    get:
+      parameters:
+      - description: Earliest occurrence, RFC 3339
+        in: query
+        name: from
+        type: string
+      - description: Latest occurrence, RFC 3339
+        in: query
+        name: to
+        type: string
+      - description: Match an address as actor or target
+        in: query
+        name: actor
+        type: string
+      - description: Exact action
+        in: query
+        name: action
+        type: string
+      - description: success or failure
+        in: query
+        name: outcome
+        type: string
+      - description: 1-based page
+        in: query
+        name: page
+        type: integer
+      - description: Rows per page
+        in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.AuditPage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Search the audit log
+      tags:
+      - admin
+  /api/v1/admin/audit/actions:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Audit action vocabulary
+      tags:
+      - admin
+  /api/v1/admin/audit/export:
+    get:
+      parameters:
+      - description: json or csv
+        in: query
+        name: format
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Export the filtered audit log
+      tags:
+      - admin
+  /api/v1/admin/legal:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.legalEditorBody'
+      security:
+      - BearerAuth: []
+      summary: Legal editor state
+      tags:
+      - admin
+  /api/v1/admin/legal/{locale}/{kind}:
+    delete:
+      parameters:
+      - description: Interface locale
+        in: path
+        name: locale
+        required: true
+        type: string
+      - description: terms, privacy or cookies
+        in: path
+        name: kind
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Restore a legal document to the shipped text
+      tags:
+      - admin
+    put:
+      parameters:
+      - description: Interface locale
+        in: path
+        name: locale
+        required: true
+        type: string
+      - description: terms, privacy or cookies
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Document; empty resets to the shipped text
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.legalDocumentRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Replace a legal document
+      tags:
+      - admin
   /api/v1/admin/reports/usage:
     get:
       parameters:
@@ -1239,12 +1514,12 @@ paths:
   /api/v1/auth/invitation/accept:
     post:
       parameters:
-      - description: Invitation token and password
+      - description: Invitation token, password and consent
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/api.resetPasswordRequest'
+          $ref: '#/definitions/api.acceptInvitationRequest'
       responses:
         "200":
           description: OK
@@ -1421,9 +1696,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: boolean
-            type: object
+            $ref: '#/definitions/api.publicConfig'
       summary: Public capabilities
       tags:
       - meta
@@ -1538,7 +1811,7 @@ paths:
   /api/v1/export:
     get:
       produces:
-      - application/json
+      - application/zip
       responses:
         "200":
           description: OK
@@ -1553,6 +1826,23 @@ paths:
       summary: Export my data
       tags:
       - transfer
+  /api/v1/legal:
+    get:
+      parameters:
+      - description: Language to serve
+        in: query
+        name: locale
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.Document'
+            type: array
+      summary: Legal documents
+      tags:
+      - legal
   /api/v1/me:
     get:
       responses:
@@ -1642,6 +1932,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Begin a passkey re-authentication
+      tags:
+      - account
+  /api/v1/me/sessions:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Sign out everywhere else
+      tags:
+      - account
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.Session'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List my active sessions
+      tags:
+      - account
+  /api/v1/me/sessions/{id}:
+    delete:
+      parameters:
+      - description: Session id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Revoke one of my sessions
       tags:
       - account
   /api/v1/notes:
@@ -2347,6 +2676,18 @@ paths:
       summary: Get my quota usage
       tags:
       - account
+  /api/v1/version:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.versionBody'
+      security:
+      - BearerAuth: []
+      summary: Build version
+      tags:
+      - meta
   /healthz:
     get:
       responses:
