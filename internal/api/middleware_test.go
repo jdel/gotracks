@@ -33,7 +33,7 @@ func TestRequireAuthUsesCurrentAccountState(t *testing.T) {
 	}
 
 	current := &domain.User{ID: 42}
-	lookup := func(context.Context, int64) (*domain.User, error) {
+	lookup := func(context.Context, int64, string) (*domain.User, error) {
 		if current == nil {
 			return nil, errors.New("user no longer exists")
 		}

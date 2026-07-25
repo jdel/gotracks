@@ -10,6 +10,7 @@ const { requestEmailChange } = vi.hoisted(() => ({
 vi.mock("@/components/PasswordSection", () => ({ PasswordSection: () => null }));
 vi.mock("@/components/PasskeySection", () => ({ PasskeySection: () => null }));
 vi.mock("@/components/TwoFactorSection", () => ({ TwoFactorSection: () => null }));
+vi.mock("@/components/SessionSection", () => ({ SessionSection: () => null }));
 vi.mock("@/hooks/useSettings", () => ({
   downloadExport: vi.fn(),
   usePreferences: () => ({
@@ -73,7 +74,7 @@ describe("SettingsPage usage pane", () => {
 
 	await user.click(screen.getByRole("button", { name: "Delete my account" }));
 	expect(screen.getByText("All of your data will be lost forever.")).toBeTruthy();
-	expect(screen.getByText("Download your JSON export before deleting your account if you want to keep a copy of your data.")).toBeTruthy();
+	expect(screen.getByText("Download your export before deleting your account if you want to keep a copy of your data and files.")).toBeTruthy();
 	expect(screen.getByRole("button", { name: "Email me a deletion link" })).toBeTruthy();
   });
 

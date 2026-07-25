@@ -23,6 +23,9 @@ var (
 	ErrBootstrapRequired  = errors.New("valid bootstrap secret required")
 	ErrEnrollmentCapacity = errors.New("too many pending enrollments")
 	ErrInvalidRefresh     = errors.New("invalid or expired refresh token")
+	// ErrSessionRevoked is returned when an access token's session no longer has
+	// a live refresh row: logout, revoke, or a password/email change ended it.
+	ErrSessionRevoked = errors.New("session revoked")
 	// ErrAccountLocked is returned once a login has failed too many times in a
 	// row. It is deliberately distinct from ErrInvalidCredentials so the user is
 	// told to wait rather than left retrying a correct password.
@@ -88,15 +91,26 @@ func NewAuthService(
 	return &AuthService{users: users, refreshTokens: rts, tokens: tm, settings: settings}
 }
 
-// CurrentUser returns the authoritative account state for access-token checks.
-func (s *AuthService) CurrentUser(ctx context.Context, id int64) (*domain.User, error) {
+// CurrentUser returns the authoritative account state for access-token checks,
+// but only while the token's session is still live. Reloading the user catches
+// deletion and demotion; checking the session catches logout, explicit revoke
+// and password/email changes, so a stateless access token stops working the
+// moment its session is revoked rather than lingering until it expires.
+func (s *AuthService) CurrentUser(ctx context.Context, id int64, sessionID string) (*domain.User, error) {
+	live, err := s.refreshTokens.SessionLive(ctx, id, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if !live {
+		return nil, ErrSessionRevoked
+	}
 	return s.users.ByID(ctx, id)
 }
 
 // IssueFor mints a token pair for an already-authenticated user, used by
 // passkey flows which verify identity by other means.
 func (s *AuthService) IssueFor(ctx context.Context, u *domain.User) (*TokenPair, error) {
-	return s.issue(ctx, u)
+	return s.issue(ctx, u, nil)
 }
 
 // TokenPair is an issued access token plus refresh token.
@@ -123,7 +137,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, locale stri
 	if err != nil {
 		return nil, nil, err
 	}
-	pair, err := s.issue(ctx, u)
+	pair, err := s.issue(ctx, u, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -442,7 +456,7 @@ func (s *AuthService) replacePassword(ctx context.Context, u *domain.User, next 
 	if err := s.refreshTokens.DeleteForUser(ctx, u.ID); err != nil {
 		return nil, err
 	}
-	return s.issue(ctx, u)
+	return s.issue(ctx, u, nil)
 }
 
 // Refresh rotates a refresh token, returning a fresh token pair.
@@ -470,7 +484,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*TokenP
 		}
 		return nil, err
 	}
-	return s.issue(ctx, u)
+	return s.issue(ctx, u, stored)
 }
 
 // Logout revokes a single refresh token.
@@ -478,8 +492,38 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 	return s.refreshTokens.DeleteByHash(ctx, s.tokens.HashRefreshToken(refreshToken))
 }
 
-func (s *AuthService) issue(ctx context.Context, u *domain.User) (*TokenPair, error) {
-	access, err := s.tokens.NewAccessToken(u.ID, u.IsAdmin)
+// issue mints a token pair. prev is the refresh token being rotated, or nil for
+// a fresh sign-in; a rotation keeps its session identity and start time so the
+// chain reads as one session, a sign-in starts a new one.
+func (s *AuthService) issue(ctx context.Context, u *domain.User, prev *domain.RefreshToken) (*TokenPair, error) {
+	now := time.Now()
+	meta := sessionMetaFrom(ctx)
+
+	sessionID, startedAt := "", now
+	if prev != nil {
+		sessionID, startedAt = prev.SessionID, prev.StartedAt
+	}
+	if sessionID == "" {
+		id, err := randomToken()
+		if err != nil {
+			return nil, err
+		}
+		sessionID = id
+	}
+	// The device is remembered from the sign-in and refreshed only when the
+	// caller actually supplies it, so a background refresh that carries no
+	// headers does not blank a recognisable device.
+	ip, userAgent := meta.IP, meta.UserAgent
+	if prev != nil {
+		if ip == "" {
+			ip = prev.IP
+		}
+		if userAgent == "" {
+			userAgent = prev.UserAgent
+		}
+	}
+
+	access, err := s.tokens.NewAccessToken(u.ID, u.IsAdmin, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -487,12 +531,16 @@ func (s *AuthService) issue(ctx context.Context, u *domain.User) (*TokenPair, er
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now()
 	rt := &domain.RefreshToken{
-		UserID:    u.ID,
-		TokenHash: hash,
-		ExpiresAt: now.Add(s.tokens.RefreshTTL()),
-		CreatedAt: now,
+		UserID:     u.ID,
+		TokenHash:  hash,
+		SessionID:  sessionID,
+		ExpiresAt:  now.Add(s.tokens.RefreshTTL()),
+		CreatedAt:  now,
+		StartedAt:  startedAt,
+		LastUsedAt: now,
+		IP:         ip,
+		UserAgent:  userAgent,
 	}
 	if err := s.refreshTokens.Create(ctx, rt); err != nil {
 		return nil, err
@@ -502,4 +550,66 @@ func (s *AuthService) issue(ctx context.Context, u *domain.User) (*TokenPair, er
 		RefreshToken: refresh,
 		ExpiresAt:    now.Add(s.tokens.AccessTTL()),
 	}, nil
+}
+
+// SessionMeta is the request detail a new or refreshed session records: where
+// the caller is and what they are using.
+type SessionMeta struct {
+	IP        string
+	UserAgent string
+}
+
+type sessionMetaKey struct{}
+
+// WithSessionMeta carries the caller's device detail into token issuance, so a
+// service that never sees the request can still record it on the session.
+func WithSessionMeta(ctx context.Context, meta SessionMeta) context.Context {
+	return context.WithValue(ctx, sessionMetaKey{}, meta)
+}
+
+func sessionMetaFrom(ctx context.Context) SessionMeta {
+	m, _ := ctx.Value(sessionMetaKey{}).(SessionMeta)
+	return m
+}
+
+// Session is one active sign-in, as a user sees it.
+type Session struct {
+	ID        string    `json:"id"`
+	StartedAt time.Time `json:"startedAt"`
+	LastUsed  time.Time `json:"lastUsed"`
+	IP        string    `json:"ip,omitempty"`
+	UserAgent string    `json:"userAgent,omitempty"`
+	// Current marks the session the request was made from.
+	Current bool `json:"current"`
+}
+
+// Sessions lists the account's active sign-ins, marking the caller's own.
+func (s *AuthService) Sessions(ctx context.Context, userID int64, currentSessionID string) ([]Session, error) {
+	rows, err := s.refreshTokens.ListSessions(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Session, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, Session{
+			ID:        row.SessionID,
+			StartedAt: row.StartedAt,
+			LastUsed:  row.LastUsedAt,
+			IP:        row.IP,
+			UserAgent: row.UserAgent,
+			Current:   row.SessionID == currentSessionID,
+		})
+	}
+	return out, nil
+}
+
+// RevokeSession ends one session by id.
+func (s *AuthService) RevokeSession(ctx context.Context, userID int64, sessionID string) error {
+	return s.refreshTokens.DeleteSession(ctx, userID, sessionID)
+}
+
+// RevokeOtherSessions ends every session but the caller's own — "sign out
+// everywhere else".
+func (s *AuthService) RevokeOtherSessions(ctx context.Context, userID int64, keepSessionID string) error {
+	return s.refreshTokens.DeleteOtherSessions(ctx, userID, keepSessionID)
 }

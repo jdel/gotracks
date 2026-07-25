@@ -209,6 +209,10 @@ type RefreshTokenRepo interface {
 	// ListSessions returns a user's live sessions, newest activity first — one
 	// row per session, since rotation leaves only the current token live.
 	ListSessions(ctx context.Context, userID int64) ([]*domain.RefreshToken, error)
+	// SessionLive reports whether a non-expired session with this id still
+	// exists for the user. The access-token check uses it so revoking a session
+	// invalidates its stateless access token immediately, not only at expiry.
+	SessionLive(ctx context.Context, userID int64, sessionID string) (bool, error)
 	// DeleteSession revokes one session by its stable id, scoped to the user so
 	// nobody can revoke another account's session.
 	DeleteSession(ctx context.Context, userID int64, sessionID string) error

@@ -53,7 +53,7 @@ func TestRotatingSecretInvalidatesAccessTokens(t *testing.T) {
 	before := testManager("secret-before")
 	after := testManager("secret-after")
 
-	access, err := before.NewAccessToken(7, true)
+	access, err := before.NewAccessToken(7, true, "sess")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestRotatingSecretInvalidatesAccessTokens(t *testing.T) {
 
 func TestAccessTokenCarriesClaims(t *testing.T) {
 	m := testManager("secret-a")
-	access, err := m.NewAccessToken(42, true)
+	access, err := m.NewAccessToken(42, true, "sess")
 	if err != nil {
 		t.Fatal(err)
 	}

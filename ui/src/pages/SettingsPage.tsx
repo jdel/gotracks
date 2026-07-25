@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordSection } from "@/components/PasswordSection";
 import { PasskeySection } from "@/components/PasskeySection";
 import { TwoFactorSection } from "@/components/TwoFactorSection";
+import { SessionSection } from "@/components/SessionSection";
 import { UsageBars } from "@/components/UsageBars";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import type { Preference } from "@/lib/types";
@@ -227,6 +228,8 @@ export function SettingsPage() {
       <PasskeySection />
 
       <TwoFactorSection />
+
+      <SessionSection />
 
       <Card>
         <CardHeader>

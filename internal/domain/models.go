@@ -54,11 +54,25 @@ type PendingEnrollment struct {
 type RefreshToken struct {
 	bun.BaseModel `bun:"table:refresh_tokens,alias:rt"`
 
-	ID        int64     `bun:"id,pk,autoincrement" json:"-"`
-	UserID    int64     `bun:"user_id,notnull" json:"-"`
-	TokenHash string    `bun:"token_hash,unique,notnull" json:"-"`
+	ID        int64  `bun:"id,pk,autoincrement" json:"-"`
+	UserID    int64  `bun:"user_id,notnull" json:"-"`
+	TokenHash string `bun:"token_hash,unique,notnull" json:"-"`
+	// SessionID is stable across the token's rotation, so the chain of refresh
+	// tokens one sign-in produces reads as a single session a user can see and
+	// revoke. The access token carries it, which is how the current session is
+	// told apart from the others in the list.
+	SessionID string    `bun:"session_id,notnull" json:"-"`
 	ExpiresAt time.Time `bun:"expires_at,notnull" json:"-"`
 	CreatedAt time.Time `bun:"created_at,notnull" json:"-"`
+	// StartedAt is when the session began, preserved as the token rotates, so
+	// the list shows sign-in time rather than the last refresh.
+	StartedAt time.Time `bun:"started_at,notnull" json:"-"`
+	// LastUsedAt advances on every refresh: the session's last activity.
+	LastUsedAt time.Time `bun:"last_used_at,notnull" json:"-"`
+	// IP and UserAgent are the most recent seen, so a user recognises the
+	// device — or spots one they do not.
+	IP        string `bun:"ip" json:"-"`
+	UserAgent string `bun:"user_agent" json:"-"`
 }
 
 // Project groups actions toward an outcome.

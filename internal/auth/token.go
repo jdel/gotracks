@@ -17,6 +17,11 @@ type Claims struct {
 	jwt.RegisteredClaims
 	UserID  int64 `json:"uid"`
 	IsAdmin bool  `json:"adm"`
+	// SessionID names the refresh-token chain this access token belongs to, so
+	// the session list can mark which entry is the caller's own. Absent on a
+	// token minted before sessions were tracked, which simply leaves the
+	// current session unmarked until the next refresh.
+	SessionID string `json:"sid,omitempty"`
 }
 
 // TokenManager issues and validates access tokens and refresh tokens.
@@ -37,8 +42,9 @@ func (m *TokenManager) AccessTTL() time.Duration { return m.accessTTL }
 // RefreshTTL returns the configured refresh-token lifetime.
 func (m *TokenManager) RefreshTTL() time.Duration { return m.refreshTTL }
 
-// NewAccessToken signs a short-lived access token for the user.
-func (m *TokenManager) NewAccessToken(userID int64, isAdmin bool) (string, error) {
+// NewAccessToken signs a short-lived access token for the user, bound to the
+// session it was issued within.
+func (m *TokenManager) NewAccessToken(userID int64, isAdmin bool, sessionID string) (string, error) {
 	now := time.Now()
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -46,8 +52,9 @@ func (m *TokenManager) NewAccessToken(userID int64, isAdmin bool) (string, error
 			ExpiresAt: jwt.NewNumericDate(now.Add(m.accessTTL)),
 			Subject:   fmt.Sprintf("%d", userID),
 		},
-		UserID:  userID,
-		IsAdmin: isAdmin,
+		UserID:    userID,
+		IsAdmin:   isAdmin,
+		SessionID: sessionID,
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(m.secret)
 }

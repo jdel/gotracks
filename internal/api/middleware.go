@@ -30,7 +30,7 @@ const (
 // Middleware is a standard net/http middleware.
 type Middleware func(http.Handler) http.Handler
 
-type currentUserLookup func(context.Context, int64) (*domain.User, error)
+type currentUserLookup func(context.Context, int64, string) (*domain.User, error)
 
 // Chain applies middlewares so the first listed runs outermost.
 func Chain(h http.Handler, mws ...Middleware) http.Handler {
@@ -282,7 +282,9 @@ func RequireAuth(tm *auth.TokenManager, currentUser currentUserLookup) Middlewar
 				return
 			}
 
-			user, err := currentUser(r.Context(), claims.UserID)
+			// Passing the session id makes this reject a token whose session was
+			// revoked, not just a deleted or demoted account.
+			user, err := currentUser(r.Context(), claims.UserID, claims.SessionID)
 			if err != nil || user == nil {
 				writeError(w, http.StatusUnauthorized, "invalid token")
 				return

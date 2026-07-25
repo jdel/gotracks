@@ -147,6 +147,17 @@ func (r *refreshTokenRepo) ListSessions(ctx context.Context, userID int64) ([]*d
 	return rows, err
 }
 
+func (r *refreshTokenRepo) SessionLive(ctx context.Context, userID int64, sessionID string) (bool, error) {
+	// An empty id names no session (e.g. a legacy access token minted before
+	// sessions existed): treat it as not live so it fails closed.
+	if sessionID == "" {
+		return false, nil
+	}
+	return r.db.NewSelect().Model((*domain.RefreshToken)(nil)).
+		Where("user_id = ? AND session_id = ? AND expires_at > ?", userID, sessionID, time.Now()).
+		Exists(ctx)
+}
+
 func (r *refreshTokenRepo) DeleteSession(ctx context.Context, userID int64, sessionID string) error {
 	_, err := r.db.NewDelete().Model((*domain.RefreshToken)(nil)).
 		Where("user_id = ? AND session_id = ?", userID, sessionID).Exec(ctx)
