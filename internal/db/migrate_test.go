@@ -99,10 +99,16 @@ func TestMigrateAdoptsCurrentUntrackedSchema(t *testing.T) {
 	if err := bdb.NewRaw("SELECT name FROM bun_migrations ORDER BY name").Scan(ctx, &migrationNames); err != nil {
 		t.Fatal(err)
 	}
-	if len(migrationNames) != 2 ||
-		migrationNames[0] != "202607230001" ||
-		migrationNames[1] != "202607230002" {
+	// The baseline is adopted rather than run; everything after it is applied
+	// normally, so each new migration belongs in this list.
+	want := []string{"202607230001", "202607230002", "202607240001", "202607240002", "202607240003", "202607240004"}
+	if len(migrationNames) != len(want) {
 		t.Fatalf("unexpected applied migrations: %v", migrationNames)
+	}
+	for i, name := range want {
+		if migrationNames[i] != name {
+			t.Fatalf("unexpected applied migrations: %v", migrationNames)
+		}
 	}
 }
 

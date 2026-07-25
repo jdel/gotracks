@@ -133,6 +133,15 @@ func RootCmd() *cobra.Command {
 		"tags accepted on a single action (0 = unlimited); tags are created from this "+
 			"list, so it is the one limit that bounds a single request")
 
+	// Off by default: a private deployment has nobody to inform, and empty
+	// legal pages are worse than none at all.
+	cmd.PersistentFlags().Bool("legal.enabled", false,
+		"serve the terms, privacy and cookie pages, and the admin screen that edits them")
+
+	cmd.PersistentFlags().Int("legal.retention-days", 90,
+		"how long audit entries are kept, in days (0 = forever). Personal data may "+
+			"be held no longer than the purpose needs, whatever basis it rests on")
+
 	cmd.PersistentFlags().String("storage.uploads", defaultUploadDir(), "directory for attachment files")
 	cmd.PersistentFlags().Int("storage.max-upload-mb", 10, "per-file upload limit in MB")
 
@@ -146,6 +155,7 @@ func RootCmd() *cobra.Command {
 		"auth.jwt-secret", "auth.bootstrap-secret", "auth.access-ttl", "auth.refresh-ttl", "auth.allow-register",
 		"http.addr", "http.rate.rps", "http.rate.burst", "http.trusted-proxies", "http.allowed-origins", "http.public-url",
 		"http.tls.enabled", "http.tls.cert", "http.tls.key",
+		"legal.enabled", "legal.retention-days",
 		"storage.uploads", "storage.max-upload-mb",
 		"quota.storage-mb", "quota.todos", "quota.projects", "quota.notes",
 		"quota.contexts", "quota.tags", "quota.recurring", "quota.tags-per-todo",

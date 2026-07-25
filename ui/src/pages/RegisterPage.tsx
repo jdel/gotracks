@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useLocale, useT } from "@/lib/i18n";
 import { useServerConfig } from "@/hooks/useSettings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LegalLinks } from "@/pages/LegalPage";
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -37,7 +38,7 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center p-4">
+    <div className="flex min-h-dvh flex-col items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">{t("auth.createAccount")}</CardTitle>
@@ -87,6 +88,7 @@ export function RegisterPage() {
           )}
         </CardContent>
       </Card>
+      <LegalLinks className="pt-4 text-xs text-muted-foreground" />
     </div>
   );
 }

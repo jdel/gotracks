@@ -55,6 +55,10 @@ export function AdminPage() {
 
   const [email, setEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  // The add-user form and the row actions report separately: they appear in
+  // different places on the page, and sharing one value printed every failure
+  // twice.
+  const [addError, setAddError] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -85,7 +89,7 @@ export function AdminPage() {
   function onCreate(e: FormEvent, onAdded?: () => void) {
     e.preventDefault();
     if (!email.trim()) return;
-    setError("");
+    setAddError("");
     setNotice("");
     const invitedEmail = email.trim();
     create.mutate(
@@ -97,7 +101,8 @@ export function AdminPage() {
           setNotice(t("admin.invitationSent", { email: invitedEmail }));
           onAdded?.();
         },
-        onError: (err) => setError(err instanceof ApiError ? err.message : t("common.errorGeneric")),
+        onError: (err) =>
+          setAddError(err instanceof ApiError ? err.message : t("common.errorGeneric")),
       }
     );
   }
@@ -135,7 +140,7 @@ export function AdminPage() {
               <Plus /> {t("admin.newUser")}
             </Button>
           </div>
-          {error && <p className="text-sm text-destructive sm:col-span-2">{error}</p>}
+          {addError && <p className="text-sm text-destructive sm:col-span-2">{addError}</p>}
         </form>
       )}
     >

@@ -17,14 +17,18 @@ import {
   StickyNote,
   LogOut,
   MoreHorizontal,
+  Scale,
+  ScrollText,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useServerConfig, useServerVersion } from "@/hooks/useSettings";
 import { useT } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Dialog, DialogTitle, SheetContent } from "@/components/ui/dialog";
 import { BrandIcon } from "@/components/BrandIcon";
 import { cn } from "@/lib/utils";
+import { LegalLinks } from "@/pages/LegalPage";
 
 // nav is the single list of sections. The desktop sidebar shows all of it; on
 // mobile the first few are tabs and the rest live behind "More", so a section
@@ -35,6 +39,8 @@ type NavItem = {
   icon: typeof Inbox;
   end?: boolean;
   adminOnly?: boolean;
+  /** Hidden unless the instance serves the legal pages at all. */
+  legalOnly?: boolean;
   /** Sits in the mobile top bar beside sign-out rather than in the tab bar. */
   topBar?: boolean;
 };
@@ -52,7 +58,9 @@ const nav: NavItem[] = [
   { to: "/stats", labelKey: "nav.stats", icon: BarChart3 },
   { to: "/attachments", labelKey: "nav.attachments", icon: Paperclip },
   { to: "/settings", labelKey: "nav.settings", icon: Settings, topBar: true },
+  { to: "/legal", labelKey: "nav.legal", icon: Scale, adminOnly: true, legalOnly: true },
   { to: "/reports", labelKey: "nav.reports", icon: BarChart4, adminOnly: true },
+  { to: "/audit", labelKey: "nav.audit", icon: ScrollText, adminOnly: true },
   { to: "/admin", labelKey: "nav.admin", icon: Users, adminOnly: true, topBar: true },
 ];
 
@@ -67,11 +75,15 @@ const overflowNav = tabNav.slice(MOBILE_TABS);
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const { data: serverConfig } = useServerConfig();
+  const { data: build } = useServerVersion();
   const t = useT();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const canSee = (item: NavItem) => !item.adminOnly || user?.isAdmin === true;
+  const canSee = (item: NavItem) =>
+    (!item.adminOnly || user?.isAdmin === true) &&
+    (!item.legalOnly || serverConfig?.legal === true);
   const visible = nav.filter(canSee);
   const visibleOverflow = overflowNav.filter(canSee);
   const visibleTopBar = topBarNav.filter(canSee);
@@ -82,12 +94,17 @@ export function Layout() {
 
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
-      {/* Desktop sidebar */}
-      <aside className="hidden w-56 shrink-0 flex-col border-r p-4 md:flex">
+      {/* Desktop sidebar. Pinned to the viewport rather than stretched by the
+          row: as a plain flex child it grew to the height of the content beside
+          it, so mt-auto pushed sign-out to the bottom of a very tall column and
+          a long page (Settings) left it below the fold. */}
+      <aside className="hidden w-56 shrink-0 flex-col border-r p-4 md:sticky md:top-0 md:flex md:h-dvh">
         <div className="mb-6 flex items-center gap-2 px-2 text-lg font-semibold">
           <BrandIcon className="size-5" /> gotracks
         </div>
-        <nav className="flex-1 space-y-1">
+        {/* Scrolls on its own if the sections ever outgrow the viewport, so
+            the account block below stays reachable either way. */}
+        <nav className="flex-1 space-y-1 overflow-y-auto">
           {visible.map(({ to, labelKey, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -111,6 +128,12 @@ export function Layout() {
           <Button variant="ghost" className="w-full justify-start" onClick={logout}>
             <LogOut /> {t("nav.signOut")}
           </Button>
+          <LegalLinks className="px-3 text-xs text-muted-foreground" />
+          {/* Last line of the column: the build this server is running, so a
+              bug report can name the release it came from. */}
+          {build?.version && (
+            <p className="px-3 text-xs text-muted-foreground">gotracks {build.version}</p>
+          )}
         </div>
       </aside>
 
@@ -204,6 +227,12 @@ export function Layout() {
             ))}
           </nav>
           <p className="mt-3 border-t px-3 pt-3 text-sm text-muted-foreground">{user?.email}</p>
+          {/* The sidebar that carries these on desktop is hidden here, so
+              without this a signed-in phone has no route to them at all. */}
+          <LegalLinks
+            className="px-3 pt-2 text-xs text-muted-foreground"
+            onNavigate={() => setMenuOpen(false)}
+          />
         </SheetContent>
       </Dialog>
     </div>

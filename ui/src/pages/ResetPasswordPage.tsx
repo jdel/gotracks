@@ -11,6 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useT } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
+import { LegalLinks } from "@/pages/LegalPage";
+import { LegalConsent } from "@/components/LegalConsent";
+import { useServerConfig } from "@/hooks/useSettings";
 
 /** Landing page for the link in a password-reset email. */
 export function ResetPasswordPage() {
@@ -35,6 +38,13 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+
+  // Accepting an invitation is where an account is really created, so it is
+  // where consent is captured. An instance with the pages off asks nothing.
+  const { data: serverConfig } = useServerConfig();
+  const consentRequired = invitation && serverConfig?.legal === true;
+  const consentGiven = accepted;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -45,7 +55,11 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
     }
     try {
       if (invitation) {
-        const response = await accept.mutateAsync({ token, newPassword: password });
+        const response = await accept.mutateAsync({
+          token,
+          newPassword: password,
+          acceptLegal: accepted,
+        });
         establishSession(response);
         navigate("/", { replace: true });
         return;
@@ -58,7 +72,7 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center p-4">
+    <div className="flex min-h-dvh flex-col items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">{t(invitation ? "invite.title" : "reset.title")}</CardTitle>
@@ -99,11 +113,20 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
                   onChange={(e) => setConfirm(e.target.value)}
                 />
               </div>
+              {consentRequired && (
+                <LegalConsent accepted={accepted} onChange={setAccepted} />
+              )}
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button
                 type="submit"
                 className="w-full"
-                disabled={reset.isPending || accept.isPending || !isPasswordValid(password) || !confirm}
+                disabled={
+                  reset.isPending ||
+                  accept.isPending ||
+                  !isPasswordValid(password) ||
+                  !confirm ||
+                  (consentRequired && !consentGiven)
+                }
               >
                 <KeyRound />
                 {reset.isPending || accept.isPending
@@ -119,6 +142,7 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
           )}
         </CardContent>
       </Card>
+      <LegalLinks className="pt-4 text-xs text-muted-foreground" />
     </div>
   );
 }

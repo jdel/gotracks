@@ -29,6 +29,8 @@ type Services struct {
 	Reports     *service.UsageReportService
 	Email       *service.EmailService
 	TwoFactor   *service.TwoFactorService
+	Audit       *service.AuditService
+	Legal       *service.LegalService
 	Tags        repo.TagRepo
 	Notes       repo.NoteRepo
 }
@@ -37,7 +39,7 @@ type Services struct {
 func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.FS) http.Handler {
 	mux := http.NewServeMux()
 
-	ah := &authHandler{auth: svc.Auth, twoFactor: svc.TwoFactor, passkeys: svc.Passkeys, email: svc.Email, admin: svc.Admin, quotas: svc.Quotas}
+	ah := &authHandler{auth: svc.Auth, twoFactor: svc.TwoFactor, passkeys: svc.Passkeys, email: svc.Email, admin: svc.Admin, quotas: svc.Quotas, legal: svc.Legal, audit: svc.Audit}
 	ch := &contextHandler{contexts: svc.Contexts}
 	requireAuth := RequireAuth(tm, svc.Auth.CurrentUser)
 	limit := func(l *AbuseLimiter, h http.HandlerFunc) http.Handler {
@@ -54,8 +56,11 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	mh := &metaHandler{
 		settings: svc.Settings, auth: svc.Auth,
 		passkeys: svc.Passkeys != nil, twoFactor: svc.TwoFactor != nil,
+		legal: svc.Legal != nil, version: cfg.Version,
 	}
 	mux.HandleFunc("GET /healthz", mh.healthz)
+	// The build is shown in the shell, so it is read by signed-in clients only.
+	mux.Handle("GET /api/v1/version", requireAuth(http.HandlerFunc(mh.buildVersion)))
 
 	// Swagger UI + spec at /doc (public).
 	swaggerHandlers(mux, cfg.TLSEnabled())
@@ -87,6 +92,11 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	mux.Handle("POST /api/v1/me/email-change", requireAuth(http.HandlerFunc(ah.requestEmailChange)))
 	mux.Handle("POST /api/v1/me/reauth/passkey/begin", requireAuth(http.HandlerFunc(ah.reauthPasskeyBegin)))
 	mux.Handle("POST /api/v1/me/deletion", requireAuth(http.HandlerFunc(ah.requestAccountDeletion)))
+
+	sesh := &sessionHandler{auth: svc.Auth, audit: svc.Audit}
+	mux.Handle("GET /api/v1/me/sessions", requireAuth(http.HandlerFunc(sesh.list)))
+	mux.Handle("DELETE /api/v1/me/sessions", requireAuth(http.HandlerFunc(sesh.revokeOthers)))
+	mux.Handle("DELETE /api/v1/me/sessions/{id}", requireAuth(http.HandlerFunc(sesh.revoke)))
 
 	// Context endpoints (protected).
 	protect := func(h http.HandlerFunc) http.Handler { return requireAuth(h) }
@@ -154,7 +164,7 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 
 	// Admin (protected + admin-only).
 	adminOnly := func(h http.HandlerFunc) http.Handler { return requireAuth(RequireAdmin(h)) }
-	adh := &adminHandler{admin: svc.Admin, settings: svc.Settings, twoFactor: svc.TwoFactor, quotas: svc.Quotas, reports: svc.Reports, email: svc.Email}
+	adh := &adminHandler{admin: svc.Admin, settings: svc.Settings, twoFactor: svc.TwoFactor, quotas: svc.Quotas, reports: svc.Reports, email: svc.Email, audit: svc.Audit}
 	mux.Handle("GET /api/v1/admin/users", adminOnly(adh.listUsers))
 	mux.Handle("POST /api/v1/admin/users", adminOnly(adh.createUser))
 	mux.Handle("PUT /api/v1/admin/users/{id}", adminOnly(adh.updateUser))
@@ -166,11 +176,28 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	// and rebuildable on demand.
 	mux.Handle("GET /api/v1/admin/reports/usage", adminOnly(adh.usageReport))
 	mux.Handle("POST /api/v1/admin/reports/usage/run", adminOnly(adh.runUsageReport))
+	if svc.Audit != nil {
+		auh := &auditHandler{audit: svc.Audit}
+		mux.Handle("GET /api/v1/admin/audit", adminOnly(auh.list))
+		mux.Handle("GET /api/v1/admin/audit/actions", adminOnly(auh.actions))
+		mux.Handle("GET /api/v1/admin/audit/export", adminOnly(auh.export))
+	}
+
 	mux.Handle("GET /api/v1/admin/settings", adminOnly(adh.getSettings))
 	mux.Handle("PUT /api/v1/admin/settings", adminOnly(adh.updateSettings))
 
+	// Legal documents. Reading is public because the pages have to render
+	// before an account exists; writing is administrator-only.
+	if svc.Legal != nil {
+		lh := &legalHandler{legal: svc.Legal, prefs: svc.Preferences, audit: svc.Audit}
+		mux.HandleFunc("GET /api/v1/legal", lh.get)
+		mux.Handle("GET /api/v1/admin/legal", adminOnly(lh.editor))
+		mux.Handle("PUT /api/v1/admin/legal/{locale}/{kind}", adminOnly(lh.update))
+		mux.Handle("DELETE /api/v1/admin/legal/{locale}/{kind}", adminOnly(lh.reset))
+	}
+
 	// Passkeys (WebAuthn). Enrolment is per user and self-service.
-	pkh := &passkeyHandler{passkeys: svc.Passkeys, auth: svc.Auth}
+	pkh := &passkeyHandler{passkeys: svc.Passkeys, auth: svc.Auth, audit: svc.Audit}
 	mux.HandleFunc("GET /api/v1/auth/passkey/status", pkh.status)
 	if pkh.enabled() {
 		mux.Handle("POST /api/v1/auth/passkey/login/begin", limit(passkeyLimit, pkh.loginBegin))
@@ -182,7 +209,7 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	}
 
 	// Two-factor enrolment and management (protected, self-service).
-	tfh := &twoFactorHandler{twoFactor: svc.TwoFactor, auth: svc.Auth}
+	tfh := &twoFactorHandler{twoFactor: svc.TwoFactor, auth: svc.Auth, audit: svc.Audit}
 	mux.Handle("GET /api/v1/2fa", protect(tfh.status))
 	mux.Handle("POST /api/v1/2fa/enrol/begin", protect(tfh.enrolBegin))
 	mux.Handle("POST /api/v1/2fa/enrol/finish", protect(tfh.enrolFinish))
@@ -203,6 +230,9 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 		RequestID,
 		// Before Logger and the limiter: both read the address it resolves.
 		RealIP(cfg.TrustedProxies),
+		// After RealIP, so a new or refreshed session records the resolved
+		// address rather than a proxy's.
+		sessionMeta,
 		Logger,
 		SecurityHeaders(cfg.HSTSEnabled()),
 		CORS(cfg.AllowedOrigins),

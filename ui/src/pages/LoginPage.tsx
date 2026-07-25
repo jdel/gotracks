@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { TwoFactorChallenge } from "@/lib/types";
+import { LegalLinks } from "@/pages/LegalPage";
 
 export function LoginPage() {
   const { login, completeTwoFactor, signInWithPasskey } = useAuth();
@@ -121,7 +122,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center p-4">
+    <div className="flex min-h-dvh flex-col items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">
@@ -255,6 +256,7 @@ export function LoginPage() {
           )}
         </CardContent>
       </Card>
+      <LegalLinks className="pt-4 text-xs text-muted-foreground" />
     </div>
   );
 }

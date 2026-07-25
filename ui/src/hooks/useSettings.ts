@@ -92,12 +92,30 @@ export interface ServerConfig {
   bootstrapRequired: boolean;
   passkeys: boolean;
   twoFactor: boolean;
+  /** Whether this instance serves the terms, privacy and cookie pages. */
+  legal: boolean;
 }
 
 export function useServerConfig() {
   return useQuery({
     queryKey: ["server-config"],
     queryFn: () => api.get<ServerConfig>("/config"),
+  });
+}
+
+/**
+ * The build this server is running.
+ *
+ * Its own request rather than part of the capability probe: that one answers
+ * before anyone signs in, and the release number is not something to tell an
+ * unauthenticated caller. Only the shell shows it, and the shell is signed in.
+ */
+export function useServerVersion() {
+  return useQuery({
+    queryKey: ["server-version"],
+    queryFn: () => api.get<{ version: string }>("/version"),
+    enabled: !!tokenStore.access,
+    staleTime: Infinity,
   });
 }
 
@@ -314,7 +332,8 @@ export function useDeleteAttachment() {
   });
 }
 
-// downloadExport fetches an export with auth and saves it via a blob URL.
+// downloadExport fetches the export archive with auth and saves it via a blob
+// URL. The archive holds export.json alongside every uploaded file.
 export async function downloadExport(): Promise<void> {
 	const res = await fetch("/api/v1/export", {
     headers: { Authorization: `Bearer ${tokenStore.access ?? ""}` },
@@ -324,7 +343,7 @@ export async function downloadExport(): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-	a.download = `gotracks-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `gotracks-${new Date().toISOString().slice(0, 10)}.zip`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -376,7 +395,9 @@ export function useResetPassword() {
 
 export function useAcceptInvitation() {
   return useMutation({
-    mutationFn: (input: { token: string; newPassword: string }) =>
+    // acceptLegal is the tick from the registration form; the server refuses
+    // the invitation without it when the instance serves the documents.
+    mutationFn: (input: { token: string; newPassword: string; acceptLegal: boolean }) =>
       api.raw("/auth/invitation/accept", input) as Promise<AuthResponse>,
   });
 }

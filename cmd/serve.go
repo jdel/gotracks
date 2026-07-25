@@ -48,6 +48,9 @@ func configFromViper() (*config.Config, error) {
 		QuotaTags:         viper.GetInt("quota.tags"),
 		QuotaRecurring:    viper.GetInt("quota.recurring"),
 		QuotaTagsPerTodo:  viper.GetInt("quota.tags-per-todo"),
+		LegalEnabled:      viper.GetBool("legal.enabled"),
+		AuditRetention:    time.Duration(viper.GetInt("legal.retention-days")) * 24 * time.Hour,
+		Version:           version,
 
 		UploadDir:      viper.GetString("storage.uploads"),
 		MaxUploadBytes: int64(viper.GetInt("storage.max-upload-mb")) * 1024 * 1024,
@@ -208,6 +211,20 @@ func serve(ctx context.Context) error {
 		log.Info().Str("provider", mailer.Name()).Msg("mail enabled")
 	}
 
+	// Append-only record of who did what. Wired everywhere an account is
+	// created, changed, or attacked.
+	audit := service.NewAuditService(store.Audit)
+
+	// The export carries uploaded files as well as the JSON, so it needs the
+	// service that owns them.
+	transfer := service.NewTransferService(store, todos)
+	transfer.SetAttachments(attachments)
+
+	var legalSvc *service.LegalService
+	if cfg.LegalEnabled {
+		legalSvc = service.NewLegalService(store.Legal)
+	}
+
 	// Two-factor authentication is always available; each user opts in.
 	twoFactor := service.NewTwoFactorService(store.TwoFactor, store.RecoveryCodes, store.Users, store.Ephemeral, "gotracks")
 
@@ -264,6 +281,12 @@ func serve(ctx context.Context) error {
 	})
 	go reports.Schedule(ctx)
 
+	if passkeys != nil {
+		// Keys the synthetic passkey options, so an address without a key is
+		// answered the same way twice.
+		passkeys.SetDecoySecret(cfg.JWTSecret)
+	}
+
 	svc := &api.Services{
 		Auth:        authSvc,
 		Contexts:    contexts,
@@ -272,7 +295,7 @@ func serve(ctx context.Context) error {
 		Recurring:   recurring,
 		Preferences: prefs,
 		Stats:       service.NewStatsService(store.Stats, store.Contexts),
-		Transfer:    service.NewTransferService(store, todos),
+		Transfer:    transfer,
 		Attachments: attachments,
 		Admin:       service.NewAdminService(store, attachments),
 		Settings:    settings,
@@ -281,8 +304,12 @@ func serve(ctx context.Context) error {
 		Reports:     reports,
 		Email:       emailSvc,
 		TwoFactor:   twoFactor,
-		Tags:        store.Tags,
-		Notes:       store.Notes,
+		Audit:       audit,
+		// Nil leaves the pages and their routes off entirely, rather than
+		// serving placeholder policies a private deployment never wanted.
+		Legal: legalSvc,
+		Tags:  store.Tags,
+		Notes: store.Notes,
 	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,
@@ -313,6 +340,14 @@ func serve(ctx context.Context) error {
 	}()
 
 	// Housekeeping: forget quiet lockout records so the table stays small.
+	// Once at startup as well as hourly, so a changed retention window takes
+	// effect on restart rather than up to an hour later.
+	if n, err := audit.Purge(ctx, cfg.AuditRetention); err != nil {
+		log.Warn().Err(err).Msg("could not apply audit retention")
+	} else if n > 0 {
+		log.Info().Int("removed", n).Msg("audit entries passed their retention window")
+	}
+
 	go func() {
 		tick := time.NewTicker(time.Hour)
 		defer tick.Stop()
@@ -330,6 +365,16 @@ func serve(ctx context.Context) error {
 				}
 				if err := store.Enrollments.PurgeExpired(ctx, time.Now()); err != nil {
 					log.Warn().Err(err).Msg("could not purge expired enrollments")
+				}
+				// Retention on the audit log. Logged when it removes
+				// anything: entries leaving is the one thing that happens to
+				// this table without somebody asking for it.
+				if n, err := audit.Purge(ctx, cfg.AuditRetention); err != nil {
+					log.Warn().Err(err).Msg("could not apply audit retention")
+				} else if n > 0 {
+					log.Info().Int("removed", n).
+						Dur("retention", cfg.AuditRetention).
+						Msg("audit entries passed their retention window")
 				}
 			case <-ctx.Done():
 				return

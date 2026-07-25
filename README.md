@@ -86,6 +86,8 @@ dashes replaced by underscores.
 | `--http.tls.enabled` | `GOTRACKS_HTTP_TLS_ENABLED` | `false` | Serve over HTTPS |
 | `--http.tls.cert` | `GOTRACKS_HTTP_TLS_CERT` | — | TLS certificate PEM (required with `--http.tls.enabled`) |
 | `--http.tls.key` | `GOTRACKS_HTTP_TLS_KEY` | — | TLS private key PEM (required with `--http.tls.enabled`) |
+| `--legal.enabled` | `GOTRACKS_LEGAL_ENABLED` | `false` | Serve the terms, privacy and cookie pages and their admin screen |
+| `--legal.retention-days` | `GOTRACKS_LEGAL_RETENTION_DAYS` | `90` | How long audit entries are kept (0 = forever) |
 | `--storage.uploads` | `GOTRACKS_STORAGE_UPLOADS` | XDG data dir | Attachment directory |
 | `--storage.max-upload-mb` | `GOTRACKS_STORAGE_MAX_UPLOAD_MB` | `10` | Per-file upload limit |
 | `--quota.storage-mb` | `GOTRACKS_QUOTA_STORAGE_MB` | `500` | Per-account attachment allowance (0 = unlimited) |
@@ -108,6 +110,20 @@ dashes replaced by underscores.
 | `--mail.mailjet.api-key` / `.secret-key` | `GOTRACKS_MAIL_MAILJET_API_KEY` / `_SECRET_KEY` | — | Mailjet key pair |
 | `--mail.resend.api-key` | `GOTRACKS_MAIL_RESEND_API_KEY` | — | Resend API key |
 
+### Account enumeration
+
+Every public flow answers the same way whether or not an address has an account.
+Enrollment, password reset and verification resend return one response for known
+and unknown addresses; password sign-in performs the same Argon2 work either
+way, so timing does not separate them.
+
+Passkey sign-in does the same by handing back a ceremony for **any** address:
+one without a key receives invented options whose credential id is derived from
+the address under a server secret, so asking twice gives the same answer and
+asking about two addresses gives different ones. The browser rejects a
+credential it does not hold exactly as it rejects the wrong key. The invented
+ceremony belongs to nobody and cannot complete a sign-in.
+
 ### First administrator and public enrollment
 
 An empty database will not start without `auth.bootstrap-secret`. Enter that
@@ -129,6 +145,54 @@ filenames and attachment content types allow 200 characters; action, recurrence
 and project descriptions allow 1,000; note bodies and action/recurrence notes
 allow 1,000. These limits are enforced by the API and cannot be disabled by
 configuration.
+
+### Audit log
+
+Administrators get an **Audit log** section listing who did what, when, and from
+where. It records the events that matter for accountability and for spotting
+misuse: sign-ins and failed sign-ins, password-reset requests, address changes,
+account creation, deletion and legal acceptance, and every administrator action
+on an account — creation, edits, granting or revoking administrator rights,
+two-factor resets, invitation resends, instance settings and legal-text changes.
+
+Each entry holds the time, the action, the outcome, who acted and who they acted
+on, the client address, the browser, and a short note such as *granted
+administrator*. **It never holds a secret** — no password, hash, token, recovery
+code or session id.
+
+The table shows four columns so it reads without scrolling sideways; the address,
+browser and note sit behind the details button. Filter by date range, person
+(matched against both sides of an action), action and outcome, then export
+exactly what the filter matched as CSV or JSON — the whole match, not the visible
+page.
+
+**Reading the log is itself recorded.** Searching or exporting writes an
+`admin.audit.searched` / `admin.audit.exported` entry naming who looked and with
+what filter, so browsing everyone else's history is not itself invisible. An
+export entry also carries a **SHA-256 of the exact bytes it produced**, shown
+behind a paperclip in the entry's details: a copy of an export can be proven the
+untampered original by re-hashing it and comparing, and the log keeps only the
+fingerprint, never a second copy of everyone's history at rest. If a download is
+interrupted the entry is still written — the server released the data, which is
+the fact that matters — with its detail noting the delivery was cut short; the
+fingerprint always covers the whole export the server produced, not the fraction
+a broken transfer delivered.
+
+**Entries are never edited or removed by hand, and are not deleted when the
+account they describe is deleted** — a log its own subject can erase is not
+evidence of anything. The one automatic deletion is age: entries past
+`--legal.retention-days` (90 by default, `0` to keep forever) are removed at
+startup and hourly. Personal data may be kept no longer than the purpose needs,
+whatever lawful basis it rests on, so retention is a rule about age rather than
+a way to edit history. The privacy policy states the period.
+
+Registrations against an address that already has an account are recorded as
+rejected, while the caller still gets the same response as any other
+registration. The response cannot be used to test which addresses exist; the log
+is where an operator sees somebody working through a list.
+
+The table is never pruned, so it grows with use. That is deliberate, but it is
+worth knowing before you run an instance for years.
 
 ### Usage report
 
@@ -242,10 +306,22 @@ account at a time.
 
 ### Data export
 
-Settings can download an account's data as JSON. The export is intended for
-leaving gotracks or processing the data elsewhere, not for re-import: there is
-no import endpoint. Database and account identifiers are deliberately omitted;
-relationships use the context and project names visible in the UI.
+Settings can download an account's data as a **zip**: `export.json` alongside
+every file the account has uploaded, under `attachments/`. The JSON lists each
+attachment with the path it occupies in the archive, so the archive describes
+itself.
+
+The export is intended for leaving gotracks or processing the data elsewhere,
+not for re-import: there is no import endpoint. Database and account identifiers
+are deliberately omitted; relationships use the context and project names
+visible in the UI.
+
+It is written straight to the response as the archive is built rather than
+assembled in memory — an account at the default storage quota holds 500 MB of
+files. Archive paths are numbered and stripped to a safe character set, because
+two actions can hold files of the same name and an uploaded filename is only
+ever as trustworthy as the client that sent it. A row whose file has gone
+missing is still listed, with no path, rather than failing the whole export.
 
 ### Sending mail
 
@@ -297,6 +373,17 @@ can resend invitations even when public enrollment is disabled. Without a mail
 provider, development invitations are written to the debug log instead of
 being delivered.
 
+### Sessions
+
+Settings lists the devices signed in to an account. Because a refresh token
+rotates on every use, one sign-in is a chain of tokens rather than a single row;
+a stable session id ties the chain together so it reads as one device, carrying
+its start time, last activity, and most recent address and browser. A user can
+end any session but the one they are using, or sign out of all the others at
+once. Ending a session revokes its refresh token — its next refresh fails —
+while the access token it last minted works until it expires within
+`--auth.access-ttl`. Every revoke is recorded in the audit log.
+
 ### Account email and deletion
 
 An account holder can request an email-address change from Settings. The
@@ -314,9 +401,137 @@ preferences, actions, projects, notes, recurrence data, reports, attachment
 records, and uploaded files. The last administrator must appoint another
 administrator before deleting their own account.
 
-**Deliverability is the hard part.** Publish SPF, DKIM and DMARC records for
-the sending domain, or reset mail will land in spam and users will conclude the
-service is broken.
+### Legal pages
+
+**Off by default.** A private or single-user deployment has nobody to inform,
+and empty policy pages are worse than none, so nothing is served until you set
+`--legal.enabled`. With it off there are no routes, no links and no admin
+screen; the SPA learns this from `/api/v1/config` rather than guessing, so it
+never links to a page that would 404.
+
+Enabled, the service serves terms of service, a privacy policy and a
+cookie/storage policy at `/terms`, `/privacy` and `/cookies`, linked from under
+the sign-out button, the mobile "More" sheet and every signed-out screen.
+
+**Complete drafts ship in every interface language** (`internal/legal/defaults`,
+embedded in the binary), so a fresh instance has working pages with nothing to
+configure. Administrators get a **Legal** item in the navigation — a language
+dropdown at the top, then the three documents as markdown in editable boxes.
+Only replacements are stored in the database: a document nobody has edited has
+no row, and "Restore default" deletes the row rather than copying the shipped
+text into it. Clearing a box and saving does the same — it never publishes a
+blank policy.
+
+Each language is edited on its own, because a policy displayed in one language
+and written in another tells the reader nothing they can rely on.
+
+#### Agreement
+
+Accepting an invitation requires one tick covering all three documents, and
+records the date. That single record is the whole mechanism: the documents
+themselves state that they may change and that anyone who disagrees can delete
+their account, so continued use is what carries agreement afterwards.
+
+There is deliberately **no versioning, no draft step and no re-consent prompt**.
+Under the GDPR a privacy policy is an information duty (Article 13), not
+something a reader consents to — the lawful basis here is performing the
+contract and keeping the service secure. The cookie policy needs no consent
+either, since the storage it describes is strictly necessary. Only the terms are
+a contract, and one acceptance at signup binds them.
+
+Saving in the admin screen publishes immediately, and the acceptance date
+appears in the account's JSON export and is deleted with the account.
+
+The shipped text is a **draft**: accurate about what the software does, but it
+carries `{{PLACEHOLDER}}` markers for the operator name, address, contact
+address, country and effective date. Fill those in before you open signup, and
+have a lawyer read the result if you run the instance for other people. If you
+change how the deployment works — add analytics, another processor, a CDN —
+change the text with it, in every language.
+
+The terms are deliberately short: the service is offered the way open-source
+code is, as-is and without warranty. The privacy policy is not short and cannot
+be, because GDPR Article 13 dictates most of what has to be in it.
+
+There is **no cookie banner, and none is needed**: the app sets no cookies at
+all, and the two tokens it keeps in `localStorage` are strictly necessary for a
+session the visitor asked for, which is the ePrivacy exemption. The cookie page
+says exactly that.
+
+### Deliverability
+
+This is the part that decides whether the feature works. A password reset that
+lands in spam is indistinguishable from a broken service, and the user cannot
+work around it. None of it is code: gotracks hands a well-formed message to a
+provider, and everything below is DNS and provider configuration on the domain
+you send from.
+
+**Publish three records for the sending domain**, then check them before you
+open signup:
+
+| Record | Where | Shape |
+|---|---|---|
+| SPF | `example.com` `TXT` | `v=spf1 include:<your provider> -all` |
+| DKIM | as the provider instructs | the `CNAME` or `TXT` records it gives you |
+| DMARC | `_dmarc.example.com` `TXT` | `v=DMARC1; p=none; rua=mailto:dmarc@example.com` |
+
+Take the SPF `include:` and the DKIM records from the provider's own dashboard
+rather than from any document — they differ per provider and change. Use one
+`include:` for the provider you actually send through; SPF permits ten DNS
+lookups in total and stacked leftovers from previous providers silently break
+it. `-all` (hard fail) is the point of the record; `~all` asks receivers to
+accept forgeries softly.
+
+Start DMARC at `p=none`, which changes nothing and only asks for reports. Read
+the aggregate reports for a couple of weeks, confirm everything legitimate
+passes, then move to `p=quarantine` and finally `p=reject`. Publishing
+`p=reject` before reading reports is how a domain stops delivering its own mail.
+
+**Alignment is what DMARC actually checks.** The domain in `--mail.from` has to
+match the DKIM signing domain and the SPF-authorized sender. gotracks helps
+where it can: it always sends a plain-text part alongside the HTML, sets
+`Auto-Submitted: auto-generated`, and stamps a unique `Message-ID` rooted in the
+`--mail.from` domain. A message with no `Message-ID`, or one from an unrelated
+domain, is a spam signal by itself.
+
+**Bounces and complaints decay a sender quietly.** gotracks sends and returns;
+it does not receive mail, so it never sees an asynchronous bounce. Two things
+follow:
+
+- `--mail.from` must be a real, monitored mailbox. With an SMTP relay it is the
+  envelope return path, so that is where bounces arrive; nobody reading it
+  means nobody notices a dead address being retried forever.
+- Turn on the provider's suppression list (Resend and Mailjet both keep one) so
+  repeated sends to a hard-bounced address stop at the provider instead of
+  accumulating against your reputation. Watch the complaint rate: mailbox
+  providers start throttling well below 1%.
+
+gotracks deliberately ships no bounce webhook receiver — provider-side
+suppression covers the same ground without an authenticated public endpoint per
+vendor.
+
+**Verify end to end before launch.** Locally, point the SMTP provider at a
+catcher such as [Mailpit](https://mailpit.axllent.org/) and walk the real flow:
+
+```bash
+docker run -d --rm -p 8025:8025 -p 1025:1025 axllent/mailpit
+
+go run . serve --http.public-url http://localhost:8080 \
+  --mail.provider smtp --mail.from tracks@example.com \
+  --mail.smtp.host localhost --mail.smtp.port 1025 --mail.smtp.encryption none
+```
+
+Request a reset, open the link from Mailpit's inbox, and confirm the new
+password works, the old one does not, existing sessions are gone, and the link
+fails on a second use. The transport itself has a check of its own:
+
+```bash
+MAIL_SMTP_CHECK=localhost:1025 go test ./internal/mail/ -run TestSMTPAgainstLocalRelay -v
+```
+
+A catcher proves the flow, not the deliverability. Finish with one send to a
+real mailbox on a large provider and read the received headers: they must show
+`spf=pass`, `dkim=pass` and `dmarc=pass`.
 
 ### Direct TLS
 
@@ -374,6 +589,30 @@ Two things worth knowing:
 - Sign-in challenges are held **in memory**. A restart mid-sign-in just means
   signing in again, but it also means running more than one replica needs
   sticky sessions — the same constraint passkey sign-in already has.
+
+## What this project does not do for you
+
+Three things a public deployment needs are deliberately outside the binary,
+because no amount of application code can supply them. They are yours:
+
+**Mail deliverability.** gotracks hands a well-formed message to a provider and
+stops there. Publishing SPF, DKIM and DMARC for the sending domain, monitoring
+the mailbox behind `--mail.from` for bounces, and enabling the provider's own
+suppression list are DNS and vendor configuration. Without them, password-reset
+mail lands in spam and users conclude the service is broken. See
+[Deliverability](#deliverability) for the records and a verification recipe.
+
+**A database you can restore.** SQLite is the default and is single-writer; run
+Postgres for anything with real users. Automated backups with a **tested**
+restore are yours to set up — an untested backup is not a backup. Include the
+uploads directory: attachment rows without their files are useless.
+
+**The wording of your legal texts.** The binary ships complete drafts in every
+interface language, accurate about what the software does, but they carry
+`{{PLACEHOLDER}}` markers for your name, address, contact address, country and
+effective date. You are the data controller, not this project: fill them in and
+have a lawyer read the result before you collect anyone else's data. See
+[Legal pages](#legal-pages).
 
 ## Docker
 

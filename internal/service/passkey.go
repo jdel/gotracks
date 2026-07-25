@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -61,7 +63,15 @@ type PasskeyService struct {
 	// ceremonies are shared through the database rather than held per process,
 	// so a ceremony begun on one instance can be finished on another.
 	ceremonies repo.EphemeralRepo
+	// decoySecret keys the invented credential ids handed to callers asking
+	// about an address that cannot sign in with a passkey. Server-side only.
+	decoySecret []byte
 }
+
+// SetDecoySecret keys the synthetic passkey options. Any stable server secret
+// will do; it never leaves the process and is only used so that repeated
+// questions about one address get one answer.
+func (s *PasskeyService) SetDecoySecret(secret []byte) { s.decoySecret = secret }
 
 // The three WebAuthn flows are kept apart by kind. Without it a ceremony
 // started by one endpoint could be redeemed at another — enrolling a key, or
@@ -230,28 +240,55 @@ func (s *PasskeyService) FinishRegistration(
 
 // BeginLogin starts a passkey login for a named account.
 func (s *PasskeyService) BeginLogin(ctx context.Context, email string) (any, string, error) {
-	u, err := s.users.ByEmail(ctx, auth.NormaliseEmail(email))
-	if err != nil {
-		// Do not reveal whether the account exists.
-		return nil, "", ErrNoPasskeys
+	normalised := auth.NormaliseEmail(email)
+
+	user := &domain.User{Email: normalised}
+	var creds []webauthn.Credential
+	if u, err := s.users.ByEmail(ctx, normalised); err == nil {
+		stored, _, err := s.credentialsFor(ctx, u.ID)
+		if err != nil {
+			return nil, "", err
+		}
+		if len(stored) > 0 {
+			user, creds = u, stored
+		}
 	}
-	creds, _, err := s.credentialsFor(ctx, u.ID)
-	if err != nil {
-		return nil, "", err
-	}
+	// An address with no account, or one that never enrolled a key, is answered
+	// with invented options rather than a refusal. Refusing told anyone who
+	// asked which addresses hold a passkey, and the browser rejects a
+	// credential it does not have exactly as it rejects the wrong key — the
+	// person who really owns the account sees no difference either way.
 	if len(creds) == 0 {
-		return nil, "", ErrNoPasskeys
+		creds = []webauthn.Credential{{ID: s.decoyCredentialID(normalised)}}
 	}
 
-	options, sessionData, err := s.web.BeginLogin(webauthnUser{user: u, creds: creds})
+	options, sessionData, err := s.web.BeginLogin(webauthnUser{user: user, creds: creds})
 	if err != nil {
 		return nil, "", err
 	}
-	id, err := s.putCeremony(ctx, *sessionData, u.ID, kindPasskeySignIn)
+	// A decoy ceremony is stored against user 0, which owns nothing: the flow
+	// costs the same work and the same row as a real one, and finishing it can
+	// only fail. Keyed per user like every ceremony, so repeated probing
+	// replaces one row rather than filling the table.
+	id, err := s.putCeremony(ctx, *sessionData, user.ID, kindPasskeySignIn)
 	if err != nil {
 		return nil, "", err
 	}
 	return options, id, nil
+}
+
+// decoyCredentialID invents a credential id for an address that cannot sign in
+// with a passkey.
+//
+// Derived rather than random so that asking twice about one address gives the
+// same answer: a real credential id is stable, and one that changed per request
+// would be the very disclosure this exists to prevent. Keyed with a server
+// secret so the value cannot be computed from outside.
+func (s *PasskeyService) decoyCredentialID(email string) []byte {
+	mac := hmac.New(sha256.New, s.decoySecret)
+	mac.Write([]byte("passkey-decoy:"))
+	mac.Write([]byte(email))
+	return mac.Sum(nil)
 }
 
 // FinishLogin validates the assertion and returns the authenticated user.

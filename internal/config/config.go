@@ -63,6 +63,14 @@ type Config struct {
 	QuotaTags         int
 	QuotaRecurring    int
 	QuotaTagsPerTodo  int
+	// LegalEnabled serves the legal pages and their admin screen. Off by
+	// default: a private deployment has nobody to inform.
+	LegalEnabled bool
+	// Version is the build this binary reports, surfaced in the interface.
+	Version string
+	// AuditRetention is how long audit entries are kept. Zero keeps them
+	// indefinitely, which an operator has to choose deliberately.
+	AuditRetention time.Duration
 
 	UploadDir      string // where attachment files are stored
 	MaxUploadBytes int64  // per-file upload limit

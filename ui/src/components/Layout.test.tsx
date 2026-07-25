@@ -8,6 +8,22 @@ import { I18nProvider } from "@/lib/I18nProvider";
 import { useAuth } from "@/lib/auth";
 
 vi.mock("@/lib/auth", () => ({ useAuth: vi.fn() }));
+// The shell reads the instance's capabilities to decide whether to offer the
+// Legal section and which build to print. Legal stays off here so the section
+// list below is exactly the one every deployment shows.
+vi.mock("@/hooks/useSettings", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/useSettings")>()),
+  useServerConfig: () => ({
+    data: {
+      allowRegister: true,
+      bootstrapRequired: false,
+      passkeys: false,
+      twoFactor: false,
+      legal: false,
+    },
+  }),
+  useServerVersion: () => ({ data: { version: "v9.9.9" } }),
+}));
 
 // Every section the app routes to. If a route is added without a nav entry,
 // the reachability test below fails rather than the link quietly going missing
@@ -149,5 +165,42 @@ describe("mobile navigation", () => {
     await userEvent.click(within(sheet).getByRole("link", { name: /Starred/i }));
 
     expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+});
+
+// The sidebar used to be a plain flex child of a row, so it stretched to the
+// height of whatever was beside it and mt-auto pushed sign-out to the bottom of
+// that column. On a long page (Settings) it landed below the fold. Pinning it to
+// the viewport is what keeps the account block on screen.
+describe("desktop sidebar", () => {
+  it("is pinned to the viewport rather than stretched by the page", () => {
+    renderLayout();
+    const aside = document.querySelector("aside");
+    expect(aside).not.toBeNull();
+    const className = aside!.className;
+    for (const token of ["md:sticky", "md:top-0", "md:h-dvh"]) {
+      expect(className, `sidebar is missing ${token}`).toContain(token);
+    }
+  });
+
+  // If the sections ever outgrow the viewport the nav has to scroll on its own,
+  // or it pushes the account block out again.
+  it("lets the section list scroll without displacing the account block", () => {
+    renderLayout();
+    const nav = document.querySelector("aside nav");
+    expect(nav?.className).toContain("overflow-y-auto");
+  });
+});
+
+// The version is the last line of the sidebar, under the legal links, so a bug
+// report can name the build it came from.
+describe("build version", () => {
+  it("is shown at the very bottom of the sidebar", async () => {
+    renderLayout();
+    const version = await screen.findByText(/gotracks v9\.9\.9/);
+    const footer = document.querySelector("aside > div:last-child");
+    expect(footer?.contains(version)).toBe(true);
+    // Last child of the block: below the sign-out button and the legal links.
+    expect(footer?.lastElementChild).toBe(version);
   });
 });

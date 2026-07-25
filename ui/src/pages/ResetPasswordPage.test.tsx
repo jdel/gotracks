@@ -58,9 +58,17 @@ describe("account invitation", () => {
       user: expect.objectContaining({ email: "invited@example.com" }),
       tokens: expect.objectContaining({ accessToken: "access" }),
     })));
-    expect(requests).toEqual([{
-      url: "/api/v1/auth/invitation/accept",
-      body: { token: "mailed-token", newPassword: "Invited-Passw0rd!" },
-    }]);
+    // The legal footer asks the instance whether it serves those pages at all,
+    // which is why /config is read before the account is activated.
+    // The page asks whether the instance serves policies at all before it can
+    // know whether to show the consent boxes. This one does not, so no boxes
+    // are shown and nothing is accepted.
+    expect(requests).toEqual([
+      { url: "/api/v1/config", body: {} },
+      {
+        url: "/api/v1/auth/invitation/accept",
+        body: { token: "mailed-token", newPassword: "Invited-Passw0rd!", acceptLegal: false },
+      },
+    ]);
   });
 });

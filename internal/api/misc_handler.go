@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/jdel/gotracks/internal/service"
 )
 
@@ -14,6 +16,27 @@ type metaHandler struct {
 	auth      *service.AuthService
 	passkeys  bool
 	twoFactor bool
+	legal     bool
+	// version is the build the binary reports, shown in the interface so a
+	// bug report can name the release it came from.
+	version string
+}
+
+// publicConfig is what the signed-out screens need before a session exists:
+// which credentials this instance accepts, whether it takes registrations, and
+// whether it serves legal pages. The sign-in page cannot be drawn without it,
+// which is why this endpoint is unauthenticated.
+//
+// It carries capabilities only. The build version is deliberately not here —
+// naming the release to anyone who can reach the port hands a scanner a version
+// to match against known advisories, and nothing on a signed-out screen needs
+// it.
+type publicConfig struct {
+	AllowRegister     bool `json:"allowRegister"`
+	BootstrapRequired bool `json:"bootstrapRequired"`
+	Passkeys          bool `json:"passkeys"`
+	TwoFactor         bool `json:"twoFactor"`
+	Legal             bool `json:"legal"`
 }
 
 // healthz is a public liveness probe.
@@ -31,7 +54,7 @@ func (h *metaHandler) healthz(w http.ResponseWriter, r *http.Request) {
 //
 //	@Summary	Public capabilities
 //	@Tags		meta
-//	@Success	200	{object}	map[string]bool
+//	@Success	200	{object}	publicConfig
 //	@Router		/api/v1/config [get]
 func (h *metaHandler) config(w http.ResponseWriter, r *http.Request) {
 	allowRegister, err := h.settings.AllowRegister(r.Context())
@@ -44,12 +67,32 @@ func (h *metaHandler) config(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{
-		"allowRegister":     allowRegister || bootstrapRequired,
-		"bootstrapRequired": bootstrapRequired,
-		"passkeys":          h.passkeys,
-		"twoFactor":         h.twoFactor,
+	writeJSON(w, http.StatusOK, publicConfig{
+		AllowRegister:     allowRegister || bootstrapRequired,
+		BootstrapRequired: bootstrapRequired,
+		Passkeys:          h.passkeys,
+		TwoFactor:         h.twoFactor,
+		Legal:             h.legal,
 	})
+}
+
+type versionBody struct {
+	Version string `json:"version"`
+}
+
+// version reports the build this server is running.
+//
+// Behind authentication: it is shown in the application shell, which only a
+// signed-in account sees, and there is no reason to tell an unauthenticated
+// caller which release to look up advisories for.
+//
+//	@Summary	Build version
+//	@Tags		meta
+//	@Security	BearerAuth
+//	@Success	200	{object}	versionBody
+//	@Router		/api/v1/version [get]
+func (h *metaHandler) buildVersion(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, versionBody{Version: h.version})
 }
 
 // preferenceHandler serves /preferences.
@@ -139,29 +182,31 @@ type transferHandler struct {
 	transfer *service.TransferService
 }
 
-// export streams all of the caller's data as JSON.
+// export streams all of the caller's data as a zip: the structured JSON plus
+// every file they have uploaded.
+//
+// An archive rather than the JSON alone because portability is the other half
+// of erasure — an account that can delete everything it owns has to be able to
+// take everything it owns, and attachments are part of that.
 //
 //	@Summary	Export my data
 //	@Tags		transfer
 //	@Security	BearerAuth
-//	@Produce	json
+//	@Produce	application/zip
 //	@Success	200		{file}	binary
 //	@Failure	400		{object}	errorBody
 //	@Router		/api/v1/export [get]
 func (h *transferHandler) export(w http.ResponseWriter, r *http.Request) {
 	uid := claimsFrom(r).UserID
-	data, err := h.transfer.Gather(r.Context(), uid)
-	if err != nil {
-		writeServiceError(w, err)
-		return
-	}
 
 	stamp := time.Now().Format("2006-01-02")
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", "gotracks-"+stamp+".json"))
-	if err := data.WriteJSON(w); err != nil {
-		// Headers are already sent; log via the service error path only.
-		writeServiceError(w, err)
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", "gotracks-"+stamp+".zip"))
+	if err := h.transfer.WriteZip(r.Context(), w, uid); err != nil {
+		// The archive streams as it is built, so by the time this can fail the
+		// status line is long gone and the download is a truncated zip. Say so
+		// in the log rather than pretending a response can still be written.
+		log.Error().Err(err).Int64("user", uid).Msg("export failed part-way through")
 	}
 }
 
