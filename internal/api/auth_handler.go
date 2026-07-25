@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/jdel/gotracks/internal/auth"
+
 	"github.com/jdel/gotracks/internal/domain"
 	"github.com/jdel/gotracks/internal/service"
 )
@@ -20,6 +22,16 @@ type authHandler struct {
 	email     *service.EmailService
 	admin     *service.AdminService
 	quotas    *service.QuotaService
+	legal     *service.LegalService
+	audit     *service.AuditService
+}
+
+// auditPublic starts an audit entry for a route with no session, naming the
+// address the caller claimed rather than an account that may not exist.
+func (h *authHandler) auditPublic(r *http.Request, action, email string) service.Entry {
+	e := auditFrom(r, action)
+	e.TargetEmail = auth.NormaliseEmail(email)
+	return e
 }
 
 type registerRequest struct {
@@ -71,6 +83,16 @@ type resetPasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
+// acceptInvitationRequest is where an account is really created, so it is also
+// where agreement is captured. AcceptLegal is required when the instance serves
+// the documents: recorded agreement the client never actually asked for is not
+// agreement.
+type acceptInvitationRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"newPassword"`
+	AcceptLegal bool   `json:"acceptLegal"`
+}
+
 type changePasswordRequest struct {
 	NewPassword     string `json:"newPassword"`
 	CurrentPassword string `json:"currentPassword"`
@@ -100,9 +122,26 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if err := h.email.Enroll(
+	outcome, err := h.email.Enroll(
 		r.Context(), req.Email, req.Locale, req.TimeZone, req.BootstrapSecret,
-	); err != nil {
+	)
+	// The response is identical whatever happened — that is what stops anyone
+	// testing which addresses are registered. The log is where the difference
+	// is visible, because somebody working through a list of addresses is
+	// exactly what an operator needs to see.
+	entry := h.auditPublic(r, domain.AuditRegisterRequested, req.Email)
+	switch {
+	case err != nil:
+		entry.Action = domain.AuditRegisterRejected
+		entry.Outcome = domain.AuditFailure
+		entry.Detail = err.Error()
+	case outcome == service.EnrollTaken:
+		entry.Action = domain.AuditRegisterRejected
+		entry.Outcome = domain.AuditFailure
+		entry.Detail = "the address already has an account; the caller was not told"
+	}
+	h.audit.Record(r.Context(), entry)
+	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
@@ -124,9 +163,17 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := h.auth.AuthenticatePassword(r.Context(), req.Email, req.Password)
 	if err != nil {
+		entry := h.auditPublic(r, domain.AuditLoginFailed, req.Email)
+		entry.Outcome = domain.AuditFailure
+		entry.Detail = err.Error()
+		h.audit.Record(r.Context(), entry)
 		writeServiceError(w, err)
 		return
 	}
+	success := h.auditPublic(r, domain.AuditLoginSucceeded, u.Email)
+	success.ActorID, success.ActorEmail = &u.ID, u.Email
+	success.TargetEmail = ""
+	h.audit.Record(r.Context(), success)
 
 	if h.email != nil {
 		if err := h.email.CheckVerified(u); err != nil {
@@ -235,6 +282,7 @@ func (h *authHandler) changePassword(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	h.audit.Record(r.Context(), auditFrom(r, domain.AuditPasswordChanged))
 	// The change revoked every session, so hand back a usable pair.
 	writeJSON(w, http.StatusOK, tokens)
 }
@@ -277,6 +325,7 @@ func (h *authHandler) verifyEmail(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	h.audit.Record(r.Context(), auditFrom(r, domain.AuditEmailVerified))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -319,6 +368,9 @@ func (h *authHandler) requestEmailChange(w http.ResponseWriter, r *http.Request)
 		writeServiceError(w, err)
 		return
 	}
+	change := auditFrom(r, domain.AuditEmailChangeRequested)
+	change.TargetEmail = auth.NormaliseEmail(req.NewEmail)
+	h.audit.Record(r.Context(), change)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -340,6 +392,7 @@ func (h *authHandler) confirmEmailChange(w http.ResponseWriter, r *http.Request)
 		writeServiceError(w, err)
 		return
 	}
+	h.audit.Record(r.Context(), auditFrom(r, domain.AuditEmailChanged))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -356,6 +409,10 @@ func (h *authHandler) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.email.RequestReset(r.Context(), req.Email)
+	// Recorded for every address, known or not: the response is deliberately
+	// identical either way, so the log is the only place the difference in
+	// volume against one address becomes visible.
+	h.audit.Record(r.Context(), h.auditPublic(r, domain.AuditPasswordResetRequested, req.Email))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -377,6 +434,9 @@ func (h *authHandler) resetPassword(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	// No session here — reaching the mailed link is the proof — so the entry
+	// names nobody but records that a reset completed from this address.
+	h.audit.Record(r.Context(), auditFrom(r, domain.AuditPasswordReset))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -385,20 +445,40 @@ func (h *authHandler) resetPassword(w http.ResponseWriter, r *http.Request) {
 //
 //	@Summary	Accept a user invitation
 //	@Tags		auth
-//	@Param		body	body	resetPasswordRequest	true	"Invitation token and password"
+//	@Param		body	body	acceptInvitationRequest	true	"Invitation token, password and consent"
 //	@Success	200	{object}	authResponse
 //	@Failure	400	{object}	errorBody
 //	@Router		/api/v1/auth/invitation/accept [post]
 func (h *authHandler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
-	var req resetPasswordRequest
+	var req acceptInvitationRequest
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	// Checked before the token is spent: a refusal here has to leave the
+	// invitation usable, or a client that forgot the field burns the link.
+	if h.legal != nil && !req.AcceptLegal {
+		writeError(w, http.StatusBadRequest,
+			"the terms, privacy policy and cookie policy must be accepted")
+		return
+	}
+
 	u, err := h.email.AcceptInvitation(r.Context(), req.Token, req.NewPassword)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
+	if h.legal != nil {
+		if err := h.legal.Accept(r.Context(), u.ID); err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		accepted := auditFrom(r, domain.AuditLegalAccepted)
+		accepted.ActorID, accepted.ActorEmail = &u.ID, u.Email
+		h.audit.Record(r.Context(), accepted)
+	}
+	created := auditFrom(r, domain.AuditRegisterCompleted)
+	created.ActorID, created.ActorEmail = &u.ID, u.Email
+	h.audit.Record(r.Context(), created)
 	tokens, err := h.auth.IssueFor(r.Context(), u)
 	if err != nil {
 		writeServiceError(w, err)
@@ -427,6 +507,7 @@ func (h *authHandler) requestAccountDeletion(w http.ResponseWriter, r *http.Requ
 		writeServiceError(w, err)
 		return
 	}
+	h.audit.Record(r.Context(), auditFrom(r, domain.AuditAccountDeletionRequested))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -450,10 +531,20 @@ func (h *authHandler) confirmAccountDeletion(w http.ResponseWriter, r *http.Requ
 		writeServiceError(w, err)
 		return
 	}
+	// Read before the account goes: afterwards there is nobody to name, and an
+	// erasure nobody can evidence is the one deletion worth recording most.
+	var email string
+	if u, err := h.admin.GetUser(r.Context(), userID); err == nil {
+		email = u.Email
+	}
 	if err := h.admin.DeleteOwnAccount(r.Context(), userID); err != nil {
 		writeServiceError(w, err)
 		return
 	}
+	deleted := auditFrom(r, domain.AuditAccountDeleted)
+	deleted.ActorID, deleted.ActorEmail = &userID, email
+	deleted.Detail = "self-service deletion confirmed by email"
+	h.audit.Record(r.Context(), deleted)
 	w.WriteHeader(http.StatusNoContent)
 }
 

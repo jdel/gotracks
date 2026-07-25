@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/jdel/gotracks/internal/domain"
 	"github.com/jdel/gotracks/internal/service"
 )
 
@@ -15,6 +16,7 @@ import (
 type passkeyHandler struct {
 	passkeys *service.PasskeyService
 	auth     *service.AuthService
+	audit    *service.AuditService
 }
 
 // enabled reports whether passkeys are configured on this instance.
@@ -99,6 +101,9 @@ func (h *passkeyHandler) registerFinish(w http.ResponseWriter, r *http.Request) 
 		writeServiceError(w, err)
 		return
 	}
+	entry := auditFrom(r, domain.AuditPasskeyAdded)
+	entry.Detail = cred.Name
+	h.audit.Record(r.Context(), entry)
 	writeJSON(w, http.StatusCreated, cred)
 }
 
@@ -120,6 +125,7 @@ func (h *passkeyHandler) delete(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	h.audit.Record(r.Context(), auditFrom(r, domain.AuditPasskeyRemoved))
 	w.WriteHeader(http.StatusNoContent)
 }
 

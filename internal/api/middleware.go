@@ -15,6 +15,7 @@ import (
 
 	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/domain"
+	"github.com/jdel/gotracks/internal/service"
 )
 
 type ctxKey int
@@ -23,6 +24,7 @@ const (
 	ctxKeyRequestID ctxKey = iota
 	ctxKeyClaims
 	ctxKeyClientIP
+	ctxKeyUser
 )
 
 // Middleware is a standard net/http middleware.
@@ -290,7 +292,10 @@ func RequireAuth(tm *auth.TokenManager, currentUser currentUserLookup) Middlewar
 			// potentially stale role embedded in the access token.
 			claims.IsAdmin = user.IsAdmin
 
+			// The reloaded account is kept alongside the claims so handlers
+			// can name the actor in an audit entry without asking again.
 			ctx := context.WithValue(r.Context(), ctxKeyClaims, claims)
+			ctx = context.WithValue(ctx, ctxKeyUser, user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -313,6 +318,26 @@ func RequireAdmin(next http.Handler) http.Handler {
 func claimsFrom(r *http.Request) *auth.Claims {
 	c, _ := r.Context().Value(ctxKeyClaims).(*auth.Claims)
 	return c
+}
+
+// sessionMeta carries the caller's resolved address and browser into the
+// request context, so token issuance can record them on the session without
+// every auth handler having to thread them through.
+func sessionMeta(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := service.WithSessionMeta(r.Context(), service.SessionMeta{
+			IP:        clientIP(r),
+			UserAgent: r.UserAgent(),
+		})
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// userFrom returns the account RequireAuth reloaded for this request, nil on a
+// public route.
+func userFrom(r *http.Request) *domain.User {
+	u, _ := r.Context().Value(ctxKeyUser).(*domain.User)
+	return u
 }
 
 // RealIP resolves the client address once per request and stores it for the

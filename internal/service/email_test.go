@@ -315,6 +315,33 @@ func TestResetTokenIsSingleUse(t *testing.T) {
 	}
 }
 
+// A reset link is a credential, so its lifetime is part of what makes it safe
+// to put in a mailbox: an old message must not still open the account.
+func TestExpiredResetTokenIsRefused(t *testing.T) {
+	svc, authSvc, store, m := emailFixture(t, true)
+	ctx := context.Background()
+	u, _, _ := authSvc.Register(ctx, "alice@example.com", emailPassword, "")
+	_ = svc.MarkVerified(ctx, u)
+	svc.RequestReset(ctx, "alice@example.com")
+	token := tokenFrom(t, mustLast(t, m).Text)
+
+	stored, err := store.Ephemeral.Peek(ctx, "password-reset", auth.HashEmailToken(token))
+	if err != nil {
+		t.Fatalf("no stored reset token: %v", err)
+	}
+	stored.ExpiresAt = time.Now().Add(-time.Minute)
+	if err := store.Ephemeral.ReplaceForUser(ctx, stored); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.ResetPassword(ctx, token, "N3w!Passw0rd-x"); !errors.Is(err, service.ErrEmailToken) {
+		t.Fatalf("an expired reset link was accepted: %v", err)
+	}
+	if _, err := authSvc.AuthenticatePassword(ctx, "alice@example.com", emailPassword); err != nil {
+		t.Errorf("the original password stopped working: %v", err)
+	}
+}
+
 // A weak password must be refused before the token is spent, or the user is
 // left with a dead link and no way in.
 func TestWeakPasswordDoesNotBurnTheResetToken(t *testing.T) {
@@ -430,7 +457,7 @@ func TestPublicEnrollmentCreatesUserOnlyAfterMailboxProof(t *testing.T) {
 	svc, _, store, m := emailFixture(t, true)
 	ctx := context.Background()
 
-	if err := svc.Enroll(
+	if _, err := svc.Enroll(
 		ctx, "new@example.com", "fr", "Europe/Paris", "test-bootstrap-secret",
 	); err != nil {
 		t.Fatal(err)
@@ -464,7 +491,7 @@ func TestBootstrapEnrollmentRequiresConfiguredSecret(t *testing.T) {
 	ctx := context.Background()
 
 	for _, supplied := range []string{"", "wrong-bootstrap-secret"} {
-		err := svc.Enroll(ctx, "root@example.com", "en", "UTC", supplied)
+		_, err := svc.Enroll(ctx, "root@example.com", "en", "UTC", supplied)
 		if !errors.Is(err, service.ErrBootstrapRequired) {
 			t.Fatalf("bootstrap with %q = %v, want ErrBootstrapRequired", supplied, err)
 		}
@@ -480,13 +507,13 @@ func TestBootstrapEnrollmentRequiresConfiguredSecret(t *testing.T) {
 func TestNewBootstrapEnrollmentInvalidatesEarlierToken(t *testing.T) {
 	svc, _, _, m := emailFixture(t, true)
 	ctx := context.Background()
-	if err := svc.Enroll(
+	if _, err := svc.Enroll(
 		ctx, "first@example.com", "en", "UTC", "test-bootstrap-secret",
 	); err != nil {
 		t.Fatal(err)
 	}
 	first := tokenFrom(t, mustLast(t, m).Text)
-	if err := svc.Enroll(
+	if _, err := svc.Enroll(
 		ctx, "second@example.com", "en", "UTC", "test-bootstrap-secret",
 	); err != nil {
 		t.Fatal(err)
@@ -508,7 +535,7 @@ func TestNewBootstrapEnrollmentInvalidatesEarlierToken(t *testing.T) {
 func TestDisabledPublicEnrollmentDoesNotBlockAdminInvitations(t *testing.T) {
 	svc, _, store, m := emailFixture(t, true)
 	ctx := context.Background()
-	if err := svc.Enroll(ctx, "root@example.com", "en", "UTC", "test-bootstrap-secret"); err != nil {
+	if _, err := svc.Enroll(ctx, "root@example.com", "en", "UTC", "test-bootstrap-secret"); err != nil {
 		t.Fatalf("bootstrap enrollment: %v", err)
 	}
 	if _, err := svc.AcceptInvitation(
@@ -520,7 +547,7 @@ func TestDisabledPublicEnrollmentDoesNotBlockAdminInvitations(t *testing.T) {
 	if _, err := settings.SetAllowRegister(ctx, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Enroll(ctx, "public@example.com", "en", "UTC", ""); !errors.Is(err, service.ErrRegisterDisabled) {
+	if _, err := svc.Enroll(ctx, "public@example.com", "en", "UTC", ""); !errors.Is(err, service.ErrRegisterDisabled) {
 		t.Fatalf("public enrollment while disabled = %v, want ErrRegisterDisabled", err)
 	}
 

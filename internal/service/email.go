@@ -208,19 +208,38 @@ func (s *EmailService) sendInvitation(ctx context.Context, email, token string) 
 // Existing accounts are intentionally silent to avoid enumeration.
 func (s *EmailService) Enroll(
 	ctx context.Context, email, locale, timeZone, bootstrapSecret string,
-) error {
+) (EnrollOutcome, error) {
 	address, token, err := s.auth.BeginEnrollment(
 		ctx, email, locale, timeZone, bootstrapSecret,
 	)
 	if errors.Is(err, ErrEmailTaken) {
 		s.RequestInvitation(ctx, email)
-		return nil
+		return EnrollTaken, nil
 	}
 	if err != nil {
-		return err
+		return EnrollRefused, err
 	}
-	return s.sendInvitation(ctx, address, token)
+	return EnrollPending, s.sendInvitation(ctx, address, token)
 }
+
+// EnrollOutcome reports what an enrollment actually did.
+//
+// It exists for the audit log alone: the HTTP response is deliberately the same
+// whether or not the address already has an account, because a different one
+// would let anybody test which addresses are registered. Someone working
+// through a list of addresses is exactly what an operator needs to see, so the
+// difference is recorded where only an administrator can read it.
+type EnrollOutcome int
+
+const (
+	// EnrollPending created a new pending record and sent an invitation.
+	EnrollPending EnrollOutcome = iota
+	// EnrollTaken means the address already has an account. The caller was
+	// told nothing.
+	EnrollTaken
+	// EnrollRefused means it failed outright, e.g. registration is disabled.
+	EnrollRefused
+)
 
 // RequestInvitation resends enrollment mail without revealing whether the
 // address exists. It is used by the public endpoint when somebody enrolls an

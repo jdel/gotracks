@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/jdel/gotracks/internal/domain"
 	"github.com/jdel/gotracks/internal/service"
 )
 
@@ -11,6 +12,7 @@ import (
 type twoFactorHandler struct {
 	twoFactor *service.TwoFactorService
 	auth      *service.AuthService
+	audit     *service.AuditService
 }
 
 type enrolFinishRequest struct {
@@ -82,6 +84,7 @@ func (h *twoFactorHandler) enrolFinish(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	h.audit.Record(r.Context(), auditFrom(r, domain.AuditTwoFactorEnabled))
 	writeJSON(w, http.StatusOK, recoveryCodesResponse{RecoveryCodes: codes})
 }
 
@@ -133,6 +136,7 @@ func (h *twoFactorHandler) disable(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	h.audit.Record(r.Context(), auditFrom(r, domain.AuditTwoFactorDisabled))
 	writeJSON(w, http.StatusNoContent, nil)
 }
 

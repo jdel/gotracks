@@ -23,11 +23,11 @@ func TestRequireAuthUsesCurrentAccountState(t *testing.T) {
 		30*24*time.Hour,
 	)
 
-	staleAdminToken, err := tm.NewAccessToken(42, true)
+	staleAdminToken, err := tm.NewAccessToken(42, true, "sess")
 	if err != nil {
 		t.Fatal(err)
 	}
-	staleUserToken, err := tm.NewAccessToken(42, false)
+	staleUserToken, err := tm.NewAccessToken(42, false, "sess")
 	if err != nil {
 		t.Fatal(err)
 	}

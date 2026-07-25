@@ -1,8 +1,10 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/jdel/gotracks/internal/domain"
 	"github.com/jdel/gotracks/internal/service"
@@ -16,6 +18,19 @@ type adminHandler struct {
 	quotas    *service.QuotaService
 	reports   *service.UsageReportService
 	email     *service.EmailService
+	audit     *service.AuditService
+}
+
+// auditTarget starts an entry naming the account an administrator acted on.
+// Read before the action where the action destroys the account, since
+// afterwards there is nothing left to name.
+func (h *adminHandler) auditTarget(r *http.Request, action string, target *domain.User) service.Entry {
+	e := auditFrom(r, action)
+	if target != nil {
+		id := target.ID
+		e.TargetID, e.TargetEmail = &id, target.Email
+	}
+	return e
 }
 
 // adminUser is a user plus admin-only annotations. It embeds the user so the
@@ -92,6 +107,13 @@ func (h *adminHandler) updateSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	entry := auditFrom(r, domain.AuditAdminSettingsUpdated)
+	if req.AllowRegister != nil {
+		// The one instance-wide setting with a security consequence: it decides
+		// whether strangers can create accounts at all.
+		entry.Detail = fmt.Sprintf("public registration %v", *req.AllowRegister)
+	}
+	h.audit.Record(r.Context(), entry)
 	writeJSON(w, http.StatusOK, s)
 }
 
@@ -256,6 +278,8 @@ func (h *adminHandler) resetTwoFactor(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	target, _ := h.admin.GetUser(r.Context(), id)
+	h.audit.Record(r.Context(), h.auditTarget(r, domain.AuditAdminTwoFactorReset, target))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -282,6 +306,11 @@ func (h *adminHandler) createUser(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	entry := h.auditTarget(r, domain.AuditAdminUserCreated, u)
+	if req.IsAdmin {
+		entry.Detail = "created as an administrator"
+	}
+	h.audit.Record(r.Context(), entry)
 	writeJSON(w, http.StatusCreated, u)
 }
 
@@ -309,6 +338,7 @@ func (h *adminHandler) resendInvitation(w http.ResponseWriter, r *http.Request) 
 		writeServiceError(w, err)
 		return
 	}
+	h.audit.Record(r.Context(), h.auditTarget(r, domain.AuditAdminInvitationResent, u))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -331,11 +361,17 @@ func (h *adminHandler) updateUser(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	// Read first so the entry can say what actually changed rather than that
+	// something did.
+	before, _ := h.admin.GetUser(r.Context(), id)
 	u, err := h.admin.UpdateUser(r.Context(), id, req.Email, req.Password, req.IsAdmin)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
+	entry := h.auditTarget(r, domain.AuditAdminUserUpdated, u)
+	entry.Detail = describeUserChange(before, u, req.Password != nil && *req.Password != "")
+	h.audit.Record(r.Context(), entry)
 	writeJSON(w, http.StatusOK, u)
 }
 
@@ -353,9 +389,40 @@ func (h *adminHandler) deleteUser(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Named before the deletion, because afterwards there is no account left to
+	// read an address from — and who was deleted is the whole point of the
+	// entry.
+	target, _ := h.admin.GetUser(r.Context(), id)
 	if err := h.admin.DeleteUser(r.Context(), claimsFrom(r).UserID, id); err != nil {
 		writeServiceError(w, err)
 		return
 	}
+	h.audit.Record(r.Context(), h.auditTarget(r, domain.AuditAdminUserDeleted, target))
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// describeUserChange summarises an administrator's edit for the log.
+//
+// Says which fields moved and, for the one that matters, which way: granting
+// administrator rights is the change most worth being able to point at later.
+// Never records the password itself, only that one was set.
+func describeUserChange(before, after *domain.User, passwordSet bool) string {
+	if after == nil {
+		return ""
+	}
+	var changes []string
+	if before != nil && before.Email != after.Email {
+		changes = append(changes, "address "+before.Email+" → "+after.Email)
+	}
+	if before != nil && before.IsAdmin != after.IsAdmin {
+		if after.IsAdmin {
+			changes = append(changes, "granted administrator")
+		} else {
+			changes = append(changes, "revoked administrator")
+		}
+	}
+	if passwordSet {
+		changes = append(changes, "password reset by an administrator")
+	}
+	return strings.Join(changes, "; ")
 }
