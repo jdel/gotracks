@@ -238,6 +238,7 @@ func (s *AdminService) purgeAccount(ctx context.Context, id int64) error {
 		s.store.Notes.DeleteForUser,
 		s.store.Projects.DeleteForUser,
 		s.store.Contexts.DeleteForUser,
+		s.store.Legal.DeleteForUser,
 		s.store.Preferences.Delete,
 	} {
 		if err := purge(ctx, id); err != nil {
