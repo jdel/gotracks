@@ -19,6 +19,10 @@ import { AdminPage } from "@/pages/AdminPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { AttachmentsPage } from "@/pages/AttachmentsPage";
 import { NotesPage } from "@/pages/NotesPage";
+import { TermsPage, PrivacyPage, CookiesPage } from "@/pages/LegalPage";
+import { LegalAdminPage } from "@/pages/LegalAdminPage";
+import { AuditPage } from "@/pages/AuditPage";
+import { RequireLegal } from "@/components/RequireLegal";
 import type { ReactNode } from "react";
 
 
@@ -48,6 +52,11 @@ export function App() {
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/delete-account" element={<DeleteAccountPage />} />
       <Route path="/change-email" element={<ChangeEmailPage />} />
+      {/* Public: they have to be readable before an account exists, because
+          creating one is agreeing to them. */}
+      <Route path="/terms" element={<RequireLegal><TermsPage /></RequireLegal>} />
+      <Route path="/privacy" element={<RequireLegal><PrivacyPage /></RequireLegal>} />
+      <Route path="/cookies" element={<RequireLegal><CookiesPage /></RequireLegal>} />
       <Route
         element={
           <RequireAuth>
@@ -69,7 +78,9 @@ export function App() {
         <Route path="/notes" element={<NotesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/legal" element={<RequireLegal><LegalAdminPage /></RequireLegal>} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/audit" element={<AuditPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

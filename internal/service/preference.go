@@ -14,7 +14,7 @@ import (
 // SupportedLocales are the languages the interface ships translations for.
 // The UI offers exactly these, and anything else is refused rather than
 // stored: a preference nothing can render is worse than the default.
-var SupportedLocales = []string{"en", "fr"}
+var SupportedLocales = []string{"en", "fr", "it", "de"}
 
 // NormaliseLocale reduces a locale tag to one the interface can render.
 //

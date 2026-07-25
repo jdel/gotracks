@@ -254,3 +254,52 @@ export interface Context {
   createdAt: string;
   updatedAt: string;
 }
+
+export type LegalKind = "terms" | "privacy" | "cookies";
+
+/** One legal document as it currently stands, in the reader's language. */
+export interface LegalDocument {
+  kind: LegalKind;
+  body: string;
+  /** True when the operator replaced the text shipped with the application. */
+  customised: boolean;
+}
+
+/** The operator's editor state. */
+export interface LegalEditor {
+  defaults: Record<string, Record<LegalKind, string>>;
+  overrides: Record<string, Partial<Record<LegalKind, string>>>;
+}
+
+export type AuditOutcome = "success" | "failure";
+
+/** One recorded event. Never holds a secret. */
+export interface AuditEvent {
+  id: number;
+  occurredAt: string;
+  action: string;
+  outcome: AuditOutcome;
+  actorId?: number;
+  actorEmail?: string;
+  targetId?: number;
+  targetEmail?: string;
+  ip?: string;
+  userAgent?: string;
+  detail?: string;
+  /** SHA-256 (hex) of an export's bytes; present only on export events. */
+  hash?: string;
+}
+
+export interface AuditPage {
+  items: AuditEvent[];
+  total: number;
+}
+
+/** The filter the audit page sends; empty fields are omitted. */
+export interface AuditFilter {
+  from?: string;
+  to?: string;
+  actor?: string;
+  action?: string;
+  outcome?: string;
+}
