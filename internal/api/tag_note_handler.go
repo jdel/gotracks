@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -137,23 +138,34 @@ func (h *noteHandler) create(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	projectID, ok := h.resolveProject(w, r, uid, req)
-	if !ok {
+	// The note allowance, and the project a name may create, are both
+	// check-then-insert, so the whole sequence runs under the account guard.
+	var n *domain.Note
+	failed := false
+	err := h.quotas.Guard(r.Context(), uid, func(ctx context.Context) error {
+		projectID, ok := h.resolveProject(w, r, uid, req)
+		if !ok {
+			// resolveProject has already written the response.
+			failed = true
+			return nil
+		}
+		if err := h.quotas.CheckNote(ctx, uid); err != nil {
+			return err
+		}
+		now := time.Now()
+		n = &domain.Note{
+			UserID:    uid,
+			ProjectID: projectID,
+			Body:      req.Body,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		return h.notes.Create(ctx, n)
+	})
+	if failed {
 		return
 	}
-	if err := h.quotas.CheckNote(r.Context(), uid); err != nil {
-		writeServiceError(w, err)
-		return
-	}
-	now := time.Now()
-	n := &domain.Note{
-		UserID:    uid,
-		ProjectID: projectID,
-		Body:      req.Body,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	if err := h.notes.Create(r.Context(), n); err != nil {
+	if err != nil {
 		writeServiceError(w, err)
 		return
 	}

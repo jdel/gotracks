@@ -70,12 +70,14 @@ type QuotaService struct {
 	contexts    repo.ContextRepo
 	tags        repo.TagRepo
 	recurring   repo.RecurringTodoRepo
+	guard       repo.UserGuard
 }
 
 // NewQuotaService builds the service.
 func NewQuotaService(q Quotas, store *repo.Store) *QuotaService {
 	return &QuotaService{
 		quotas:      q,
+		guard:       store.Guard,
 		todos:       store.Todos,
 		projects:    store.Projects,
 		notes:       store.Notes,
@@ -84,6 +86,23 @@ func NewQuotaService(q Quotas, store *repo.Store) *QuotaService {
 		tags:        store.Tags,
 		recurring:   store.Recurring,
 	}
+}
+
+// Guard runs fn with exclusive access to one account's quota-bounded work.
+//
+// Every Check* below reads current usage and its caller then inserts, so the
+// two have to be held together or concurrent requests each pass the check and
+// all insert. Callers wrap the whole check-and-create sequence, including any
+// context or project created implicitly along the way.
+//
+// Guards never nest: an entry point that takes one must not call another that
+// does. A nil service runs fn unserialized, which is what the tests that build
+// services without quotas rely on.
+func (s *QuotaService) Guard(ctx context.Context, userID int64, fn func(context.Context) error) error {
+	if s == nil || s.guard == nil {
+		return fn(ctx)
+	}
+	return s.guard.WithUser(ctx, userID, fn)
 }
 
 // checkCount is the shared shape: unlimited when the limit is not positive,

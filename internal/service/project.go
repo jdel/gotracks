@@ -58,6 +58,9 @@ func (e *ProjectNotesInUseError) Error() string { return "project has notes" }
 // ResolveByName returns the id of the named project, creating it if it does
 // not exist yet — the same on-the-fly creation "#project" gets when typed
 // into a todo or a recurring pattern.
+//
+// It takes no account guard of its own: its only caller creates a note in the
+// same breath and guards both together, and guards must not nest.
 func (s *ProjectService) ResolveByName(ctx context.Context, userID int64, name string) (int64, error) {
 	return nameResolver{projects: s.projects, quotas: s.quotas}.Project(ctx, userID, name)
 }
@@ -84,7 +87,8 @@ func (s *ProjectService) Get(ctx context.Context, userID, id int64) (*domain.Pro
 	return s.projects.ByID(ctx, userID, id)
 }
 
-// Create adds a project, appended at the end.
+// Create adds a project, appended at the end. The allowance check and the
+// insert run under the account guard so concurrent creates cannot both pass it.
 func (s *ProjectService) Create(ctx context.Context, userID int64, in ProjectInput) (*domain.Project, error) {
 	if in.Name == nil || validateName(*in.Name) != nil {
 		return nil, ErrValidation
@@ -92,6 +96,19 @@ func (s *ProjectService) Create(ctx context.Context, userID int64, in ProjectInp
 	if err := validateOptional(in.Description, MaxDescriptionCharacters); err != nil {
 		return nil, ErrValidation
 	}
+	var p *domain.Project
+	err := s.quotas.Guard(ctx, userID, func(ctx context.Context) error {
+		var err error
+		p, err = s.create(ctx, userID, in)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func (s *ProjectService) create(ctx context.Context, userID int64, in ProjectInput) (*domain.Project, error) {
 	if err := s.quotas.CheckProject(ctx, userID); err != nil {
 		return nil, err
 	}

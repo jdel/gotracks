@@ -129,6 +129,35 @@ type EphemeralRepo interface {
 	PurgeExpired(ctx context.Context, now time.Time) error
 }
 
+// AuditRepo stores the append-only audit log.
+//
+// Append and read only, deliberately: there is no update and no delete, and
+// nothing removes an account's entries when the account goes. A log its own
+// subject can edit or erase is not evidence of anything.
+type AuditRepo interface {
+	Append(ctx context.Context, e *domain.AuditEvent) error
+	// Search returns one page of matching events, newest first, and the total
+	// number that matched. A limit of zero returns every match, for export.
+	Search(ctx context.Context, f AuditFilter, offset, limit int) ([]*domain.AuditEvent, int, error)
+	// PurgeBefore drops entries older than the cutoff and reports how many
+	// went. The only delete: retention is about age, never about a row.
+	PurgeBefore(ctx context.Context, cutoff time.Time) (int, error)
+}
+
+// LegalRepo stores administrator replacements for the shipped legal documents.
+// Only overrides are kept: an absent row means the default is in force.
+type LegalRepo interface {
+	Documents(ctx context.Context) ([]*domain.LegalDocument, error)
+	Put(ctx context.Context, doc *domain.LegalDocument) error
+	// Delete drops a replacement, restoring the shipped text.
+	Delete(ctx context.Context, locale, kind string) error
+
+	// Accept records that an account agreed at registration.
+	Accept(ctx context.Context, userID int64) error
+	AcceptanceForUser(ctx context.Context, userID int64) (*domain.LegalAcceptance, error)
+	DeleteForUser(ctx context.Context, userID int64) error
+}
+
 // PreferenceRepo stores per-user display settings.
 type PreferenceRepo interface {
 	Get(ctx context.Context, userID int64) (*domain.Preference, error)
@@ -177,6 +206,15 @@ type RefreshTokenRepo interface {
 	Consume(ctx context.Context, hash string) error
 	DeleteByHash(ctx context.Context, hash string) error
 	DeleteForUser(ctx context.Context, userID int64) error
+	// ListSessions returns a user's live sessions, newest activity first — one
+	// row per session, since rotation leaves only the current token live.
+	ListSessions(ctx context.Context, userID int64) ([]*domain.RefreshToken, error)
+	// DeleteSession revokes one session by its stable id, scoped to the user so
+	// nobody can revoke another account's session.
+	DeleteSession(ctx context.Context, userID int64, sessionID string) error
+	// DeleteOtherSessions revokes every session except the one to keep, for
+	// "sign out everywhere else".
+	DeleteOtherSessions(ctx context.Context, userID int64, keepSessionID string) error
 }
 
 // ContextRepo stores GTD contexts, always scoped by user.
@@ -307,4 +345,8 @@ type Store struct {
 	Ephemeral     EphemeralRepo
 	UsageReports  UsageReportRepo
 	RecoveryCodes RecoveryCodeRepo
+	Legal         LegalRepo
+	Audit         AuditRepo
+	// Guard serializes the quota-bounded writes of one account.
+	Guard UserGuard
 }

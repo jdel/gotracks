@@ -104,13 +104,6 @@ func (s *AttachmentService) Save(
 		os.Remove(path)
 		return nil, ErrTooLarge
 	}
-	// The real size is only known now, so the allowance is checked again with
-	// it and the file removed if it would not fit.
-	if err := s.quotas.CheckStorage(ctx, userID, written); err != nil {
-		os.Remove(path)
-		return nil, err
-	}
-
 	a := &domain.Attachment{
 		UserID:      userID,
 		TodoID:      todoID,
@@ -120,7 +113,16 @@ func (s *AttachmentService) Save(
 		StoredName:  stored,
 		CreatedAt:   time.Now(),
 	}
-	if err := s.attachments.Create(ctx, a); err != nil {
+	// The real size is only known now, so the allowance is checked again with
+	// it and the file removed if it would not fit. Only this pair is guarded,
+	// not the upload itself: holding an account's lock for the length of a
+	// transfer would let one slow client stall its own writes for minutes.
+	if err := s.quotas.Guard(ctx, userID, func(ctx context.Context) error {
+		if err := s.quotas.CheckStorage(ctx, userID, written); err != nil {
+			return err
+		}
+		return s.attachments.Create(ctx, a)
+	}); err != nil {
 		os.Remove(path)
 		return nil, err
 	}

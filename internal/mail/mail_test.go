@@ -217,6 +217,7 @@ func TestMIMEStructure(t *testing.T) {
 		"To: undisclosed-recipients:;",
 		"Subject: Reset your password",
 		"MIME-Version: 1.0",
+		"Message-ID: <",
 		"Auto-Submitted: auto-generated",
 		"multipart/alternative",
 		"text/plain; charset=utf-8",
@@ -250,6 +251,24 @@ func TestMIMEEncodesUnicodeSubject(t *testing.T) {
 	}
 	if !strings.Contains(out, "=?utf-8?q?") {
 		t.Errorf("no Q-encoded subject found:\n%s", out)
+	}
+}
+
+// A Message-ID has to be unique per message and rooted in the sending domain:
+// a shared id can be treated as a duplicate delivery, and a domain that does
+// not match the sender is a spam signal in its own right.
+func TestMessageIDIsUniqueAndDomainAligned(t *testing.T) {
+	cfg := testConfig("smtp")
+	seen := make(map[string]struct{}, 32)
+	for i := 0; i < 32; i++ {
+		id := messageID(cfg.FromAddress)
+		if !strings.HasSuffix(id, "@example.com>") {
+			t.Fatalf("message id is not aligned with the sender domain: %s", id)
+		}
+		if _, dup := seen[id]; dup {
+			t.Fatalf("message id repeated: %s", id)
+		}
+		seen[id] = struct{}{}
 	}
 }
 

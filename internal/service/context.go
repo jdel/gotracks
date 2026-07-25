@@ -67,7 +67,8 @@ func (s *ContextService) Get(ctx context.Context, userID, id int64) (*domain.Con
 	return s.contexts.ByID(ctx, userID, id)
 }
 
-// Create adds a new context, appended at the end.
+// Create adds a new context, appended at the end. The allowance check and the
+// insert run under the account guard so concurrent creates cannot both pass it.
 func (s *ContextService) Create(ctx context.Context, userID int64, name, state string) (*domain.Context, error) {
 	name = strings.TrimSpace(name)
 	if err := validateName(name); err != nil {
@@ -79,23 +80,22 @@ func (s *ContextService) Create(ctx context.Context, userID int64, name, state s
 	if !validContextState(state) {
 		return nil, ErrValidation
 	}
-	if err := s.quotas.CheckContext(ctx, userID); err != nil {
-		return nil, err
-	}
-	max, err := s.contexts.MaxPosition(ctx, userID)
+	c := &domain.Context{UserID: userID, Name: name, State: state}
+	err := s.quotas.Guard(ctx, userID, func(ctx context.Context) error {
+		if err := s.quotas.CheckContext(ctx, userID); err != nil {
+			return err
+		}
+		max, err := s.contexts.MaxPosition(ctx, userID)
+		if err != nil {
+			return err
+		}
+		now := time.Now()
+		c.Position = max + 1
+		c.CreatedAt = now
+		c.UpdatedAt = now
+		return s.contexts.Create(ctx, c)
+	})
 	if err != nil {
-		return nil, err
-	}
-	now := time.Now()
-	c := &domain.Context{
-		UserID:    userID,
-		Name:      name,
-		Position:  max + 1,
-		State:     state,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	if err := s.contexts.Create(ctx, c); err != nil {
 		return nil, err
 	}
 	return c, nil

@@ -118,10 +118,28 @@ func (s *TodoService) Get(ctx context.Context, userID, id int64) (*domain.Todo, 
 }
 
 // Create adds a new action. A future show_from defers it (tickler).
+//
+// The quota-bounded work runs under the account guard: the action allowance,
+// the tag allowance and any context or project created from a name are all
+// check-then-insert, so concurrent creates would otherwise each pass and all
+// insert.
 func (s *TodoService) Create(ctx context.Context, userID int64, in TodoInput) (*domain.Todo, error) {
 	if err := validateTodoInput(in, true); err != nil {
 		return nil, ErrValidation
 	}
+	var t *domain.Todo
+	err := s.quotas.Guard(ctx, userID, func(ctx context.Context) error {
+		var err error
+		t, err = s.create(ctx, userID, in)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (s *TodoService) create(ctx context.Context, userID int64, in TodoInput) (*domain.Todo, error) {
 	// Names are resolved (and created) before the id is required.
 	if err := s.applyNames(ctx, userID, &in); err != nil {
 		return nil, err
@@ -189,11 +207,25 @@ func (s *TodoService) Create(ctx context.Context, userID int64, in TodoInput) (*
 	return t, nil
 }
 
-// Update applies a partial change to a todo.
+// Update applies a partial change to a todo. It runs under the account guard
+// for the same reason Create does: it can create tags, contexts and projects.
 func (s *TodoService) Update(ctx context.Context, userID, id int64, in TodoInput) (*domain.Todo, error) {
 	if err := validateTodoInput(in, false); err != nil {
 		return nil, err
 	}
+	var t *domain.Todo
+	err := s.quotas.Guard(ctx, userID, func(ctx context.Context) error {
+		var err error
+		t, err = s.update(ctx, userID, id, in)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (s *TodoService) update(ctx context.Context, userID, id int64, in TodoInput) (*domain.Todo, error) {
 	t, err := s.todos.ByID(ctx, userID, id)
 	if err != nil {
 		return nil, err

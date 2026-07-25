@@ -67,10 +67,26 @@ func (s *RecurringService) Get(ctx context.Context, userID, id int64) (*domain.R
 }
 
 // Create adds a pattern and immediately spawns its first todo if one is due.
+// It runs under the account guard: the recurrence allowance, the action
+// allowance for the first occurrence and any implicitly created context or
+// project are all check-then-insert.
 func (s *RecurringService) Create(ctx context.Context, userID int64, in RecurringInput) (*domain.RecurringTodo, error) {
 	if err := validateRecurringInput(in, true); err != nil {
 		return nil, err
 	}
+	var rec *domain.RecurringTodo
+	err := s.quotas.Guard(ctx, userID, func(ctx context.Context) error {
+		var err error
+		rec, err = s.create(ctx, userID, in)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return rec, nil
+}
+
+func (s *RecurringService) create(ctx context.Context, userID int64, in RecurringInput) (*domain.RecurringTodo, error) {
 	if err := s.applyNames(ctx, userID, &in); err != nil {
 		return nil, err
 	}
@@ -142,11 +158,25 @@ func (s *RecurringService) Create(ctx context.Context, userID int64, in Recurrin
 	return rec, nil
 }
 
-// Update applies a partial change to a pattern.
+// Update applies a partial change to a pattern. It runs under the account
+// guard because a name can create a context or project.
 func (s *RecurringService) Update(ctx context.Context, userID, id int64, in RecurringInput) (*domain.RecurringTodo, error) {
 	if err := validateRecurringInput(in, false); err != nil {
 		return nil, err
 	}
+	var rec *domain.RecurringTodo
+	err := s.quotas.Guard(ctx, userID, func(ctx context.Context) error {
+		var err error
+		rec, err = s.update(ctx, userID, id, in)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return rec, nil
+}
+
+func (s *RecurringService) update(ctx context.Context, userID, id int64, in RecurringInput) (*domain.RecurringTodo, error) {
 	rec, err := s.recurring.ByID(ctx, userID, id)
 	if err != nil {
 		return nil, err
@@ -231,34 +261,46 @@ func (s *RecurringService) Delete(ctx context.Context, userID, id int64) error {
 
 // Sweep spawns the next todo for every active pattern that has no open instance.
 // Called before listing todos, so recurrences appear without a background job.
+//
+// Every list request sweeps, so two of them racing would each see no open
+// instance and each spawn one. The account guard makes "is one open?" and
+// "create one" a single decision.
 func (s *RecurringService) Sweep(ctx context.Context, userID int64, now time.Time) error {
-	recs, err := s.recurring.List(ctx, userID, domain.StateActive)
-	if err != nil {
-		return err
-	}
-	for _, rec := range recs {
-		if _, err := s.spawnIfDue(ctx, rec, now); err != nil {
+	return s.quotas.Guard(ctx, userID, func(ctx context.Context) error {
+		recs, err := s.recurring.List(ctx, userID, domain.StateActive)
+		if err != nil {
 			return err
 		}
-	}
-	return nil
+		for _, rec := range recs {
+			if _, err := s.spawnIfDue(ctx, rec, now); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
-// SpawnNext creates the following occurrence after a recurring todo is completed.
+// SpawnNext creates the following occurrence after a recurring todo is
+// completed, under the same guard as Sweep and for the same reason.
 func (s *RecurringService) SpawnNext(ctx context.Context, userID, recurringID int64, now time.Time) error {
-	rec, err := s.recurring.ByID(ctx, userID, recurringID)
-	if err != nil {
+	return s.quotas.Guard(ctx, userID, func(ctx context.Context) error {
+		rec, err := s.recurring.ByID(ctx, userID, recurringID)
+		if err != nil {
+			return err
+		}
+		if rec.State != domain.StateActive {
+			return nil
+		}
+		_, err = s.spawnIfDue(ctx, rec, now)
 		return err
-	}
-	if rec.State != domain.StateActive {
-		return nil
-	}
-	_, err = s.spawnIfDue(ctx, rec, now)
-	return err
+	})
 }
 
 // spawnIfDue creates the next todo for a pattern when none is open and the
 // occurrence is within the visible horizon (its show-from date has arrived).
+//
+// Callers hold the account guard: "no instance is open" and the insert that
+// answers it have to be one decision, or two sweeps both spawn.
 func (s *RecurringService) spawnIfDue(ctx context.Context, rec *domain.RecurringTodo, now time.Time) (bool, error) {
 	open, err := s.recurring.HasOpenInstance(ctx, rec.UserID, rec.ID)
 	if err != nil || open {

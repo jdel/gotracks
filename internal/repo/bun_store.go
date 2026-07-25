@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/uptrace/bun"
 
@@ -33,6 +34,9 @@ func NewStore(db *bun.DB) *Store {
 		Ephemeral:     &ephemeralRepo{db},
 		UsageReports:  &usageReportRepo{db},
 		RecoveryCodes: &recoveryCodeRepo{db},
+		Legal:         &legalRepo{db},
+		Audit:         &auditRepo{db},
+		Guard:         newUserGuard(db),
 	}
 }
 
@@ -128,6 +132,30 @@ func (r *refreshTokenRepo) DeleteByHash(ctx context.Context, hash string) error 
 
 func (r *refreshTokenRepo) DeleteForUser(ctx context.Context, userID int64) error {
 	_, err := r.db.NewDelete().Model((*domain.RefreshToken)(nil)).Where("user_id = ?", userID).Exec(ctx)
+	return err
+}
+
+func (r *refreshTokenRepo) ListSessions(ctx context.Context, userID int64) ([]*domain.RefreshToken, error) {
+	rows := []*domain.RefreshToken{}
+	// Rotation leaves one live row per session, so a plain listing is already
+	// one row per session; expired rows are excluded so a stale token does not
+	// masquerade as an active device.
+	err := r.db.NewSelect().Model(&rows).
+		Where("user_id = ? AND expires_at > ?", userID, time.Now()).
+		Order("last_used_at DESC").
+		Scan(ctx)
+	return rows, err
+}
+
+func (r *refreshTokenRepo) DeleteSession(ctx context.Context, userID int64, sessionID string) error {
+	_, err := r.db.NewDelete().Model((*domain.RefreshToken)(nil)).
+		Where("user_id = ? AND session_id = ?", userID, sessionID).Exec(ctx)
+	return err
+}
+
+func (r *refreshTokenRepo) DeleteOtherSessions(ctx context.Context, userID int64, keepSessionID string) error {
+	_, err := r.db.NewDelete().Model((*domain.RefreshToken)(nil)).
+		Where("user_id = ? AND session_id <> ?", userID, keepSessionID).Exec(ctx)
 	return err
 }
 

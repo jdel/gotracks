@@ -127,6 +127,11 @@ func buildMIME(cfg Config, subject, text, html string, now time.Time) string {
 	b.WriteString("To: undisclosed-recipients:;\r\n")
 	b.WriteString("Subject: " + mime.QEncoding.Encode("utf-8", subject) + "\r\n")
 	b.WriteString("Date: " + now.Format(time.RFC1123Z) + "\r\n")
+	// A message with no Message-ID scores against itself with every mainstream
+	// spam filter, and some relays reject one outright. It also gives the
+	// sending domain's logs and the recipient's headers a common identifier
+	// when a user reports that a reset link never arrived.
+	b.WriteString("Message-ID: " + messageID(cfg.FromAddress) + "\r\n")
 	b.WriteString("MIME-Version: 1.0\r\n")
 	// Transactional mail: tells well-behaved autoresponders not to reply.
 	b.WriteString("Auto-Submitted: auto-generated\r\n")
@@ -149,6 +154,26 @@ func buildMIME(cfg Config, subject, text, html string, now time.Time) string {
 	b.WriteString(html + "\r\n")
 	b.WriteString("--" + boundary + "--\r\n")
 	return b.String()
+}
+
+// messageID builds a globally unique identifier for one message.
+//
+// The right-hand side is the sending domain, which is what DMARC alignment and
+// most reputation systems expect to see; a mismatch there is itself a spam
+// signal. The sender is already validated as an address, so the split is safe.
+func messageID(from string) string {
+	domain := "localhost"
+	if at := strings.LastIndex(from, "@"); at >= 0 && at < len(from)-1 {
+		domain = from[at+1:]
+	}
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		// Uniqueness is what matters, and the clock still supplies it. A
+		// duplicate id can make a relay treat the second message as one it has
+		// already delivered.
+		return fmt.Sprintf("<%d.gotracks@%s>", time.Now().UnixNano(), domain)
+	}
+	return fmt.Sprintf("<%s.gotracks@%s>", hex.EncodeToString(buf), domain)
 }
 
 func randomBoundary() string {
