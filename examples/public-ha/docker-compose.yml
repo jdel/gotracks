@@ -1,0 +1,144 @@
+# gotracks — public, highly available.
+#
+# Everything a multi-replica deployment needs, all as configuration:
+#   - Postgres, shared by every replica (SQLite cannot back more than one).
+#   - Two gotracks replicas behind an nginx load balancer, sharing one JWT
+#     secret so a token minted by one is accepted by the other.
+#   - MinIO for shared S3 attachment storage, so a file uploaded on one replica
+#     is served by the other. MinIO speaks HTTPS with a self-signed certificate,
+#     and gotracks trusts it through SSL_CERT_FILE — no InsecureSkipVerify.
+#   - Legal pages on, and Mailpit as a fake SMTP inbox.
+#
+#   docker compose up -d
+#   open http://localhost:8080        the app (through the load balancer)
+#   open http://localhost:8025        Mailpit — mail gotracks sends
+#   open https://localhost:9001       MinIO console (accept the self-signed cert)
+#
+# The self-signed certificate is generated on first `up` into ./certs by the
+# one-shot `certgen` service. Delete ./certs to regenerate.
+
+x-gotracks: &gotracks
+  image: ghcr.io/jdel/gotracks:latest
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+    minio:
+      condition: service_started
+    mailpit:
+      condition: service_started
+  environment:
+    # ONE secret, identical on every replica. Without this each instance signs
+    # tokens with its own key and the load balancer would hand users 401s.
+    # Change it: openssl rand -hex 32
+    GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-public-ha-shared-secret-change-me-0000000000000000000000}
+    GOTRACKS_AUTH_BOOTSTRAP_SECRET: ${GOTRACKS_AUTH_BOOTSTRAP_SECRET:-bootstrap-change-me}
+    GOTRACKS_AUTH_ALLOW_REGISTER: "false"
+    GOTRACKS_LOG_FORMAT: json
+
+    # Shared database.
+    GOTRACKS_DB_URL: postgres://gotracks:gotracks@db:5432/gotracks?sslmode=disable
+
+    # Shared object storage. gotracks creates the bucket on first boot.
+    GOTRACKS_STORAGE_TYPE: s3
+    GOTRACKS_STORAGE_BUCKET: attachments
+    AWS_ENDPOINT_URL_S3: https://minio:9000
+    AWS_REGION: us-east-1
+    AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-gotracks}
+    AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-gotracks-secret}
+    # Trust MinIO's self-signed certificate. Go reads this file as its root
+    # store, so TLS to MinIO verifies fully — no skip-verify anywhere.
+    SSL_CERT_FILE: /certs/public.crt
+
+    # Legal pages + consent.
+    GOTRACKS_LEGAL_ENABLED: "true"
+
+    # Reached through nginx on this URL.
+    GOTRACKS_HTTP_PUBLIC_URL: ${GOTRACKS_HTTP_PUBLIC_URL:-http://localhost:8080}
+    # Believe X-Forwarded-For from the load balancer (compose's private
+    # networks), so the audit log records real client IPs.
+    GOTRACKS_HTTP_TRUSTED_PROXIES: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
+    # Fake SMTP inbox.
+    GOTRACKS_MAIL_PROVIDER: smtp
+    GOTRACKS_MAIL_FROM: ${GOTRACKS_MAIL_FROM:-gotracks@example.test}
+    GOTRACKS_MAIL_SMTP_HOST: mailpit
+    GOTRACKS_MAIL_SMTP_PORT: "1025"
+    GOTRACKS_MAIL_SMTP_ENCRYPTION: none
+  volumes:
+    - ./certs:/certs:ro
+
+services:
+  # One-shot: generate a self-signed cert for MinIO if one is not already in
+  # ./certs. SAN=minio matches the endpoint gotracks connects to; localhost and
+  # 127.0.0.1 let a browser reach the console.
+  certgen:
+    image: alpine/openssl:latest
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        if [ ! -f /certs/public.crt ]; then
+          echo "generating self-signed certificate for MinIO..."
+          openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+            -keyout /certs/private.key -out /certs/public.crt \
+            -subj "/CN=minio" \
+            -addext "subjectAltName=DNS:minio,DNS:localhost,IP:127.0.0.1"
+          chmod 644 /certs/public.crt
+          chmod 600 /certs/private.key
+        fi
+    volumes:
+      - ./certs:/certs
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gotracks
+      POSTGRES_PASSWORD: gotracks
+      POSTGRES_DB: gotracks
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gotracks"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    depends_on:
+      certgen:
+        condition: service_completed_successfully
+    command: server /data --certs-dir /certs --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-gotracks}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-gotracks-secret}
+    ports:
+      - "9001:9001" # console (HTTPS); the S3 API on :9000 stays internal
+    volumes:
+      - ./minio-data:/data
+      - ./certs:/certs:ro
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+
+  gotracks1:
+    <<: *gotracks
+  gotracks2:
+    <<: *gotracks
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - gotracks1
+      - gotracks2
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro

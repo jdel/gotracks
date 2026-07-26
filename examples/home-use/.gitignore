@@ -1,0 +1,3 @@
+# Runtime data — never commit.
+/data/
+.env

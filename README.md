@@ -681,6 +681,11 @@ docker run -p 8080:8080 -v gotracks:/data \
 Compose examples, including a Postgres variant, are in
 [example/docker-compose](example/docker-compose).
 
+Complete, ready-to-run deployment setups are in [examples/](examples): a minimal
+`home-use` (SQLite, local storage), a single-node `public-use` (legal pages and
+a fake mail inbox), and a `public-ha` stack (two replicas behind a load
+balancer, Postgres, and MinIO over self-signed TLS that gotracks trusts).
+
 ## Testing
 
 ```bash

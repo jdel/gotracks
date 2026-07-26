@@ -1,0 +1,35 @@
+# gotracks — home use.
+#
+# Single container: SQLite database, attachments on local disk, no legal pages,
+# mail printed to the log. The simplest thing that works.
+#
+#   docker compose up -d
+#   open http://localhost:8080
+#
+# Registration is open. The first account becomes the administrator when you
+# enter the bootstrap secret below on the sign-up form. Because no mail server
+# is configured, the account-activation link is printed to the log instead of
+# emailed — find it with:  docker compose logs gotracks
+services:
+  gotracks:
+    image: ghcr.io/jdel/gotracks:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # A fixed signing key keeps you signed in across restarts. Fine to leave
+      # for a throwaway home instance; change it for anything real:
+      #   openssl rand -hex 32
+      GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-home-use-change-me-0000000000000000000000000000000000}
+      # Makes the first registered account an admin. Enter it on the sign-up
+      # form, then it is no longer needed.
+      GOTRACKS_AUTH_BOOTSTRAP_SECRET: ${GOTRACKS_AUTH_BOOTSTRAP_SECRET:-bootstrap-change-me}
+      GOTRACKS_AUTH_ALLOW_REGISTER: "true"
+      GOTRACKS_LOG_FORMAT: text
+      # SQLite + local attachment storage, both under /data (the image default,
+      # shown here for clarity).
+      GOTRACKS_DB_URL: sqlite:/data/gotracks.db
+      GOTRACKS_STORAGE_TYPE: local
+      GOTRACKS_STORAGE_UPLOADS: /data/uploads
+    volumes:
+      - ./data:/data

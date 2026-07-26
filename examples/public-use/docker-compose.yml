@@ -1,0 +1,56 @@
+# gotracks — public use, single node.
+#
+# SQLite, attachments on local disk, legal pages on, and a fake SMTP inbox
+# (Mailpit) so account mail actually arrives somewhere you can read.
+#
+#   docker compose up -d
+#   open http://localhost:8080        the app
+#   open http://localhost:8025        Mailpit — every email gotracks sends
+#
+# This is a real single-node deployment shape. It is NOT highly available:
+# SQLite and local storage pin it to one node. For that, see ../public-ha.
+services:
+  gotracks:
+    image: ghcr.io/jdel/gotracks:latest
+    restart: unless-stopped
+    depends_on:
+      - mailpit
+    ports:
+      - "8080:8080"
+    environment:
+      # Change both for a real deployment: openssl rand -hex 32
+      GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-public-use-change-me-000000000000000000000000000000000000}
+      GOTRACKS_AUTH_BOOTSTRAP_SECRET: ${GOTRACKS_AUTH_BOOTSTRAP_SECRET:-bootstrap-change-me}
+      # Public registration stays closed; the bootstrap secret still lets the
+      # first account register as admin, who then opens it in the UI if wanted.
+      GOTRACKS_AUTH_ALLOW_REGISTER: "false"
+      GOTRACKS_LOG_FORMAT: json
+
+      # SQLite + local attachment storage under /data.
+      GOTRACKS_DB_URL: sqlite:/data/gotracks.db
+      GOTRACKS_STORAGE_TYPE: local
+      GOTRACKS_STORAGE_UPLOADS: /data/uploads
+
+      # Terms, privacy and cookie pages, plus the one-checkbox consent at
+      # registration and the admin editor.
+      GOTRACKS_LEGAL_ENABLED: "true"
+
+      # The externally reachable URL: used to build links in mail and to enable
+      # passkeys. localhost is a secure origin for WebAuthn, so passkeys work
+      # here without TLS; behind a real domain, front this with HTTPS.
+      GOTRACKS_HTTP_PUBLIC_URL: ${GOTRACKS_HTTP_PUBLIC_URL:-http://localhost:8080}
+
+      # Send mail to the Mailpit inbox (plaintext SMTP, no auth).
+      GOTRACKS_MAIL_PROVIDER: smtp
+      GOTRACKS_MAIL_FROM: ${GOTRACKS_MAIL_FROM:-gotracks@example.test}
+      GOTRACKS_MAIL_SMTP_HOST: mailpit
+      GOTRACKS_MAIL_SMTP_PORT: "1025"
+      GOTRACKS_MAIL_SMTP_ENCRYPTION: none
+    volumes:
+      - ./data:/data
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025" # web inbox; SMTP is on mailpit:1025 inside the network
