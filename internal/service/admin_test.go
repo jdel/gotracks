@@ -20,8 +20,8 @@ func TestDeleteUserPurgesEverythingItOwned(t *testing.T) {
 	todoSvc, store, _ := newTodoService(t)
 	ctx := context.Background()
 
-	uploads := t.TempDir()
-	attachments := service.NewAttachmentService(store.Attachments, store.Todos, uploads, 1<<20)
+	blobs, uploads := testStoreDir(t)
+	attachments := service.NewAttachmentService(store.Attachments, store.Todos, blobs, 1<<20)
 	admin := service.NewAdminService(store, attachments)
 
 	caller := &domain.User{Email: "root@example.com", Password: "x", IsAdmin: true}

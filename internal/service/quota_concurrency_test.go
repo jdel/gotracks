@@ -139,7 +139,7 @@ func TestConcurrentUploadsRespectTheStorageQuota(t *testing.T) {
 	todoSvc, quotas, store, ctxID := quotaFixture(t, service.Quotas{StorageBytes: limit})
 	ctx := context.Background()
 
-	attachments := service.NewAttachmentService(store.Attachments, store.Todos, t.TempDir(), 1<<20)
+	attachments := service.NewAttachmentService(store.Attachments, store.Todos, testStore(t), 1<<20)
 	attachments.SetQuotas(quotas)
 
 	todo, err := todoSvc.Create(ctx, 1, service.TodoInput{

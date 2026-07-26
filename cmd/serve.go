@@ -22,6 +22,7 @@ import (
 	"github.com/jdel/gotracks/internal/mail"
 	"github.com/jdel/gotracks/internal/repo"
 	"github.com/jdel/gotracks/internal/service"
+	"github.com/jdel/gotracks/internal/storage"
 	"github.com/jdel/gotracks/internal/web"
 )
 
@@ -54,6 +55,9 @@ func configFromViper() (*config.Config, error) {
 
 		UploadDir:      viper.GetString("storage.uploads"),
 		MaxUploadBytes: int64(viper.GetInt("storage.max-upload-mb")) * 1024 * 1024,
+
+		StorageType:   viper.GetString("storage.type"),
+		StorageBucket: viper.GetString("storage.bucket"),
 
 		RPID:     viper.GetString("webauthn.rp-id"),
 		RPOrigin: viper.GetString("webauthn.rp-origin"),
@@ -164,7 +168,15 @@ func serve(ctx context.Context) error {
 
 	recurring := service.NewRecurringService(store.Recurring, store.Todos, store.Contexts)
 	recurring.SetProjects(store.Projects)
-	attachments := service.NewAttachmentService(store.Attachments, store.Todos, cfg.UploadDir, cfg.MaxUploadBytes)
+	blobs, err := storage.New(storage.Config{
+		Type:   cfg.StorageType,
+		Dir:    cfg.UploadDir,
+		Bucket: cfg.StorageBucket,
+	})
+	if err != nil {
+		return err
+	}
+	attachments := service.NewAttachmentService(store.Attachments, store.Todos, blobs, cfg.MaxUploadBytes)
 	todos := service.NewTodoService(store.Todos, store.Tags, store.Contexts, recurring)
 	todos.SetAttachments(attachments)
 	todos.SetProjects(store.Projects)

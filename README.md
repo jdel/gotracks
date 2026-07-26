@@ -88,8 +88,38 @@ dashes replaced by underscores.
 | `--http.tls.key` | `GOTRACKS_HTTP_TLS_KEY` | — | TLS private key PEM (required with `--http.tls.enabled`) |
 | `--legal.enabled` | `GOTRACKS_LEGAL_ENABLED` | `false` | Serve the terms, privacy and cookie pages and their admin screen |
 | `--legal.retention-days` | `GOTRACKS_LEGAL_RETENTION_DAYS` | `90` | How long audit entries are kept (0 = forever) |
-| `--storage.uploads` | `GOTRACKS_STORAGE_UPLOADS` | XDG data dir | Attachment directory |
+| `--storage.type` | `GOTRACKS_STORAGE_TYPE` | `local` | Attachment store: `local` (in-process S3 over the uploads dir) or `s3` |
+| `--storage.uploads` | `GOTRACKS_STORAGE_UPLOADS` | XDG data dir | Local mode: attachment directory |
 | `--storage.max-upload-mb` | `GOTRACKS_STORAGE_MAX_UPLOAD_MB` | `10` | Per-file upload limit |
+| `--storage.bucket` | `GOTRACKS_STORAGE_BUCKET` | `attachments` | Bucket attachments live in |
+
+In `s3` mode the endpoint and credentials are **not** gotracks flags — they come
+from the standard AWS environment, the same variables and files the AWS SDKs and
+CLI read.
+
+**Endpoint and region** (gotracks reads these directly, since they are not
+credentials):
+
+| Variable | Purpose |
+| --- | --- |
+| `AWS_ENDPOINT_URL_S3` (or `AWS_ENDPOINT_URL`) | Endpoint URL for R2, B2, MinIO, etc.; its scheme picks HTTP vs HTTPS. Unset means real AWS S3 |
+| `AWS_REGION` (or `AWS_DEFAULT_REGION`) | Region |
+
+**Credentials** are resolved through the AWS default-chain precedence — first
+match wins:
+
+1. **Environment** — `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` (plus
+   `AWS_SESSION_TOKEN` for temporary credentials), or MinIO's
+   `MINIO_ROOT_USER` + `MINIO_ROOT_PASSWORD`.
+2. **Shared credentials file** — `~/.aws/credentials` (or
+   `AWS_SHARED_CREDENTIALS_FILE`), profile from `AWS_PROFILE` (default
+   `default`). A `credential_process` entry in that profile is honoured.
+3. **Instance role** — EC2/ECS/EKS instance and container roles, and IRSA web
+   identity, from the container/instance metadata endpoint.
+
+Not supported: native SSO token caches (`~/.aws/sso`) and the region/SSO
+settings in `~/.aws/config`. To use SSO, wire it through a `credential_process`
+in the credentials file.
 | `--quota.storage-mb` | `GOTRACKS_QUOTA_STORAGE_MB` | `500` | Per-account attachment allowance (0 = unlimited) |
 | `--quota.todos` | `GOTRACKS_QUOTA_TODOS` | `10000` | Per-account action limit (0 = unlimited) |
 | `--quota.projects` | `GOTRACKS_QUOTA_PROJECTS` | `1000` | Per-account project limit |
@@ -586,9 +616,35 @@ Two things worth knowing:
   passkey is already two factors on its own, so 2FA here protects the password
   path. Anyone wanting a code demanded on every sign-in should not enrol a
   passkey.
-- Sign-in challenges are held **in memory**. A restart mid-sign-in just means
-  signing in again, but it also means running more than one replica needs
-  sticky sessions — the same constraint passkey sign-in already has.
+- Sign-in challenges (TOTP and passkey ceremonies alike) live in a short-lived
+  database table, not in process memory, so any replica can finish a sign-in any
+  other started — no sticky sessions required. A restart mid-sign-in just means
+  signing in again.
+
+## Running multiple instances (high availability)
+
+The binary is stateless and scales to several replicas behind a load balancer,
+but three things must be shared or pinned first — all configuration, no code:
+
+- **Point every instance at Postgres**, not SQLite (`--db.url postgres://…`). A
+  SQLite file has one writer on one node and cannot back a second instance; over
+  a network filesystem it corrupts.
+- **Set one explicit `--auth.jwt-secret`, identical on every instance.** Left
+  unset, each generates its own at boot, so a token minted by one replica is
+  rejected by the next and refresh (its digest is HMAC-keyed with the secret)
+  fails too. Rotating this value signs everyone out, so treat a change as a
+  deliberate fleet-wide sign-out.
+- **Use shared object storage: `--storage.type s3`** with a bucket every
+  instance can reach (S3, R2, B2, MinIO), its endpoint and credentials supplied
+  through the standard `AWS_*` environment variables above. The default `local`
+  store keeps each node's files on its own disk, so an attachment uploaded on
+  one replica is a 404 on another.
+
+One caveat that needs no configuration: the request **rate limiter is
+per-instance**, so the effective per-IP limit is `--http.rate.rps` × replica
+count. Divide it by your replica count if you want the number to mean what it
+says. The security-critical per-account lockout lives in the database and is
+unaffected.
 
 ## What this project does not do for you
 

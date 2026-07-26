@@ -71,7 +71,7 @@ func TestUploadStopsReadingPastTheLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := service.NewAttachmentService(store.Attachments, store.Todos, t.TempDir(), maxBytes)
+	svc := service.NewAttachmentService(store.Attachments, store.Todos, testStore(t), maxBytes)
 	h := &attachmentHandler{attachments: svc}
 
 	pr, pw := io.Pipe()
@@ -126,7 +126,7 @@ func TestUploadWithinLimitSucceeds(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := service.NewAttachmentService(store.Attachments, store.Todos, t.TempDir(), maxBytes)
+	svc := service.NewAttachmentService(store.Attachments, store.Todos, testStore(t), maxBytes)
 	h := &attachmentHandler{attachments: svc}
 
 	pr, pw := io.Pipe()

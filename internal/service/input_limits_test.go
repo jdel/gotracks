@@ -104,7 +104,7 @@ func TestTextLimitsAreEnforcedByServices(t *testing.T) {
 		t.Fatalf("oversized recurrence update: %v", err)
 	}
 
-	attachments := service.NewAttachmentService(store.Attachments, store.Todos, t.TempDir(), 1024)
+	attachments := service.NewAttachmentService(store.Attachments, store.Todos, testStore(t), 1024)
 	attachmentOwner, err := todoSvc.Create(ctx, 1, service.TodoInput{
 		ContextID: &contextID, Description: strPtr("attachment owner"),
 	})

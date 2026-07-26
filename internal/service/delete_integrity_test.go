@@ -153,8 +153,8 @@ func TestContextForceDeleteCascades(t *testing.T) {
 	todoSvc, store, ctxID := newTodoService(t)
 	ctx := context.Background()
 
-	uploads := t.TempDir()
-	attachments := service.NewAttachmentService(store.Attachments, store.Todos, uploads, 1<<20)
+	blobs, uploads := testStoreDir(t)
+	attachments := service.NewAttachmentService(store.Attachments, store.Todos, blobs, 1<<20)
 	todoSvc.SetAttachments(attachments)
 
 	contexts := service.NewContextService(store.Contexts, store.Todos, store.Recurring)

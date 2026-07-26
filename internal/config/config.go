@@ -72,8 +72,16 @@ type Config struct {
 	// indefinitely, which an operator has to choose deliberately.
 	AuditRetention time.Duration
 
-	UploadDir      string // where attachment files are stored
+	UploadDir      string // local mode: directory attachment files are stored under
 	MaxUploadBytes int64  // per-file upload limit
+
+	// Storage selects where attachments live. Type is "local" (an in-process
+	// S3 server over UploadDir, the default) or "s3" (a real S3-compatible
+	// endpoint, required for a high-availability deployment). In s3 mode the
+	// endpoint and credentials come from the standard AWS environment variables
+	// (AWS_ENDPOINT_URL_S3, AWS_ACCESS_KEY_ID, …), not from config.
+	StorageType   string
+	StorageBucket string
 
 	// WebAuthn passkeys. RPID is the site domain (no scheme or port); RPOrigin
 	// is the full origin, comma-separated for several. Both default to values

@@ -142,8 +142,10 @@ func RootCmd() *cobra.Command {
 		"how long audit entries are kept, in days (0 = forever). Personal data may "+
 			"be held no longer than the purpose needs, whatever basis it rests on")
 
-	cmd.PersistentFlags().String("storage.uploads", defaultUploadDir(), "directory for attachment files")
+	cmd.PersistentFlags().String("storage.uploads", defaultUploadDir(), "local mode: directory for attachment files")
 	cmd.PersistentFlags().Int("storage.max-upload-mb", 10, "per-file upload limit in MB")
+	cmd.PersistentFlags().String("storage.type", "local", "attachment store: local (default) or s3 (endpoint and credentials from AWS_* env)")
+	cmd.PersistentFlags().String("storage.bucket", "attachments", "bucket attachments live in")
 
 	cmd.PersistentFlags().String("webauthn.rp-id", "", "passkey relying party id (bare domain); defaults to the http.public-url host")
 	cmd.PersistentFlags().String("webauthn.rp-origin", "", "passkey origin(s), comma-separated; defaults to the http.public-url origin")
@@ -156,7 +158,7 @@ func RootCmd() *cobra.Command {
 		"http.addr", "http.rate.rps", "http.rate.burst", "http.trusted-proxies", "http.allowed-origins", "http.public-url",
 		"http.tls.enabled", "http.tls.cert", "http.tls.key",
 		"legal.enabled", "legal.retention-days",
-		"storage.uploads", "storage.max-upload-mb",
+		"storage.uploads", "storage.max-upload-mb", "storage.type", "storage.bucket",
 		"quota.storage-mb", "quota.todos", "quota.projects", "quota.notes",
 		"quota.contexts", "quota.tags", "quota.recurring", "quota.tags-per-todo",
 		"mail.provider", "mail.from", "mail.from-name",

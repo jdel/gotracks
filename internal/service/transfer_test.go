@@ -51,7 +51,7 @@ func TestExportUsesNamesInsteadOfDatabaseIDs(t *testing.T) {
 func TestExportArchiveCarriesTheFilesThemselves(t *testing.T) {
 	ctx := context.Background()
 	todos, store, contextID := newTodoService(t)
-	attachments := service.NewAttachmentService(store.Attachments, store.Todos, t.TempDir(), 1<<20)
+	attachments := service.NewAttachmentService(store.Attachments, store.Todos, testStore(t), 1<<20)
 	transfer := service.NewTransferService(store, todos)
 	transfer.SetAttachments(attachments)
 
@@ -136,7 +136,7 @@ func TestExportArchiveCarriesTheFilesThemselves(t *testing.T) {
 func TestExportArchivePathsAreContained(t *testing.T) {
 	ctx := context.Background()
 	todos, store, contextID := newTodoService(t)
-	attachments := service.NewAttachmentService(store.Attachments, store.Todos, t.TempDir(), 1<<20)
+	attachments := service.NewAttachmentService(store.Attachments, store.Todos, testStore(t), 1<<20)
 	transfer := service.NewTransferService(store, todos)
 	transfer.SetAttachments(attachments)
 
