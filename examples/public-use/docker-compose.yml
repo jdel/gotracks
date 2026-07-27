@@ -20,10 +20,10 @@ services:
     environment:
       # Change both for a real deployment: openssl rand -hex 32
       GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-public-use-change-me-000000000000000000000000000000000000}
-      # Public registration stays closed, but an empty instance always allows
-      # the first account to register — it becomes the admin, who can then open
-      # registration in the UI. Register it before exposing this to the internet.
-      GOTRACKS_AUTH_ALLOW_REGISTER: "false"
+      # Public registration is open. Register the first account (which becomes
+      # the administrator) before exposing this to the internet; the admin can
+      # close registration from the UI afterwards if wanted.
+      GOTRACKS_AUTH_ALLOW_REGISTER: "true"
       GOTRACKS_LOG_FORMAT: json
 
       # SQLite + local attachment storage under /data.

@@ -61,7 +61,7 @@ Three sources, lowest to highest precedence:
 
 The config file is `gotracks.{yaml,toml,json}`, looked up in the working
 directory then the XDG config dirs, or given explicitly with `--config`. See
-[example/config/gotracks.yaml](example/config/gotracks.yaml).
+[examples/config/gotracks.yaml](examples/config/gotracks.yaml).
 
 Every flag has an environment equivalent: the `GOTRACKS_` prefix with dots and
 dashes replaced by underscores.
@@ -89,6 +89,27 @@ dashes replaced by underscores.
 | `--storage.uploads` | `GOTRACKS_STORAGE_UPLOADS` | XDG data dir | Local mode: attachment directory |
 | `--storage.max-upload-mb` | `GOTRACKS_STORAGE_MAX_UPLOAD_MB` | `10` | Per-file upload limit |
 | `--storage.bucket` | `GOTRACKS_STORAGE_BUCKET` | `attachments` | Bucket attachments live in |
+| `--quota.storage-mb` | `GOTRACKS_QUOTA_STORAGE_MB` | `500` | Per-account attachment allowance (0 = unlimited) |
+| `--quota.todos` | `GOTRACKS_QUOTA_TODOS` | `10000` | Per-account action limit (0 = unlimited) |
+| `--quota.projects` | `GOTRACKS_QUOTA_PROJECTS` | `1000` | Per-account project limit |
+| `--quota.notes` | `GOTRACKS_QUOTA_NOTES` | `10000` | Per-account note limit |
+| `--quota.contexts` | `GOTRACKS_QUOTA_CONTEXTS` | `1000` | Per-account context limit |
+| `--quota.tags` | `GOTRACKS_QUOTA_TAGS` | `1000` | Per-account tag limit |
+| `--quota.recurring` | `GOTRACKS_QUOTA_RECURRING` | `1000` | Per-account recurring-action limit |
+| `--quota.tags-per-todo` | `GOTRACKS_QUOTA_TAGS_PER_TODO` | `50` | Tags accepted on one action |
+| `--webauthn.rp-id` | `GOTRACKS_WEBAUTHN_RP_ID` | *from public URL* | Passkey relying party id (bare domain); override |
+| `--webauthn.rp-origin` | `GOTRACKS_WEBAUTHN_RP_ORIGIN` | *from public URL* | Passkey origin(s), comma-separated; override |
+| `--webauthn.rp-name` | `GOTRACKS_WEBAUTHN_RP_NAME` | `gotracks` | Name shown in the passkey prompt |
+| `--mail.provider` | `GOTRACKS_MAIL_PROVIDER` | — | `smtp`, `mailjet` or `resend`; empty logs instead of sending |
+| `--mail.from` | `GOTRACKS_MAIL_FROM` | — | Sender address (required when a provider is set) |
+| `--mail.from-name` | `GOTRACKS_MAIL_FROM_NAME` | `gotracks` | Sender display name |
+| `--mail.smtp.host` / `.port` | `GOTRACKS_MAIL_SMTP_HOST` / `_PORT` | — / `587` | SMTP relay |
+| `--mail.smtp.username` / `.password` | `GOTRACKS_MAIL_SMTP_USERNAME` / `_PASSWORD` | — | SMTP credentials |
+| `--mail.smtp.encryption` | `GOTRACKS_MAIL_SMTP_ENCRYPTION` | `starttls` | `starttls` (587), `tls` (465) or `none` |
+| `--mail.mailjet.api-key` / `.secret-key` | `GOTRACKS_MAIL_MAILJET_API_KEY` / `_SECRET_KEY` | — | Mailjet key pair |
+| `--mail.resend.api-key` | `GOTRACKS_MAIL_RESEND_API_KEY` | — | Resend API key |
+
+### S3 attachment storage
 
 In `s3` mode the endpoint and credentials are **not** gotracks flags — they come
 from the standard AWS environment, the same variables and files the AWS SDKs and
@@ -117,25 +138,6 @@ match wins:
 Not supported: native SSO token caches (`~/.aws/sso`) and the region/SSO
 settings in `~/.aws/config`. To use SSO, wire it through a `credential_process`
 in the credentials file.
-| `--quota.storage-mb` | `GOTRACKS_QUOTA_STORAGE_MB` | `500` | Per-account attachment allowance (0 = unlimited) |
-| `--quota.todos` | `GOTRACKS_QUOTA_TODOS` | `10000` | Per-account action limit (0 = unlimited) |
-| `--quota.projects` | `GOTRACKS_QUOTA_PROJECTS` | `1000` | Per-account project limit |
-| `--quota.notes` | `GOTRACKS_QUOTA_NOTES` | `10000` | Per-account note limit |
-| `--quota.contexts` | `GOTRACKS_QUOTA_CONTEXTS` | `1000` | Per-account context limit |
-| `--quota.tags` | `GOTRACKS_QUOTA_TAGS` | `1000` | Per-account tag limit |
-| `--quota.recurring` | `GOTRACKS_QUOTA_RECURRING` | `1000` | Per-account recurring-action limit |
-| `--quota.tags-per-todo` | `GOTRACKS_QUOTA_TAGS_PER_TODO` | `50` | Tags accepted on one action |
-| `--webauthn.rp-id` | `GOTRACKS_WEBAUTHN_RP_ID` | *from public URL* | Passkey relying party id (bare domain); override |
-| `--webauthn.rp-origin` | `GOTRACKS_WEBAUTHN_RP_ORIGIN` | *from public URL* | Passkey origin(s), comma-separated; override |
-| `--webauthn.rp-name` | `GOTRACKS_WEBAUTHN_RP_NAME` | `gotracks` | Name shown in the passkey prompt |
-| `--mail.provider` | `GOTRACKS_MAIL_PROVIDER` | — | `smtp`, `mailjet` or `resend`; empty logs instead of sending |
-| `--mail.from` | `GOTRACKS_MAIL_FROM` | — | Sender address (required when a provider is set) |
-| `--mail.from-name` | `GOTRACKS_MAIL_FROM_NAME` | `gotracks` | Sender display name |
-| `--mail.smtp.host` / `.port` | `GOTRACKS_MAIL_SMTP_HOST` / `_PORT` | — / `587` | SMTP relay |
-| `--mail.smtp.username` / `.password` | `GOTRACKS_MAIL_SMTP_USERNAME` / `_PASSWORD` | — | SMTP credentials |
-| `--mail.smtp.encryption` | `GOTRACKS_MAIL_SMTP_ENCRYPTION` | `starttls` | `starttls` (587), `tls` (465) or `none` |
-| `--mail.mailjet.api-key` / `.secret-key` | `GOTRACKS_MAIL_MAILJET_API_KEY` / `_SECRET_KEY` | — | Mailjet key pair |
-| `--mail.resend.api-key` | `GOTRACKS_MAIL_RESEND_API_KEY` | — | Resend API key |
 
 ### Account enumeration
 
@@ -684,9 +686,6 @@ docker run -p 8080:8080 -v gotracks:/data \
   ghcr.io/jdel/gotracks:latest
 ```
 
-Compose examples, including a Postgres variant, are in
-[example/docker-compose](example/docker-compose).
-
 Complete, ready-to-run deployment setups are in [examples/](examples): a minimal
 `home-use` (SQLite, local storage), a single-node `public-use` (legal pages and
 a fake mail inbox), and a `public-ha` stack (two replicas behind a load
@@ -715,5 +714,5 @@ internal/
   service/           application logic
   web/               go:embed of the built frontend (dist is committed)
 ui/                  React + Vite + shadcn/ui frontend
-example/             docker-compose and config examples
+examples/            ready-to-run compose setups + an annotated config file
 ```

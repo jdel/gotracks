@@ -8,7 +8,8 @@ docker compose up -d
 ```
 
 Open <http://localhost:8080> and register. The first account to register
-becomes the administrator.
+becomes the administrator. Registration is disabled, so once that account
+exists nobody else can sign up — a home instance is for one person.
 
 No mail server is configured, so the activation link is **printed to the log**
 rather than emailed:

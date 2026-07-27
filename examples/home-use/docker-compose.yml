@@ -6,10 +6,11 @@
 #   docker compose up -d
 #   open http://localhost:8080
 #
-# Registration is open, and the first account to register becomes the
-# administrator. Because no mail server is configured, the account-activation
-# link is printed to the log instead of emailed — find it with:
-#   docker compose logs gotracks
+# Registration is closed — a home instance is for one person. The first account
+# still registers on an empty instance and becomes the administrator; after that
+# nobody else can sign up. Because no mail server is configured, the
+# account-activation link is printed to the log instead of emailed — find it
+# with:  docker compose logs gotracks
 services:
   gotracks:
     image: ghcr.io/jdel/gotracks:latest
@@ -21,7 +22,7 @@ services:
       # for a throwaway home instance; change it for anything real:
       #   openssl rand -hex 32
       GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-home-use-change-me-0000000000000000000000000000000000}
-      GOTRACKS_AUTH_ALLOW_REGISTER: "true"
+      GOTRACKS_AUTH_ALLOW_REGISTER: "false"
       GOTRACKS_LOG_FORMAT: text
       # SQLite + local attachment storage, both under /data (the image default,
       # shown here for clarity).

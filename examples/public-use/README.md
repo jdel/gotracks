@@ -18,7 +18,8 @@ docker compose up -d
    administrator — do this **before** exposing the service publicly.
 2. Open Mailpit and click the activation link in the invitation email.
 3. Accept the terms at the consent checkbox (legal pages are on).
-4. Optionally open registration for others from the admin settings.
+4. Public registration is open by default; close it from the admin settings if
+   you want an invitation-only instance.
 
 ## Not highly available
 
