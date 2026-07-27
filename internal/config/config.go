@@ -23,7 +23,6 @@ type Config struct {
 	LogLevel    string // zerolog level name
 
 	JWTSecret       []byte        // signing key for access tokens
-	BootstrapSecret string        // required to create the first administrator
 	AccessTokenTTL  time.Duration // lifetime of an access token
 	RefreshTokenTTL time.Duration // lifetime of a refresh token
 	AllowRegister   bool          // seeds the runtime setting on first run

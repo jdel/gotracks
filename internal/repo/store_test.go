@@ -116,7 +116,7 @@ func TestPendingEnrollmentActivatesOnceUnderConcurrency(t *testing.T) {
 		ctx := context.Background()
 		if err := store.Enrollments.Replace(ctx, &domain.PendingEnrollment{
 			Email: "root@example.com", TokenHash: "token", Locale: "en", TimeZone: "UTC",
-			Bootstrap: true, ExpiresAt: time.Now().Add(time.Hour), CreatedAt: time.Now(),
+			ExpiresAt: time.Now().Add(time.Hour), CreatedAt: time.Now(),
 		}, 10); err != nil {
 			t.Fatal(err)
 		}

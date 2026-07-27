@@ -35,7 +35,7 @@ type PendingEnrollmentRepo interface {
 	Replace(ctx context.Context, pending *domain.PendingEnrollment, max int) error
 	ByTokenHash(ctx context.Context, tokenHash string) (*domain.PendingEnrollment, error)
 	// Activate atomically consumes a live token and creates its user. The first
-	// account requires a bootstrap-authorized row and is the sole first admin.
+	// account to be activated becomes the sole administrator.
 	Activate(ctx context.Context, tokenHash, passwordHash string) (*domain.PendingEnrollment, *domain.User, error)
 	PurgeExpired(ctx context.Context, now time.Time) error
 }

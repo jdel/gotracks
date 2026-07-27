@@ -25,7 +25,7 @@ beforeEach(() => {
     }),
   );
   vi.mocked(useServerConfig).mockReturnValue({
-    data: { allowRegister: true, bootstrapRequired: false, passkeys: false, twoFactor: false, legal: false },
+    data: { allowRegister: true, passkeys: false, twoFactor: false, legal: false },
     isPending: false,
   } as unknown as ReturnType<typeof useServerConfig>);
 });

@@ -42,11 +42,10 @@ func TestPublicConfigContainsOnlySupportedCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]any{
-		"allowRegister":     true,
-		"bootstrapRequired": true,
-		"passkeys":          true,
-		"twoFactor":         true,
-		"legal":             true,
+		"allowRegister": true,
+		"passkeys":      true,
+		"twoFactor":     true,
+		"legal":         true,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("capabilities = %v, want %v", got, want)

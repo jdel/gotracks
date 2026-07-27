@@ -21,7 +21,7 @@ function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
   }
   if (url.includes("/config")) {
     return Promise.resolve(jsonResponse({
-      allowRegister: true, bootstrapRequired: false, passkeys: false, twoFactor: false,
+      allowRegister: true, passkeys: false, twoFactor: false,
     }));
   }
   if (url.includes("/me")) return Promise.resolve(jsonResponse({}, 401));
@@ -77,24 +77,17 @@ describe("registration language", () => {
     expect(await screen.findByText(/Consultez votre boîte/)).toBeDefined();
   });
 
-  it("sends the operator secret when bootstrapping the first administrator", async () => {
-    const fetchMock = vi.mocked(fetch);
-    fetchMock.mockImplementation((input, init) => {
-      const url = typeof input === "string" ? input : input.toString();
-      if (url.includes("/config")) {
-        return Promise.resolve(jsonResponse({
-          allowRegister: true, bootstrapRequired: true, passkeys: false, twoFactor: false,
-        }));
-      }
-      return fakeFetch(input, init);
-    });
+  it("registers the first user with no secret", async () => {
+    // The empty-instance signal is folded into allowRegister; the form asks for
+    // an email only, and the first account becomes the administrator.
     const user = userEvent.setup();
     renderPage();
 
     await user.type(screen.getByLabelText("Email"), "root@example.com");
-    await user.type(await screen.findByLabelText("Bootstrap secret"), "configured-bootstrap-secret");
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
-    expect(registered[0].bootstrapSecret).toBe("configured-bootstrap-secret");
+    expect(registered).toHaveLength(1);
+    expect(registered[0].email).toBe("root@example.com");
+    expect(registered[0]).not.toHaveProperty("bootstrapSecret");
   });
 });

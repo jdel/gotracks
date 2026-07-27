@@ -14,9 +14,8 @@ docker compose up -d
 
 ## First run
 
-1. Open the app and register. Enter the bootstrap secret
-   (`bootstrap-change-me` by default) on the sign-up form — that account becomes
-   the administrator.
+1. Open the app and register. The first account to register becomes the
+   administrator — do this **before** exposing the service publicly.
 2. Open Mailpit and click the activation link in the invitation email.
 3. Accept the terms at the consent checkbox (legal pages are on).
 4. Optionally open registration for others from the admin settings.
@@ -34,8 +33,8 @@ resets when the container stops — it is a demo inbox, not a mail store.
 
 ## Hardening
 
-- Set real `GOTRACKS_AUTH_JWT_SECRET` and remove the bootstrap secret after the
-  admin exists.
+- Set a real `GOTRACKS_AUTH_JWT_SECRET`, and register the admin account before
+  the service is reachable from the internet.
 - Front it with an HTTPS reverse proxy and point `GOTRACKS_HTTP_PUBLIC_URL` at
   the real domain; set `GOTRACKS_HTTP_TRUSTED_PROXIES` to the proxy's network so
   client IPs in the audit log are real.

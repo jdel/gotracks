@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+### Breaking changes
+
+- Removed `auth.bootstrap-secret`. The first account to register on an empty
+  instance now becomes the administrator with no secret; registering it on a
+  private deployment before exposing the service is the operator's
+  responsibility.
+
 ## v0.3.0 - 2026-07-23
 
 ### Breaking changes

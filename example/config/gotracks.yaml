@@ -21,12 +21,11 @@ auth:
   # Leave empty and a temporary key is created at startup — every restart then
   # signs everyone out.
   jwt-secret: ""
-  # Required only until the first administrator activates their emailed link.
-  # Generate with: openssl rand -hex 32
-  bootstrap-secret: ""
   access-ttl: 15m
   refresh-ttl: 720h
-  # Seeds public registration after bootstrap; afterwards the admin UI owns it.
+  # The first account to register becomes the administrator; register it on a
+  # private deployment before exposing the service. Seeds public registration on
+  # first run; afterwards the admin UI owns it.
   allow-register: false
 
 http:

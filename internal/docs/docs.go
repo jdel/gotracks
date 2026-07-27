@@ -3307,9 +3307,6 @@ const docTemplate = `{
                 "allowRegister": {
                     "type": "boolean"
                 },
-                "bootstrapRequired": {
-                    "type": "boolean"
-                },
                 "legal": {
                     "type": "boolean"
                 },
@@ -3382,9 +3379,6 @@ const docTemplate = `{
         "api.registerRequest": {
             "type": "object",
             "properties": {
-                "bootstrapSecret": {
-                    "type": "string"
-                },
                 "email": {
                     "type": "string"
                 },

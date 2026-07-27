@@ -38,8 +38,8 @@ generate your own for a real deployment, ideally from your own CA.
 
 ## First run
 
-1. <http://localhost:8080> → register, entering the bootstrap secret
-   (`bootstrap-change-me`) to become admin.
+1. <http://localhost:8080> → register. The first account to register becomes the
+   admin, so do this before the stack is reachable from the internet.
 2. <http://localhost:8025> → open the invitation and click the activation link.
 3. Accept the terms (legal pages are on).
 

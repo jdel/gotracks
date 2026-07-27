@@ -32,11 +32,10 @@ type metaHandler struct {
 // to match against known advisories, and nothing on a signed-out screen needs
 // it.
 type publicConfig struct {
-	AllowRegister     bool `json:"allowRegister"`
-	BootstrapRequired bool `json:"bootstrapRequired"`
-	Passkeys          bool `json:"passkeys"`
-	TwoFactor         bool `json:"twoFactor"`
-	Legal             bool `json:"legal"`
+	AllowRegister bool `json:"allowRegister"`
+	Passkeys      bool `json:"passkeys"`
+	TwoFactor     bool `json:"twoFactor"`
+	Legal         bool `json:"legal"`
 }
 
 // healthz is a public liveness probe.
@@ -62,17 +61,18 @@ func (h *metaHandler) config(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	bootstrapRequired, err := h.auth.BootstrapRequired(r.Context())
+	// The first account on an empty instance must be able to register even when
+	// public registration is off, so it can become the administrator.
+	needsFirstUser, err := h.auth.NeedsFirstUser(r.Context())
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, publicConfig{
-		AllowRegister:     allowRegister || bootstrapRequired,
-		BootstrapRequired: bootstrapRequired,
-		Passkeys:          h.passkeys,
-		TwoFactor:         h.twoFactor,
-		Legal:             h.legal,
+		AllowRegister: allowRegister || needsFirstUser,
+		Passkeys:      h.passkeys,
+		TwoFactor:     h.twoFactor,
+		Legal:         h.legal,
 	})
 }
 

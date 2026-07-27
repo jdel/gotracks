@@ -35,13 +35,6 @@ func (r *pendingEnrollmentRepo) Replace(
 			Where("expires_at <= ?", time.Now()).Exec(ctx); err != nil {
 			return err
 		}
-		if pending.Bootstrap {
-			// There can be only one usable first-admin invitation.
-			if _, err := tx.NewDelete().Model((*domain.PendingEnrollment)(nil)).
-				Where("bootstrap = ?", true).Exec(ctx); err != nil {
-				return err
-			}
-		}
 		if _, err := tx.NewDelete().Model((*domain.PendingEnrollment)(nil)).
 			Where("email = ?", pending.Email).Exec(ctx); err != nil {
 			return err
@@ -90,14 +83,12 @@ func (r *pendingEnrollmentRepo) Activate(
 			Scan(ctx); err != nil {
 			return mapErr(err)
 		}
+		// The first account to be activated becomes the administrator. The count
+		// is read inside this serialized transaction, so exactly one account can
+		// see an empty table and claim admin.
 		count, err := tx.NewSelect().Model((*domain.User)(nil)).Count(ctx)
 		if err != nil {
 			return err
-		}
-		// Bootstrap tokens are solely for the empty-instance transition, and
-		// ordinary public tokens can never claim that transition.
-		if (count == 0) != pending.Bootstrap {
-			return ErrNotFound
 		}
 
 		now := time.Now()

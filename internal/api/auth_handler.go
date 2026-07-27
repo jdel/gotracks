@@ -35,8 +35,7 @@ func (h *authHandler) auditPublic(r *http.Request, action, email string) service
 }
 
 type registerRequest struct {
-	Email           string `json:"email"`
-	BootstrapSecret string `json:"bootstrapSecret"`
+	Email string `json:"email"`
 	// Locale is the language picked on the form. Optional: an absent or
 	// unsupported value leaves the account on the default.
 	Locale string `json:"locale"`
@@ -123,7 +122,7 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	outcome, err := h.email.Enroll(
-		r.Context(), req.Email, req.Locale, req.TimeZone, req.BootstrapSecret,
+		r.Context(), req.Email, req.Locale, req.TimeZone,
 	)
 	// The response is identical whatever happened — that is what stops anyone
 	// testing which addresses are registered. The log is where the difference

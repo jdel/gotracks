@@ -3,8 +3,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/subtle"
 	"errors"
 	"time"
 
@@ -20,7 +18,6 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrEmailTaken         = errors.New("email already registered")
 	ErrRegisterDisabled   = errors.New("registration is disabled")
-	ErrBootstrapRequired  = errors.New("valid bootstrap secret required")
 	ErrEnrollmentCapacity = errors.New("too many pending enrollments")
 	ErrInvalidRefresh     = errors.New("invalid or expired refresh token")
 	// ErrSessionRevoked is returned when an access token's session no longer has
@@ -60,10 +57,8 @@ type AuthService struct {
 	// prefs is optional too, and only used to record the language chosen at
 	// registration. Nil simply leaves the account on the default.
 	prefs repo.PreferenceRepo
-	// enrollments holds public signups before mailbox proof. bootstrapSecret is
-	// required only while the users table is empty.
-	enrollments     repo.PendingEnrollmentRepo
-	bootstrapSecret string
+	// enrollments holds public signups before mailbox proof.
+	enrollments repo.PendingEnrollmentRepo
 }
 
 // SetLoginAttempts enables per-account lockout. Wired separately so the
@@ -74,11 +69,9 @@ func (s *AuthService) SetLoginAttempts(a repo.LoginAttemptRepo) { s.attempts = a
 // Wired separately for the same reason as the above.
 func (s *AuthService) SetPreferences(p repo.PreferenceRepo) { s.prefs = p }
 
-// SetEnrollments enables bounded public enrollment and protects first-admin
-// creation with an operator-supplied secret.
-func (s *AuthService) SetEnrollments(e repo.PendingEnrollmentRepo, bootstrapSecret string) {
+// SetEnrollments enables bounded public enrollment.
+func (s *AuthService) SetEnrollments(e repo.PendingEnrollmentRepo) {
 	s.enrollments = e
-	s.bootstrapSecret = bootstrapSecret
 }
 
 // NewAuthService builds an AuthService.
@@ -146,9 +139,10 @@ func (s *AuthService) Register(ctx context.Context, email, password, locale stri
 
 const maxPendingEnrollments = 1000
 
-// BootstrapRequired reports whether the instance still needs its first
-// administrator.
-func (s *AuthService) BootstrapRequired(ctx context.Context) (bool, error) {
+// NeedsFirstUser reports whether the instance is still empty, so registration
+// of the first account — which becomes the administrator — must be allowed even
+// when public registration is otherwise off.
+func (s *AuthService) NeedsFirstUser(ctx context.Context) (bool, error) {
 	count, err := s.users.Count(ctx)
 	return count == 0, err
 }
@@ -156,7 +150,7 @@ func (s *AuthService) BootstrapRequired(ctx context.Context) (bool, error) {
 // BeginEnrollment stores a bounded pending signup without hashing a password or
 // creating a user. It returns the raw single-use token for email delivery.
 func (s *AuthService) BeginEnrollment(
-	ctx context.Context, email, locale, timeZone, suppliedBootstrapSecret string,
+	ctx context.Context, email, locale, timeZone string,
 ) (string, string, error) {
 	if s.enrollments == nil {
 		return "", "", ErrRegisterDisabled
@@ -169,14 +163,11 @@ func (s *AuthService) BeginEnrollment(
 	if err != nil {
 		return "", "", err
 	}
-	bootstrap := count == 0
-	if bootstrap {
-		want := sha256.Sum256([]byte(s.bootstrapSecret))
-		got := sha256.Sum256([]byte(suppliedBootstrapSecret))
-		if s.bootstrapSecret == "" || subtle.ConstantTimeCompare(want[:], got[:]) != 1 {
-			return "", "", ErrBootstrapRequired
-		}
-	} else {
+	// The first account on an empty instance is always allowed and becomes the
+	// administrator; it is the operator's responsibility to register it on a
+	// private deployment before exposing the service. After that, public
+	// registration is governed by the admin-controlled setting.
+	if count > 0 {
 		allowed, err := s.settings.AllowRegister(ctx)
 		if err != nil {
 			return "", "", err
@@ -203,7 +194,6 @@ func (s *AuthService) BeginEnrollment(
 		TokenHash: auth.HashEmailToken(raw),
 		Locale:    NormaliseLocale(locale),
 		TimeZone:  timeZone,
-		Bootstrap: bootstrap,
 		ExpiresAt: time.Now().Add(invitationTTL),
 		CreatedAt: time.Now(),
 	}

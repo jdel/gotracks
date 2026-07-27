@@ -23,23 +23,21 @@ starring and reference **notes**.
 
 ```bash
 # Backend (SQLite in the XDG data dir, verbose logs)
-go run . serve --log-level debug \
-  --auth.bootstrap-secret development-bootstrap-secret # API on :8080
+go run . serve --log-level debug          # API on :8080
 
 # Frontend (separate terminal, proxies /api to :8080)
 cd ui && npm ci && npm run dev            # UI on :5173
 ```
 
-Open <http://localhost:5173>. Enroll the first account using
-`development-bootstrap-secret`, then follow the invitation link written to the
-backend's debug log; that account becomes the administrator.
+Open <http://localhost:5173>. Register the first account, then follow the
+invitation link written to the backend's debug log; **the first account to
+register becomes the administrator**.
 
 ## Production build (single binary)
 
 ```bash
 make all        # builds the UI, embeds it, builds ./gotracks
 GOTRACKS_AUTH_JWT_SECRET=$(openssl rand -hex 32) \
-GOTRACKS_AUTH_BOOTSTRAP_SECRET=$(openssl rand -hex 32) \
 ./gotracks serve
 ```
 
@@ -76,10 +74,9 @@ dashes replaced by underscores.
 | `--db.url` | `GOTRACKS_DB_URL` | XDG data dir | `sqlite:<path>` or `postgres://…` |
 | `--db.debug` | `GOTRACKS_DB_DEBUG` | `false` | Log every SQL statement |
 | `--auth.jwt-secret` | `GOTRACKS_AUTH_JWT_SECRET` | — | Access-token signing key; generated (temporarily) if unset |
-| `--auth.bootstrap-secret` | `GOTRACKS_AUTH_BOOTSTRAP_SECRET` | — | Secret required to create the first administrator (minimum 16 characters) |
 | `--auth.access-ttl` | `GOTRACKS_AUTH_ACCESS_TTL` | `15m` | Access-token lifetime |
 | `--auth.refresh-ttl` | `GOTRACKS_AUTH_REFRESH_TTL` | `720h` | Refresh-token lifetime |
-| `--auth.allow-register` | `GOTRACKS_AUTH_ALLOW_REGISTER` | `false` | Seeds public registration after bootstrap; the admin UI owns it afterwards |
+| `--auth.allow-register` | `GOTRACKS_AUTH_ALLOW_REGISTER` | `false` | Seeds public registration on first run; the admin UI owns it afterwards |
 | `--http.rate.rps` / `--http.rate.burst` | `GOTRACKS_HTTP_RATE_RPS` / `_BURST` | `20` / `40` | Per-client rate limit |
 | `--http.public-url` | `GOTRACKS_HTTP_PUBLIC_URL` | — | Externally reachable base URL; required when mail is enabled |
 | `--http.trusted-proxies` | `GOTRACKS_HTTP_TRUSTED_PROXIES` | — | Comma-separated CIDRs whose `X-Forwarded-For` is trusted; see below |
@@ -156,14 +153,23 @@ ceremony belongs to nobody and cannot complete a sign-in.
 
 ### First administrator and public enrollment
 
-An empty database will not start without `auth.bootstrap-secret`. Enter that
-secret on the first registration page; only its emailed activation link can
-create the initial administrator. Remove the secret from the runtime
-configuration after activation.
+**The first account to register becomes the administrator.** On an empty
+instance the registration page is open regardless of the public-registration
+setting, precisely so that first account can be created; it is still only
+created once its emailed activation link is redeemed.
 
-Public registration is disabled by default. An administrator can enable it in
-the admin UI. Public requests create bounded pending enrollments rather than
-users; the account is created only when its mailbox link is redeemed.
+> [!IMPORTANT]
+> There is no separate admin bootstrap step, so **register the first account on
+> a private deployment — a local run, or before the service is reachable from
+> the internet — then expose it.** Whoever registers first on a publicly
+> reachable empty instance becomes the administrator. This is the operator's
+> responsibility.
+
+Public registration is disabled by default. Once the first administrator
+exists, registration follows the admin-controlled setting, and an administrator
+can enable it in the admin UI. Public requests create bounded pending
+enrollments rather than users; the account is created only when its mailbox
+link is redeemed.
 Registration, login, recovery mail and passkey-begin routes have dedicated
 per-client and process-wide limits in addition to the global HTTP limit.
 

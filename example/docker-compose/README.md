@@ -6,14 +6,13 @@ Two variants: SQLite (default, one container) and Postgres.
 
 ```bash
 cp .env.example .env
-# set GOTRACKS_AUTH_JWT_SECRET and GOTRACKS_AUTH_BOOTSTRAP_SECRET
-# generate each with: openssl rand -hex 32
+# set GOTRACKS_AUTH_JWT_SECRET — generate with: openssl rand -hex 32
 docker compose up -d
 ```
 
-Open <http://localhost:8080>. Enter `GOTRACKS_AUTH_BOOTSTRAP_SECRET` on the
-first registration form; the account becomes admin after accepting its emailed
-invitation. Remove the bootstrap secret from `.env` after activation.
+Open <http://localhost:8080> and register. **The first account to register
+becomes the administrator** after accepting its emailed invitation — so on a
+publicly reachable instance, register it before exposing the port.
 
 The database and attachments live in the `gotracks-data` volume, mounted at
 `/data`. The image points `GOTRACKS_DB_URL` and `GOTRACKS_STORAGE_UPLOADS` there

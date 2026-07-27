@@ -229,8 +229,6 @@ definitions:
     properties:
       allowRegister:
         type: boolean
-      bootstrapRequired:
-        type: boolean
       legal:
         type: boolean
       passkeys:
@@ -278,8 +276,6 @@ definitions:
     type: object
   api.registerRequest:
     properties:
-      bootstrapSecret:
-        type: string
       email:
         type: string
       locale:

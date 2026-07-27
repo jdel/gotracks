@@ -47,8 +47,6 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, "that email address is already registered")
 	case errors.Is(err, service.ErrRegisterDisabled):
 		writeError(w, http.StatusForbidden, "registration disabled")
-	case errors.Is(err, service.ErrBootstrapRequired):
-		writeError(w, http.StatusForbidden, "valid bootstrap secret required")
 	case errors.Is(err, service.ErrEnrollmentCapacity):
 		writeError(w, http.StatusServiceUnavailable, "registration is temporarily unavailable")
 	case errors.Is(err, service.ErrInvalidRefresh):

@@ -207,10 +207,10 @@ func (s *EmailService) sendInvitation(ctx context.Context, email, token string) 
 // Enroll stores a bounded public signup and emails its activation token.
 // Existing accounts are intentionally silent to avoid enumeration.
 func (s *EmailService) Enroll(
-	ctx context.Context, email, locale, timeZone, bootstrapSecret string,
+	ctx context.Context, email, locale, timeZone string,
 ) (EnrollOutcome, error) {
 	address, token, err := s.auth.BeginEnrollment(
-		ctx, email, locale, timeZone, bootstrapSecret,
+		ctx, email, locale, timeZone,
 	)
 	if errors.Is(err, ErrEmailTaken) {
 		s.RequestInvitation(ctx, email)

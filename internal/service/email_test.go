@@ -48,7 +48,7 @@ func emailFixture(t *testing.T, enforcing bool) (*service.EmailService, *service
 	t.Helper()
 	_, store, _ := newTodoService(t)
 	authSvc := newAuthService(t, store)
-	authSvc.SetEnrollments(store.Enrollments, "test-bootstrap-secret")
+	authSvc.SetEnrollments(store.Enrollments)
 	authSvc.SetPreferences(store.Preferences)
 	m := &captureMailer{}
 	svc := service.NewEmailService(store.Users, store.Ephemeral, m, authSvc,
@@ -458,7 +458,7 @@ func TestPublicEnrollmentCreatesUserOnlyAfterMailboxProof(t *testing.T) {
 	ctx := context.Background()
 
 	if _, err := svc.Enroll(
-		ctx, "new@example.com", "fr", "Europe/Paris", "test-bootstrap-secret",
+		ctx, "new@example.com", "fr", "Europe/Paris",
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -486,68 +486,70 @@ func TestPublicEnrollmentCreatesUserOnlyAfterMailboxProof(t *testing.T) {
 	}
 }
 
-func TestBootstrapEnrollmentRequiresConfiguredSecret(t *testing.T) {
+func TestFirstEnrollmentNeedsNoSecretButProvesMailbox(t *testing.T) {
 	svc, _, store, m := emailFixture(t, true)
 	ctx := context.Background()
 
-	for _, supplied := range []string{"", "wrong-bootstrap-secret"} {
-		_, err := svc.Enroll(ctx, "root@example.com", "en", "UTC", supplied)
-		if !errors.Is(err, service.ErrBootstrapRequired) {
-			t.Fatalf("bootstrap with %q = %v, want ErrBootstrapRequired", supplied, err)
-		}
+	// The first account on an empty instance registers with no secret at all,
+	// but still only exists once the mailbox is proven.
+	if _, err := svc.Enroll(ctx, "root@example.com", "en", "UTC"); err != nil {
+		t.Fatalf("first enrollment: %v", err)
 	}
 	if count, err := store.Users.Count(ctx); err != nil || count != 0 {
-		t.Fatalf("users after rejected bootstrap = %d, %v", count, err)
+		t.Fatalf("users before mailbox proof = %d, %v; want 0", count, err)
 	}
-	if m.count() != 0 {
-		t.Fatalf("rejected bootstrap sent %d messages", m.count())
+	if m.count() != 1 {
+		t.Fatalf("first enrollment sent %d messages, want 1", m.count())
 	}
 }
 
-func TestNewBootstrapEnrollmentInvalidatesEarlierToken(t *testing.T) {
+// Only the first account activated on an empty instance is the administrator;
+// a second enrollment begun in the same empty window still activates, but as an
+// ordinary user.
+func TestOnlyFirstActivatedAccountIsAdmin(t *testing.T) {
 	svc, _, _, m := emailFixture(t, true)
 	ctx := context.Background()
-	if _, err := svc.Enroll(
-		ctx, "first@example.com", "en", "UTC", "test-bootstrap-secret",
-	); err != nil {
+	if _, err := svc.Enroll(ctx, "first@example.com", "en", "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	first := tokenFrom(t, mustLast(t, m).Text)
-	if _, err := svc.Enroll(
-		ctx, "second@example.com", "en", "UTC", "test-bootstrap-secret",
-	); err != nil {
+	if _, err := svc.Enroll(ctx, "second@example.com", "en", "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	second := tokenFrom(t, mustLast(t, m).Text)
 
-	if _, err := svc.AcceptInvitation(ctx, first, "Invited-Passw0rd!"); !errors.Is(err, service.ErrEmailToken) {
-		t.Fatalf("superseded bootstrap token = %v, want ErrEmailToken", err)
-	}
-	u, err := svc.AcceptInvitation(ctx, second, "Invited-Passw0rd!")
+	a, err := svc.AcceptInvitation(ctx, first, "Invited-Passw0rd!")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !u.IsAdmin || u.Email != "second@example.com" {
-		t.Fatalf("activated bootstrap user = %#v", u)
+	if !a.IsAdmin || a.Email != "first@example.com" {
+		t.Fatalf("first activated account = %#v, want admin first@example.com", a)
+	}
+	b, err := svc.AcceptInvitation(ctx, second, "Invited-Passw0rd!")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.IsAdmin {
+		t.Fatalf("second activated account = %#v, want non-admin", b)
 	}
 }
 
 func TestDisabledPublicEnrollmentDoesNotBlockAdminInvitations(t *testing.T) {
 	svc, _, store, m := emailFixture(t, true)
 	ctx := context.Background()
-	if _, err := svc.Enroll(ctx, "root@example.com", "en", "UTC", "test-bootstrap-secret"); err != nil {
-		t.Fatalf("bootstrap enrollment: %v", err)
+	if _, err := svc.Enroll(ctx, "root@example.com", "en", "UTC"); err != nil {
+		t.Fatalf("first enrollment: %v", err)
 	}
 	if _, err := svc.AcceptInvitation(
 		ctx, tokenFrom(t, mustLast(t, m).Text), "R00t-Passw0rd!",
 	); err != nil {
-		t.Fatalf("activate bootstrap account: %v", err)
+		t.Fatalf("activate first account: %v", err)
 	}
 	settings := service.NewSettingsService(store.Settings, true)
 	if _, err := settings.SetAllowRegister(ctx, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Enroll(ctx, "public@example.com", "en", "UTC", ""); !errors.Is(err, service.ErrRegisterDisabled) {
+	if _, err := svc.Enroll(ctx, "public@example.com", "en", "UTC"); !errors.Is(err, service.ErrRegisterDisabled) {
 		t.Fatalf("public enrollment while disabled = %v, want ErrRegisterDisabled", err)
 	}
 
@@ -560,7 +562,7 @@ func TestDisabledPublicEnrollmentDoesNotBlockAdminInvitations(t *testing.T) {
 		t.Fatal(err)
 	}
 	if m.count() != 2 {
-		t.Fatalf("sent messages = %d, want bootstrap and admin invitations", m.count())
+		t.Fatalf("sent messages = %d, want first-user and admin invitations", m.count())
 	}
 }
 

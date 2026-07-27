@@ -16,7 +16,7 @@ vi.mock("@/hooks/useSettings", async (importOriginal) => ({
   useServerConfig: () => ({
     data: {
       allowRegister: true,
-      bootstrapRequired: false,
+     
       passkeys: false,
       twoFactor: false,
       legal: false,

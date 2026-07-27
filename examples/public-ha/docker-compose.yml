@@ -32,7 +32,8 @@ x-gotracks: &gotracks
     # tokens with its own key and the load balancer would hand users 401s.
     # Change it: openssl rand -hex 32
     GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-public-ha-shared-secret-change-me-0000000000000000000000}
-    GOTRACKS_AUTH_BOOTSTRAP_SECRET: ${GOTRACKS_AUTH_BOOTSTRAP_SECRET:-bootstrap-change-me}
+    # First account to register becomes the admin. Register it before this stack
+    # is reachable from the internet (see the README).
     GOTRACKS_AUTH_ALLOW_REGISTER: "false"
     GOTRACKS_LOG_FORMAT: json
 

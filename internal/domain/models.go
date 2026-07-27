@@ -42,9 +42,6 @@ type PendingEnrollment struct {
 	TokenHash string `bun:"token_hash,unique,notnull" json:"-"`
 	Locale    string `bun:"locale,notnull" json:"-"`
 	TimeZone  string `bun:"time_zone,notnull" json:"-"`
-	// Bootstrap is true only when the configured first-admin secret was
-	// supplied. Such a token is invalid after any account exists.
-	Bootstrap bool `bun:"bootstrap,notnull" json:"-"`
 
 	ExpiresAt time.Time `bun:"expires_at,notnull" json:"-"`
 	CreatedAt time.Time `bun:"created_at,notnull" json:"-"`

@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
   }
 
-  async function register(email: string, locale?: string, bootstrapSecret?: string) {
+  async function register(email: string, locale?: string) {
     // The language is chosen before the account exists, so it travels with the
     // enrollment rather than needing an authenticated preference call.
     let timeZone = "";
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* Intl unavailable — the server keeps UTC. */
     }
-    await api.raw("/auth/register", { email, locale, timeZone, bootstrapSecret });
+    await api.raw("/auth/register", { email, locale, timeZone });
   }
 
   async function signInWithPasskey(email: string) {

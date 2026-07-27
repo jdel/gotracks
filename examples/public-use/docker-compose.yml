@@ -20,9 +20,9 @@ services:
     environment:
       # Change both for a real deployment: openssl rand -hex 32
       GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-public-use-change-me-000000000000000000000000000000000000}
-      GOTRACKS_AUTH_BOOTSTRAP_SECRET: ${GOTRACKS_AUTH_BOOTSTRAP_SECRET:-bootstrap-change-me}
-      # Public registration stays closed; the bootstrap secret still lets the
-      # first account register as admin, who then opens it in the UI if wanted.
+      # Public registration stays closed, but an empty instance always allows
+      # the first account to register — it becomes the admin, who can then open
+      # registration in the UI. Register it before exposing this to the internet.
       GOTRACKS_AUTH_ALLOW_REGISTER: "false"
       GOTRACKS_LOG_FORMAT: json
 
