@@ -1,8 +1,12 @@
 # Public, highly available
 
-Two gotracks replicas behind a load balancer, sharing Postgres and S3 storage —
-the deployment shape from the [HA section of the main README](../../README.md#running-multiple-instances-high-availability),
-as a working compose file.
+A **demo / reference stack** for the HA shape: two gotracks replicas behind a
+load balancer, sharing Postgres and S3 storage — the deployment shape from the
+[HA section of the main README](../../README.md#running-multiple-instances-high-availability),
+as a working compose file. It runs on one host with its ports published on
+`localhost`, throwaway `*-change-me` secrets, a self-signed MinIO certificate,
+and Mailpit. Run it to see the pieces fit together and read it as a starting
+point — it is **not** a hardened, internet-facing deployment as-is.
 
 ```bash
 docker compose up -d
@@ -36,10 +40,11 @@ the certificate and hostname fully. Nothing disables verification.
 Delete `./certs` to force regeneration. These are **demo certificates** —
 generate your own for a real deployment, ideally from your own CA.
 
-## First run
+## Running the demo
 
 1. <http://localhost:8080> → register. The first account to register becomes the
-   admin, so do this before the stack is reachable from the internet.
+   admin (gotracks' behaviour on any empty instance — nothing here does a
+   special bootstrap step).
 2. <http://localhost:8025> → open the invitation and click the activation link.
 3. Accept the terms (legal pages are on).
 
@@ -49,13 +54,20 @@ Bind-mounted under this directory: `./pgdata` (Postgres), `./minio-data`
 (attachments), `./certs` (the generated certificate). Back these up; delete them
 to start clean.
 
-## Hardening
+## Adapting it for an internet-facing deployment
 
-- Replace every `*-change-me` secret. Generate the JWT secret with
+This compose file is a reference, not a hardened deployment. To run it for real,
+you own these changes:
+
+- **Secrets** — replace every `*-change-me` value. Generate the JWT secret with
   `openssl rand -hex 32` and set it once — it must be identical on all replicas.
-- Terminate real HTTPS at nginx (or an upstream proxy) and set
-  `GOTRACKS_HTTP_PUBLIC_URL` to the public domain.
-- Use managed Postgres and object storage, or back these with real volumes and
-  backups. Swap MinIO for real S3/R2/B2 by changing only `AWS_ENDPOINT_URL_S3`
-  and the credentials — the gotracks configuration does not change.
-- Replace Mailpit with a real mail provider.
+- **Registration and the first admin** — the first account to register becomes
+  the administrator, so do not expose the load balancer before that account
+  exists. Register it while the app is reachable only to you, then publish.
+- **TLS and public URL** — terminate real HTTPS at nginx (or an upstream proxy)
+  and set `GOTRACKS_HTTP_PUBLIC_URL` to the public domain.
+- **Backing services** — use managed Postgres and object storage, or back these
+  with real volumes and backups. Swap MinIO for real S3/R2/B2 by changing only
+  `AWS_ENDPOINT_URL_S3` and the credentials — the gotracks configuration does
+  not change.
+- **Mail** — replace Mailpit with a real mail provider.
