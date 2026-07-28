@@ -34,7 +34,7 @@ func (r *preferenceRepo) Upsert(ctx context.Context, p *domain.Preference) error
 	}
 	_, err = r.db.NewUpdate().Model(p).
 		Column("date_format", "time_zone", "locale", "theme", "week_start",
-			"review_period", "updated_at").
+			"review_period", "auto_delete_attachments", "updated_at").
 		Where("user_id = ?", p.UserID).Exec(ctx)
 	return err
 }

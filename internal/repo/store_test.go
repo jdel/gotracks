@@ -55,6 +55,45 @@ func runWith(t *testing.T, bdb *bun.DB, fn func(*testing.T, *repo.Store)) {
 	fn(t, repo.NewStore(bdb))
 }
 
+// The update path of Upsert must carry every mutable column. auto_delete_attachments
+// was once missing from it, so toggling the preference on an existing row was
+// silently dropped.
+func TestPreferenceUpdatePersistsAutoDeleteAttachments(t *testing.T) {
+	eachEngine(t, func(t *testing.T, store *repo.Store) {
+		ctx := context.Background()
+		u := &domain.User{Email: "prefs@example.com", Password: "x"}
+		if err := store.Users.Create(ctx, u); err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+
+		off := false
+		p := &domain.Preference{
+			UserID: u.ID, DateFormat: "YYYY-MM-DD", TimeZone: "UTC",
+			Locale: "en", Theme: "system", WeekStart: 0, ReviewPeriod: 7,
+			AutoDeleteAttachments: &off, UpdatedAt: time.Now(),
+		}
+		if err := store.Preferences.Upsert(ctx, p); err != nil {
+			t.Fatalf("insert preference: %v", err)
+		}
+
+		// Second Upsert hits the update branch, which is what regressed.
+		on := true
+		p.AutoDeleteAttachments = &on
+		p.UpdatedAt = time.Now()
+		if err := store.Preferences.Upsert(ctx, p); err != nil {
+			t.Fatalf("update preference: %v", err)
+		}
+
+		got, err := store.Preferences.Get(ctx, u.ID)
+		if err != nil {
+			t.Fatalf("reload preference: %v", err)
+		}
+		if got.AutoDeleteAttachments == nil || !*got.AutoDeleteAttachments {
+			t.Fatalf("auto_delete_attachments did not persist: %v", got.AutoDeleteAttachments)
+		}
+	})
+}
+
 func TestUserCreateAndLookup(t *testing.T) {
 	eachEngine(t, func(t *testing.T, store *repo.Store) {
 		ctx := context.Background()
