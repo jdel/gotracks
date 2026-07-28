@@ -80,6 +80,7 @@ dashes replaced by underscores.
 | `--http.rate.rps` / `--http.rate.burst` | `GOTRACKS_HTTP_RATE_RPS` / `_BURST` | `20` / `40` | Per-client rate limit |
 | `--http.public-url` | `GOTRACKS_HTTP_PUBLIC_URL` | — | Externally reachable base URL; required when mail is enabled |
 | `--http.trusted-proxies` | `GOTRACKS_HTTP_TRUSTED_PROXIES` | — | Comma-separated CIDRs whose `X-Forwarded-For` is trusted; see below |
+| `--http.allowed-origins` | `GOTRACKS_HTTP_ALLOWED_ORIGINS` | — | Comma-separated browser origins allowed to call the API; empty allows any (fine for same-origin) |
 | `--http.tls.enabled` | `GOTRACKS_HTTP_TLS_ENABLED` | `false` | Serve over HTTPS |
 | `--http.tls.cert` | `GOTRACKS_HTTP_TLS_CERT` | — | TLS certificate PEM (required with `--http.tls.enabled`) |
 | `--http.tls.key` | `GOTRACKS_HTTP_TLS_KEY` | — | TLS private key PEM (required with `--http.tls.enabled`) |
@@ -229,8 +230,10 @@ rejected, while the caller still gets the same response as any other
 registration. The response cannot be used to test which addresses exist; the log
 is where an operator sees somebody working through a list.
 
-The table is never pruned, so it grows with use. That is deliberate, but it is
-worth knowing before you run an instance for years.
+Between the age-based deletion above and the account-scoped exemption, the table
+grows with use but is bounded by `--legal.retention-days`: set it to the shortest
+period that still meets your needs (`0` keeps entries forever, which an operator
+must choose deliberately).
 
 ### Usage report
 
@@ -300,8 +303,8 @@ removed once the action exists.
 
 ### Language
 
-The interface ships English and French, and every screen is translated — there
-is no hardcoded copy. A user picks a language on the registration form — before
+The interface ships English, French, Italian and German, and every screen is
+translated — there is no hardcoded copy. A user picks a language on the registration form — before
 there is an account to store it against — and it is saved with the signup and
 shown from the first screen; it can be changed any time under Settings. The choice is also kept on the device, so the sign-in and
 registration pages, which render without a session, appear in the right

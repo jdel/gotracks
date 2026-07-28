@@ -11,6 +11,27 @@ All notable changes to this project are documented here.
   private deployment before exposing the service is the operator's
   responsibility.
 
+### Added
+
+- Optional S3 attachment storage (`--storage.type s3`) for shared, HA-capable
+  storage; endpoint and credentials come from the standard `AWS_*` environment.
+  The default `local` store speaks S3 to an in-process server, keeping a single
+  storage code path.
+- Legal pages — terms, privacy and cookie policies with default texts in all
+  four interface languages, a per-language admin editor, and single-checkbox
+  consent at registration (`--legal.enabled`).
+- Audit log of account and administrator events, with a configurable retention
+  period (`--legal.retention-days`), filtering and pagination, and CSV/JSON
+  export carrying a SHA-256 fingerprint of the exact bytes produced.
+- Session management: list active sessions per device and revoke them, including
+  "sign out everywhere else".
+- Data export as a zip archive containing structured JSON alongside every
+  uploaded attachment.
+- Passkey sign-in enumeration resistance: an unknown address receives an
+  invented ceremony indistinguishable from a real one.
+- Italian and German interface translations, joining English and French.
+- The build version is shown in the interface (to signed-in users only).
+
 ## v0.3.0 - 2026-07-23
 
 ### Breaking changes
