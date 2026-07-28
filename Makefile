@@ -22,19 +22,33 @@ EXE       := $(if $(filter windows,$(HOST_OS)),.exe,)
 
 export CGO_ENABLED := 0
 
+# Source prerequisites, so an unchanged tree skips the expensive builds and a
+# touched source triggers exactly the right rebuild.
+GO_SRC := $(shell find . -type f -name '*.go' -not -path './ui/*')
+UI_SRC := $(shell find ui -type f -not -path 'ui/node_modules/*' -not -path 'ui/dist/*')
+# The embedded SPA entry point stands in for the whole internal/web/dist tree.
+SPA    := internal/web/dist/index.html
+
 .PHONY: all build ui dist clean test test-race vet tidy docker docker-load buildx-setup help
 
 all: build
 
-# Build the host binary.
-build: ui
+# Build the host binary. gotracks depends on the SPA, so the UI is built first
+# even under parallel make (-j); no separate ordering prerequisite is needed.
+build: gotracks
+
+# A real file target: rebuilt only when a Go source, the modules, or the
+# embedded SPA changed.
+gotracks: $(GO_SRC) go.mod go.sum $(SPA)
 	go build -trimpath -ldflags '$(LDFLAGS)' -o $(BINARY) $(PKG)
 
 # Build the web UI into internal/web/dist so the Go binary can embed it.
 # The output is committed to the repo so `go install` produces a binary with
 # the embedded SPA — rerun this target and commit the result whenever the UI
 # source changes.
-ui:
+ui: $(SPA)
+
+$(SPA): $(UI_SRC)
 	cd ui && npm ci && npm run build
 
 test:
