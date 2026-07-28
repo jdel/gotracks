@@ -4,6 +4,7 @@ import { loginWithPasskey } from "./passkeys";
 import type { AuthResponse, LoginResponse, User } from "./types";
 import { isTwoFactorChallenge } from "./types";
 import { AuthContext } from "./auth";
+import { detectTimeZone } from "./timezone";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -45,13 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function register(email: string, locale?: string) {
     // The language is chosen before the account exists, so it travels with the
-    // enrollment rather than needing an authenticated preference call.
-    let timeZone = "";
-    try {
-      timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    } catch {
-      /* Intl unavailable — the server keeps UTC. */
-    }
+    // enrollment rather than needing an authenticated preference call. The zone
+    // is validated so a placeholder value never reaches the server.
+    const timeZone = detectTimeZone();
     await api.raw("/auth/register", { email, locale, timeZone });
   }
 
