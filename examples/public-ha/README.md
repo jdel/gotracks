@@ -30,15 +30,24 @@ docker compose up -d
 Scale further by copying the `gotracks2` block to `gotracks3`, etc., and adding
 it to `nginx.conf`'s `upstream`.
 
-## TLS to MinIO, verified (no skip-verify)
+## TLS everywhere, verified (no skip-verify)
 
 On first `up`, the one-shot `certgen` service writes a self-signed certificate
-to `./certs` with `SAN=minio`. MinIO serves HTTPS with it; gotracks trusts it by
-pointing `SSL_CERT_FILE` at `./certs/public.crt`, so the S3 connection verifies
-the certificate and hostname fully. Nothing disables verification.
+to `./certs` whose SAN covers both `minio` and `mailpit`. Both services serve
+TLS with it:
 
-Delete `./certs` to force regeneration. These are **demo certificates** —
-generate your own for a real deployment, ideally from your own CA.
+- **MinIO** serves the S3 API over HTTPS.
+- **Mailpit** serves STARTTLS on its SMTP port and **requires** it
+  (`MP_SMTP_REQUIRE_TLS`), so gotracks' mail cannot leave in the clear.
+
+gotracks trusts the certificate by pointing `SSL_CERT_FILE` at
+`./certs/public.crt`, so both the S3 connection and the SMTP STARTTLS session
+verify the certificate and hostname fully. Nothing disables verification.
+
+Delete `./certs` to force regeneration (**required** if you ran an earlier
+version of this example, whose certificate did not name `mailpit`). These are
+**demo certificates** — generate your own for a real deployment, ideally from
+your own CA.
 
 ## Running the demo
 

@@ -5,9 +5,11 @@
 #   - Two gotracks replicas behind an nginx load balancer, sharing one JWT
 #     secret so a token minted by one is accepted by the other.
 #   - MinIO for shared S3 attachment storage, so a file uploaded on one replica
-#     is served by the other. MinIO speaks HTTPS with a self-signed certificate,
-#     and gotracks trusts it through SSL_CERT_FILE — no InsecureSkipVerify.
-#   - Legal pages on, and Mailpit as a fake SMTP inbox.
+#     is served by the other.
+#   - MinIO and Mailpit both speak TLS with a shared self-signed certificate,
+#     and gotracks trusts it through SSL_CERT_FILE — no InsecureSkipVerify. So
+#     both object storage and outgoing mail are encrypted and verified.
+#   - Legal pages on, and Mailpit as a fake SMTP inbox (STARTTLS, required).
 #
 #   docker compose up -d
 #   open http://localhost:8080        the app (through the load balancer)
@@ -15,7 +17,9 @@
 #   open https://localhost:9001       MinIO console (accept the self-signed cert)
 #
 # The self-signed certificate is generated on first `up` into ./certs by the
-# one-shot `certgen` service. Delete ./certs to regenerate.
+# one-shot `certgen` service; its SAN covers both `minio` and `mailpit`. Delete
+# ./certs to regenerate (required if you ran an earlier version without Mailpit
+# TLS).
 
 x-gotracks: &gotracks
   image: ghcr.io/jdel/gotracks:latest
@@ -66,7 +70,9 @@ x-gotracks: &gotracks
     GOTRACKS_MAIL_FROM: ${GOTRACKS_MAIL_FROM:-gotracks@example.test}
     GOTRACKS_MAIL_SMTP_HOST: mailpit
     GOTRACKS_MAIL_SMTP_PORT: "1025"
-    GOTRACKS_MAIL_SMTP_ENCRYPTION: none
+    # STARTTLS to Mailpit, verified against the shared self-signed cert (which
+    # names `mailpit` in its SAN) through SSL_CERT_FILE above — no skip-verify.
+    GOTRACKS_MAIL_SMTP_ENCRYPTION: starttls
   volumes:
     - ./certs:/certs:ro
 
@@ -81,11 +87,13 @@ services:
       - |
         set -e
         if [ ! -f /certs/public.crt ]; then
-          echo "generating self-signed certificate for MinIO..."
+          echo "generating self-signed certificate for MinIO and Mailpit..."
+          # One certificate whose SAN covers both service names, so gotracks
+          # can verify TLS to each with a single trusted file (SSL_CERT_FILE).
           openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
             -keyout /certs/private.key -out /certs/public.crt \
-            -subj "/CN=minio" \
-            -addext "subjectAltName=DNS:minio,DNS:localhost,IP:127.0.0.1"
+            -subj "/CN=gotracks-demo" \
+            -addext "subjectAltName=DNS:minio,DNS:mailpit,DNS:localhost,IP:127.0.0.1"
           chmod 644 /certs/public.crt
           chmod 600 /certs/private.key
         fi
@@ -126,8 +134,19 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     restart: unless-stopped
+    depends_on:
+      certgen:
+        condition: service_completed_successfully
+    environment:
+      # Serve STARTTLS on the SMTP port with the shared self-signed cert, and
+      # refuse senders that will not upgrade — so gotracks' mail leaves over TLS.
+      MP_SMTP_TLS_CERT: /certs/public.crt
+      MP_SMTP_TLS_KEY: /certs/private.key
+      MP_SMTP_REQUIRE_TLS: "true"
     ports:
       - "8025:8025"
+    volumes:
+      - ./certs:/certs:ro
 
   gotracks1:
     <<: *gotracks
