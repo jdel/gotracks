@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { useConfirmAccountDeletion } from "@/hooks/useSettings";
 import { useAuth } from "@/lib/auth";
 import { apiMessage } from "@/lib/api";

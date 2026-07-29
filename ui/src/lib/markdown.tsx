@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 /**
  * A small renderer for the legal documents: headings, paragraphs, lists, bold

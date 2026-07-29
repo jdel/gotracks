@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { KeyRound } from "lucide-react";
 import { useAcceptInvitation, useResetPassword } from "@/hooks/useSettings";
 import { ApiError } from "@/lib/api";

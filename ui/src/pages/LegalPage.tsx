@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useLegalDocuments } from "@/hooks/useLegal";
 import { useServerConfig } from "@/hooks/useSettings";
 import { renderMarkdown } from "@/lib/markdown";

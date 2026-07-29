@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Plus, Trash2, CheckCircle2, FolderOpen, Eye, EyeOff } from "lucide-react";
 import { useCreateProject, useDeleteProject, useProjects, useUpdateProject } from "@/hooks/useProjects";
 import { Button } from "@/components/ui/button";

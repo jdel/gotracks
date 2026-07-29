@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { useVerifyEmail } from "@/hooks/useSettings";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";

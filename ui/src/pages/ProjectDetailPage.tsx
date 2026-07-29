@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router";
 import { ArrowLeft, Trash2, ClipboardCheck } from "lucide-react";
 import {
   useCreateNote,

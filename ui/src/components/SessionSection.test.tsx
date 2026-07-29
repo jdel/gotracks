@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { I18nProvider } from "@/lib/I18nProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { SessionSection } from "./SessionSection";
 import { useSessions, useRevokeSession, useRevokeOtherSessions } from "@/hooks/useSessions";
 
