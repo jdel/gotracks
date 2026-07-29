@@ -138,6 +138,10 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		entry.Action = domain.AuditRegisterRejected
 		entry.Outcome = domain.AuditFailure
 		entry.Detail = "the address already has an account; the caller was not told"
+	case outcome == service.EnrollThrottled:
+		entry.Action = domain.AuditRegisterRejected
+		entry.Outcome = domain.AuditFailure
+		entry.Detail = "the address was emailed too recently; no invitation was sent"
 	}
 	h.audit.Record(r.Context(), entry)
 	if err != nil {

@@ -503,6 +503,32 @@ func TestFirstEnrollmentNeedsNoSecretButProvesMailbox(t *testing.T) {
 	}
 }
 
+// The public register endpoint must not become a way to flood one mailbox: a
+// second invitation to the same address inside the cooldown is suppressed, with
+// no extra mail and the same outward result.
+func TestInvitationThrottlePerAddress(t *testing.T) {
+	svc, _, _, m := emailFixture(t, true)
+	ctx := context.Background()
+
+	if out, err := svc.Enroll(ctx, "target@example.com", "en", "UTC"); err != nil || out != service.EnrollPending {
+		t.Fatalf("first enroll = %v, %v; want EnrollPending", out, err)
+	}
+	if out, err := svc.Enroll(ctx, "target@example.com", "en", "UTC"); err != nil || out != service.EnrollThrottled {
+		t.Fatalf("repeat enroll = %v, %v; want EnrollThrottled", out, err)
+	}
+	if m.count() != 1 {
+		t.Fatalf("messages sent = %d, want 1 (the duplicate was suppressed)", m.count())
+	}
+
+	// A different address is not affected by another's cooldown.
+	if out, err := svc.Enroll(ctx, "other@example.com", "en", "UTC"); err != nil || out != service.EnrollPending {
+		t.Fatalf("other enroll = %v, %v; want EnrollPending", out, err)
+	}
+	if m.count() != 2 {
+		t.Fatalf("messages sent = %d, want 2", m.count())
+	}
+}
+
 // Only the first account activated on an empty instance is the administrator;
 // a second enrollment begun in the same empty window still activates, but as an
 // ordinary user.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"html"
 	"net/url"
 	"time"
@@ -30,11 +31,12 @@ var (
 )
 
 const (
-	kindEmailVerify   = "email-verify"
-	kindPasswordReset = "password-reset"
-	kindInvitation    = "user-invitation"
-	kindAccountDelete = "account-deletion"
-	kindEmailChange   = "email-change"
+	kindEmailVerify    = "email-verify"
+	kindPasswordReset  = "password-reset"
+	kindInvitation     = "user-invitation"
+	kindAccountDelete  = "account-deletion"
+	kindEmailChange    = "email-change"
+	kindInviteThrottle = "invite-throttle"
 
 	// verifyTTL is generous: people read mail hours later.
 	verifyTTL = 24 * time.Hour
@@ -47,6 +49,11 @@ const (
 	accountDeletionTTL = 30 * time.Minute
 	// Changing an address requires proving control of the new mailbox.
 	emailChangeTTL = 24 * time.Hour
+	// invitationCooldown is the minimum gap between invitation emails to one
+	// address via the public register endpoint. The first invitation stays valid
+	// for invitationTTL, so a suppressed duplicate costs a legitimate user
+	// nothing; it only denies an attacker a mailbox flood.
+	invitationCooldown = 10 * time.Minute
 
 	// maxLiveTokensPerUser stops repeated requests filling the table.
 	maxLiveTokensPerUser = 5
@@ -209,6 +216,17 @@ func (s *EmailService) sendInvitation(ctx context.Context, email, token string) 
 func (s *EmailService) Enroll(
 	ctx context.Context, email, locale, timeZone string,
 ) (EnrollOutcome, error) {
+	normalised := auth.NormaliseEmail(email)
+	if err := auth.ValidateEmail(normalised); err != nil {
+		return EnrollRefused, err
+	}
+	// Cap how often this endpoint will email any one address, whatever the
+	// outcome, so it cannot be turned into a mail flood against a chosen
+	// mailbox — from any number of source IPs. The response is unchanged, so it
+	// stays enumeration-safe.
+	if !s.invitationAllowed(ctx, normalised) {
+		return EnrollThrottled, nil
+	}
 	address, token, err := s.auth.BeginEnrollment(
 		ctx, email, locale, timeZone,
 	)
@@ -220,6 +238,35 @@ func (s *EmailService) Enroll(
 		return EnrollRefused, err
 	}
 	return EnrollPending, s.sendInvitation(ctx, address, token)
+}
+
+// invitationAllowed reports whether an invitation may be sent to address now,
+// recording a per-address cooldown marker when it may. Keyed on the address, so
+// the limit holds across source IPs; kept in the shared ephemeral store, so it
+// holds across replicas. It fails open: a store hiccup must never block signups.
+func (s *EmailService) invitationAllowed(ctx context.Context, address string) bool {
+	id := auth.HashEmailToken(kindInviteThrottle + ":" + address)
+	if _, err := s.tokens.Peek(ctx, kindInviteThrottle, id); err == nil {
+		return false // a live marker means we are still within the cooldown
+	}
+	if err := s.tokens.ReplaceForUser(ctx, &domain.Ephemeral{
+		ID:        id,
+		Kind:      kindInviteThrottle,
+		UserID:    addressBucket(address),
+		ExpiresAt: time.Now().Add(invitationCooldown),
+	}); err != nil {
+		log.Warn().Err(err).Msg("could not record invitation throttle")
+		return true
+	}
+	return true
+}
+
+// addressBucket derives a stable non-negative key for an address, used only to
+// scope the throttle marker's replacement to that address.
+func addressBucket(address string) int64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(address))
+	return int64(h.Sum64() & (1<<63 - 1))
 }
 
 // EnrollOutcome reports what an enrollment actually did.
@@ -239,6 +286,9 @@ const (
 	EnrollTaken
 	// EnrollRefused means it failed outright, e.g. registration is disabled.
 	EnrollRefused
+	// EnrollThrottled means the address was emailed too recently, so no mail
+	// was sent. The caller was told nothing different.
+	EnrollThrottled
 )
 
 // RequestInvitation resends enrollment mail without revealing whether the

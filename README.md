@@ -175,6 +175,10 @@ enrollments rather than users; the account is created only when its mailbox
 link is redeemed.
 Registration, login, recovery mail and passkey-begin routes have dedicated
 per-client and process-wide limits in addition to the global HTTP limit.
+Invitation mail is additionally throttled **per destination address** — one
+message every ten minutes, whatever the source — so the register endpoint cannot
+be turned into a flood against a chosen mailbox, and the first invitation stays
+valid meanwhile.
 
 ### Stored text limits
 
