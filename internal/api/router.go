@@ -7,6 +7,7 @@ import (
 
 	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/config"
+	"github.com/jdel/gotracks/internal/metrics"
 	"github.com/jdel/gotracks/internal/repo"
 	"github.com/jdel/gotracks/internal/service"
 )
@@ -33,6 +34,7 @@ type Services struct {
 	Legal       *service.LegalService
 	Tags        repo.TagRepo
 	Notes       repo.NoteRepo
+	Metrics     *metrics.Recorder
 }
 
 // New builds the root HTTP handler: global middleware, API routes and SPA.
@@ -42,8 +44,15 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	ah := &authHandler{auth: svc.Auth, twoFactor: svc.TwoFactor, passkeys: svc.Passkeys, email: svc.Email, admin: svc.Admin, quotas: svc.Quotas, legal: svc.Legal, audit: svc.Audit}
 	ch := &contextHandler{contexts: svc.Contexts}
 	requireAuth := RequireAuth(tm, svc.Auth.CurrentUser)
-	limit := func(l *AbuseLimiter, h http.HandlerFunc) http.Handler {
-		return l.Middleware(h)
+	limit := func(name string, l *AbuseLimiter, h http.HandlerFunc) http.Handler {
+		inner := l.Middleware(h)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+			inner.ServeHTTP(rec, r)
+			if rec.status == http.StatusTooManyRequests {
+				svc.Metrics.RateLimited(name)
+			}
+		})
 	}
 	// Costly public routes get both per-client and whole-process budgets. The
 	// global limiter below remains a broad safety net for every route.
@@ -66,8 +75,8 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	swaggerHandlers(mux, cfg.TLSEnabled())
 
 	// Auth endpoints (public).
-	mux.Handle("POST /api/v1/auth/register", limit(registerLimit, ah.register))
-	mux.Handle("POST /api/v1/auth/login", limit(loginLimit, ah.login))
+	mux.Handle("POST /api/v1/auth/register", limit("register", registerLimit, ah.register))
+	mux.Handle("POST /api/v1/auth/login", limit("login", loginLimit, ah.login))
 	mux.HandleFunc("POST /api/v1/auth/refresh", ah.refresh)
 	mux.HandleFunc("POST /api/v1/auth/logout", ah.logout)
 	// Completes a sign-in that stopped at the second factor. Public: the
@@ -77,9 +86,9 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	// caller is holding a mailed token, not a session.
 	if svc.Email != nil {
 		mux.HandleFunc("POST /api/v1/auth/email/verify", ah.verifyEmail)
-		mux.Handle("POST /api/v1/auth/email/resend", limit(mailLimit, ah.resendVerification))
+		mux.Handle("POST /api/v1/auth/email/resend", limit("mail", mailLimit, ah.resendVerification))
 		mux.HandleFunc("POST /api/v1/auth/email/change/confirm", ah.confirmEmailChange)
-		mux.Handle("POST /api/v1/auth/password/forgot", limit(mailLimit, ah.forgotPassword))
+		mux.Handle("POST /api/v1/auth/password/forgot", limit("mail", mailLimit, ah.forgotPassword))
 		mux.HandleFunc("POST /api/v1/auth/password/reset", ah.resetPassword)
 		mux.HandleFunc("POST /api/v1/auth/invitation/accept", ah.acceptInvitation)
 		mux.HandleFunc("POST /api/v1/auth/account/deletion/confirm", ah.confirmAccountDeletion)
@@ -200,7 +209,7 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	pkh := &passkeyHandler{passkeys: svc.Passkeys, auth: svc.Auth, audit: svc.Audit}
 	mux.HandleFunc("GET /api/v1/auth/passkey/status", pkh.status)
 	if pkh.enabled() {
-		mux.Handle("POST /api/v1/auth/passkey/login/begin", limit(passkeyLimit, pkh.loginBegin))
+		mux.Handle("POST /api/v1/auth/passkey/login/begin", limit("passkey", passkeyLimit, pkh.loginBegin))
 		mux.HandleFunc("POST /api/v1/auth/passkey/login/finish", pkh.loginFinish)
 		mux.Handle("GET /api/v1/passkeys", protect(pkh.list))
 		mux.Handle("POST /api/v1/passkeys/register/begin", protect(pkh.registerBegin))

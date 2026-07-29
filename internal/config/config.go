@@ -30,6 +30,13 @@ type Config struct {
 	RateLimitRPS   float64 // per-client request rate
 	RateLimitBurst int     // per-client burst
 
+	// MetricsAddr is the listen address for the Prometheus metrics endpoint,
+	// default ":9091". Empty disables it. It is a separate port from the
+	// public API so per-account figures are not served there; the endpoint is
+	// unauthenticated, so restrict who can reach the port (a private network, a
+	// firewall, or an unpublished container port).
+	MetricsAddr string
+
 	// TLS certificate and key, both PEM files. Empty means plain HTTP, which is
 	// the right choice when a reverse proxy already terminates TLS.
 	TLSCert string

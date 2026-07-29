@@ -14,6 +14,7 @@ import (
 	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/domain"
 	"github.com/jdel/gotracks/internal/mail"
+	"github.com/jdel/gotracks/internal/metrics"
 	"github.com/jdel/gotracks/internal/repo"
 )
 
@@ -67,7 +68,11 @@ type EmailService struct {
 	auth      *AuthService
 	baseURL   string
 	enforcing bool
+	metrics   *metrics.Recorder
 }
+
+// SetMetrics enables registration and invitation-throttle metrics. Nil-safe.
+func (s *EmailService) SetMetrics(m *metrics.Recorder) { s.metrics = m }
 
 // NewEmailService builds the service.
 //
@@ -218,6 +223,7 @@ func (s *EmailService) Enroll(
 ) (EnrollOutcome, error) {
 	normalised := auth.NormaliseEmail(email)
 	if err := auth.ValidateEmail(normalised); err != nil {
+		s.metrics.Registration("refused")
 		return EnrollRefused, err
 	}
 	// Cap how often this endpoint will email any one address, whatever the
@@ -225,6 +231,7 @@ func (s *EmailService) Enroll(
 	// mailbox — from any number of source IPs. The response is unchanged, so it
 	// stays enumeration-safe.
 	if !s.invitationAllowed(ctx, normalised) {
+		s.metrics.Registration("throttled")
 		return EnrollThrottled, nil
 	}
 	address, token, err := s.auth.BeginEnrollment(
@@ -232,11 +239,14 @@ func (s *EmailService) Enroll(
 	)
 	if errors.Is(err, ErrEmailTaken) {
 		s.RequestInvitation(ctx, email)
+		s.metrics.Registration("taken")
 		return EnrollTaken, nil
 	}
 	if err != nil {
+		s.metrics.Registration("refused")
 		return EnrollRefused, err
 	}
+	s.metrics.Registration("pending")
 	return EnrollPending, s.sendInvitation(ctx, address, token)
 }
 
@@ -247,6 +257,7 @@ func (s *EmailService) Enroll(
 func (s *EmailService) invitationAllowed(ctx context.Context, address string) bool {
 	id := auth.HashEmailToken(kindInviteThrottle + ":" + address)
 	if _, err := s.tokens.Peek(ctx, kindInviteThrottle, id); err == nil {
+		s.metrics.InvitationThrottled()
 		return false // a live marker means we are still within the cooldown
 	}
 	if err := s.tokens.ReplaceForUser(ctx, &domain.Ephemeral{

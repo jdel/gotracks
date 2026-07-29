@@ -81,6 +81,7 @@ dashes replaced by underscores.
 | `--http.public-url` | `GOTRACKS_HTTP_PUBLIC_URL` | — | Externally reachable base URL; required when mail is enabled |
 | `--http.trusted-proxies` | `GOTRACKS_HTTP_TRUSTED_PROXIES` | — | Comma-separated CIDRs whose `X-Forwarded-For` is trusted; see below |
 | `--http.allowed-origins` | `GOTRACKS_HTTP_ALLOWED_ORIGINS` | — | Comma-separated browser origins allowed to call the API; empty allows any (fine for same-origin) |
+| `--metrics.addr` | `GOTRACKS_METRICS_ADDR` | `:9091` | Prometheus metrics listen address; empty disables it. See [Metrics](#metrics) |
 | `--http.tls.enabled` | `GOTRACKS_HTTP_TLS_ENABLED` | `false` | Serve over HTTPS |
 | `--http.tls.cert` | `GOTRACKS_HTTP_TLS_CERT` | — | TLS certificate PEM (required with `--http.tls.enabled`) |
 | `--http.tls.key` | `GOTRACKS_HTTP_TLS_KEY` | — | TLS private key PEM (required with `--http.tls.enabled`) |
@@ -139,6 +140,55 @@ match wins:
 Not supported: native SSO token caches (`~/.aws/sso`) and the region/SSO
 settings in `~/.aws/config`. To use SSO, wire it through a `credential_process`
 in the credentials file.
+
+### Metrics
+
+gotracks serves Prometheus metrics on its own address — `--metrics.addr`,
+default `:9091` — separate from the API port, at `GET /metrics`. Set it empty to
+turn the endpoint off.
+
+The endpoint is **unauthenticated and its per-account gauges carry the account's
+email as a label**, so keep the port private: bind it to a private interface, put
+it behind a firewall, or leave the container port unpublished and let Prometheus
+reach it on the internal network. Do not expose `:9091` to the internet.
+
+Alongside the standard Go runtime and process collectors, it exposes two
+families.
+
+**Instance-wide gauges** — totals only, never a series per account (that is the
+admin usage report's job). Pulled live from the same aggregation that report
+uses, cached briefly, so a dashboard can chart usage against the quota gauges
+without the two ever drifting:
+
+| Metric | Labels | Meaning |
+| --- | --- | --- |
+| `gotracks_users` | — | Number of accounts |
+| `gotracks_actions`, `_projects`, `_notes`, `_contexts`, `_tags`, `_recurring_actions` | — | Instance-wide totals |
+| `gotracks_attachment_storage_bytes` | — | Total attachment storage in use |
+| `gotracks_quota_actions`, …, `_quota_storage_bytes`, `_quota_tags_per_action` | — | Configured per-account limits (0 = unlimited) |
+| `gotracks_scrape_errors_total` | — | Failed aggregations while collecting |
+
+**Security counters** — incremented at the event and labelled only by bounded
+attributes (outcome, type, resource). They deliberately carry **no per-account
+label**: a unique account id would grow the series set without bound and expose
+account identifiers on this unauthenticated endpoint. Which account was involved
+is recorded in the audit log, which is retained and access-controlled:
+
+| Metric | Labels | Meaning |
+| --- | --- | --- |
+| `gotracks_login_attempts_total` | `outcome` (success/invalid/locked) | Password sign-ins |
+| `gotracks_token_refresh_total` | `outcome` (success/invalid) | Refresh-token rotations |
+| `gotracks_two_factor_total` | `outcome` (passed/failed) | Two-factor verifications |
+| `gotracks_passkey_ceremonies_total` | `type` (login/register), `outcome` | Passkey ceremonies |
+| `gotracks_quota_rejections_total` | `resource` | Requests refused for hitting a quota |
+| `gotracks_accounts_activated_total` | — | Registrations completed into a real account |
+| `gotracks_registrations_total` | `outcome` (pending/taken/refused/throttled) | Public registration attempts |
+| `gotracks_invitation_throttle_suppressed_total` | — | Invitation emails suppressed by the cooldown |
+| `gotracks_ratelimit_rejections_total` | `limiter` (register/login/mail/passkey) | Requests rejected by an abuse limiter |
+
+Watch `login_attempts{outcome="locked"}`, `ratelimit_rejections` and
+`registrations{outcome="refused"}` for someone hammering the instance; use the
+audit log to see which account.
 
 ### Account enumeration
 

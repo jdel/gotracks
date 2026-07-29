@@ -10,6 +10,7 @@ import (
 
 	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/domain"
+	"github.com/jdel/gotracks/internal/metrics"
 	"github.com/jdel/gotracks/internal/repo"
 )
 
@@ -59,7 +60,13 @@ type AuthService struct {
 	prefs repo.PreferenceRepo
 	// enrollments holds public signups before mailbox proof.
 	enrollments repo.PendingEnrollmentRepo
+	// metrics is optional and nil-safe: nil records nothing.
+	metrics *metrics.Recorder
 }
+
+// SetMetrics enables security metrics. Wired separately so the constructor
+// signature stays stable; nil records nothing.
+func (s *AuthService) SetMetrics(m *metrics.Recorder) { s.metrics = m }
 
 // SetLoginAttempts enables per-account lockout. Wired separately so the
 // constructor signature stays stable.
@@ -130,6 +137,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, locale stri
 	if err != nil {
 		return nil, nil, err
 	}
+	s.metrics.AccountActivated()
 	pair, err := s.issue(ctx, u, nil)
 	if err != nil {
 		return nil, nil, err
@@ -239,6 +247,7 @@ func (s *AuthService) AcceptEnrollment(
 			log.Warn().Err(err).Int64("user", user.ID).Msg("could not save enrollment preferences")
 		}
 	}
+	s.metrics.AccountActivated()
 	return user, nil
 }
 
@@ -328,6 +337,7 @@ func (s *AuthService) AuthenticatePassword(ctx context.Context, email, password 
 	// Checked before the account is even looked up, so a locked address costs
 	// an attacker the same whether or not the account exists.
 	if err := s.checkLocked(ctx, email); err != nil {
+		s.metrics.LoginAttempt(metrics.OutcomeLocked)
 		return nil, err
 	}
 
@@ -337,6 +347,7 @@ func (s *AuthService) AuthenticatePassword(ctx context.Context, email, password 
 			// Do the same Argon2 work as a known account before returning. The
 			// result can never authenticate; only its timing is relevant.
 			_, _ = auth.VerifyPasswordContext(ctx, password, dummyPasswordHash)
+			s.metrics.LoginAttempt(metrics.OutcomeInvalid)
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
@@ -344,8 +355,10 @@ func (s *AuthService) AuthenticatePassword(ctx context.Context, email, password 
 	ok, err := auth.VerifyPasswordContext(ctx, password, u.Password)
 	if err != nil || !ok {
 		s.recordFailure(ctx, email)
+		s.metrics.LoginAttempt(metrics.OutcomeInvalid)
 		return nil, ErrInvalidCredentials
 	}
+	s.metrics.LoginAttempt(metrics.OutcomeSuccess)
 
 	// A correct password clears the record, so an honest user who mistyped a
 	// few times is not carrying a count toward a future lockout.
@@ -454,14 +467,17 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*TokenP
 	hash := s.tokens.HashRefreshToken(refreshToken)
 	stored, err := s.refreshTokens.ByHash(ctx, hash)
 	if err != nil {
+		s.metrics.TokenRefresh(metrics.OutcomeInvalid)
 		return nil, ErrInvalidRefresh
 	}
 	if time.Now().After(stored.ExpiresAt) {
 		_ = s.refreshTokens.DeleteByHash(ctx, hash)
+		s.metrics.TokenRefresh(metrics.OutcomeInvalid)
 		return nil, ErrInvalidRefresh
 	}
 	u, err := s.users.ByID(ctx, stored.UserID)
 	if err != nil {
+		s.metrics.TokenRefresh(metrics.OutcomeInvalid)
 		return nil, ErrInvalidRefresh
 	}
 
@@ -470,10 +486,12 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*TokenP
 	// row; every losing request is rejected as a replay.
 	if err := s.refreshTokens.Consume(ctx, hash); err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
+			s.metrics.TokenRefresh(metrics.OutcomeInvalid)
 			return nil, ErrInvalidRefresh
 		}
 		return nil, err
 	}
+	s.metrics.TokenRefresh(metrics.OutcomeSuccess)
 	return s.issue(ctx, u, stored)
 }
 

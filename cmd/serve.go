@@ -20,6 +20,7 @@ import (
 	"github.com/jdel/gotracks/internal/config"
 	"github.com/jdel/gotracks/internal/db"
 	"github.com/jdel/gotracks/internal/mail"
+	"github.com/jdel/gotracks/internal/metrics"
 	"github.com/jdel/gotracks/internal/repo"
 	"github.com/jdel/gotracks/internal/service"
 	"github.com/jdel/gotracks/internal/storage"
@@ -39,6 +40,7 @@ func configFromViper() (*config.Config, error) {
 		AllowRegister:     viper.GetBool("auth.allow-register"),
 		RateLimitRPS:      viper.GetFloat64("http.rate.rps"),
 		RateLimitBurst:    viper.GetInt("http.rate.burst"),
+		MetricsAddr:       viper.GetString("metrics.addr"),
 		PublicURL:         strings.TrimRight(viper.GetString("http.public-url"), "/"),
 		QuotaStorageBytes: int64(viper.GetInt("quota.storage-mb")) * 1024 * 1024,
 		QuotaTodos:        viper.GetInt("quota.todos"),
@@ -271,7 +273,7 @@ func serve(ctx context.Context) error {
 		log.Warn().Msg("mail delivery is using the development log backend; message bodies will be written at debug level")
 	}
 
-	reports := service.NewUsageReportService(store.UsageReports, settings, service.Quotas{
+	reportQuotas := service.Quotas{
 		StorageBytes: cfg.QuotaStorageBytes,
 		Todos:        cfg.QuotaTodos,
 		Projects:     cfg.QuotaProjects,
@@ -279,13 +281,35 @@ func serve(ctx context.Context) error {
 		Contexts:     cfg.QuotaContexts,
 		Tags:         cfg.QuotaTags,
 		Recurring:    cfg.QuotaRecurring,
-	})
+		TagsPerTodo:  cfg.QuotaTagsPerTodo,
+	}
+	reports := service.NewUsageReportService(store.UsageReports, settings, reportQuotas)
 	go reports.Schedule(ctx)
 
 	if passkeys != nil {
 		// Keys the synthetic passkey options, so an address without a key is
 		// answered the same way twice.
 		passkeys.SetDecoySecret(cfg.JWTSecret)
+	}
+
+	// One recorder holds the live gauge collector and the security counters.
+	// Wired into every service that emits, and served on the metrics address.
+	rec := metrics.New(store.UsageReports, metrics.Limits{
+		StorageBytes: cfg.QuotaStorageBytes,
+		Actions:      cfg.QuotaTodos,
+		Projects:     cfg.QuotaProjects,
+		Notes:        cfg.QuotaNotes,
+		Contexts:     cfg.QuotaContexts,
+		Tags:         cfg.QuotaTags,
+		Recurring:    cfg.QuotaRecurring,
+		TagsPerTodo:  cfg.QuotaTagsPerTodo,
+	})
+	authSvc.SetMetrics(rec)
+	emailSvc.SetMetrics(rec)
+	twoFactor.SetMetrics(rec)
+	quotas.SetMetrics(rec)
+	if passkeys != nil {
+		passkeys.SetMetrics(rec)
 	}
 
 	svc := &api.Services{
@@ -308,9 +332,10 @@ func serve(ctx context.Context) error {
 		Audit:       audit,
 		// Nil leaves the pages and their routes off entirely, rather than
 		// serving placeholder policies a private deployment never wanted.
-		Legal: legalSvc,
-		Tags:  store.Tags,
-		Notes: store.Notes,
+		Legal:   legalSvc,
+		Tags:    store.Tags,
+		Notes:   store.Notes,
+		Metrics: rec,
 	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,
@@ -339,6 +364,23 @@ func serve(ctx context.Context) error {
 			errCh <- err
 		}
 	}()
+
+	// Metrics on their own address, so per-account figures never sit on the
+	// public API port. Off unless an address is configured.
+	var metricsSrv *http.Server
+	if cfg.MetricsAddr != "" {
+		metricsSrv = &http.Server{
+			Addr:              cfg.MetricsAddr,
+			Handler:           rec.Handler(),
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+		go func() {
+			log.Info().Str("addr", cfg.MetricsAddr).Msg("metrics endpoint listening")
+			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Error().Err(err).Msg("metrics endpoint failed")
+			}
+		}()
+	}
 
 	// Housekeeping: forget quiet lockout records so the table stays small.
 	// Once at startup as well as hourly, so a changed retention window takes
@@ -393,6 +435,9 @@ func serve(ctx context.Context) error {
 		log.Info().Msg("shutting down")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
+		if metricsSrv != nil {
+			_ = metricsSrv.Shutdown(shutdownCtx)
+		}
 		return srv.Shutdown(shutdownCtx)
 	}
 }

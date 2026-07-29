@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jdel/gotracks/internal/metrics"
 	"github.com/jdel/gotracks/internal/repo"
 )
 
@@ -71,6 +72,20 @@ type QuotaService struct {
 	tags        repo.TagRepo
 	recurring   repo.RecurringTodoRepo
 	guard       repo.UserGuard
+	metrics     *metrics.Recorder
+}
+
+// SetMetrics enables quota-rejection metrics. Nil-safe.
+func (s *QuotaService) SetMetrics(m *metrics.Recorder) { s.metrics = m }
+
+// reject records a quota rejection for the account and returns the error
+// unchanged. A nil or non-quota error passes straight through.
+func (s *QuotaService) reject(userID int64, err error) error {
+	var qe *QuotaError
+	if errors.As(err, &qe) {
+		s.metrics.QuotaRejected(qe.Resource)
+	}
+	return err
 }
 
 // NewQuotaService builds the service.
@@ -123,7 +138,7 @@ func (s *QuotaService) CheckTodo(ctx context.Context, userID int64) error {
 	if err != nil {
 		return err
 	}
-	return checkCount(s.quotas.Todos, used, "actions", "Delete some completed actions to make room.")
+	return s.reject(userID, checkCount(s.quotas.Todos, used, "actions", "Delete some completed actions to make room."))
 }
 
 // CheckProject reports whether another project may be created.
@@ -135,7 +150,7 @@ func (s *QuotaService) CheckProject(ctx context.Context, userID int64) error {
 	if err != nil {
 		return err
 	}
-	return checkCount(s.quotas.Projects, used, "projects", "Delete a project you no longer need.")
+	return s.reject(userID, checkCount(s.quotas.Projects, used, "projects", "Delete a project you no longer need."))
 }
 
 // CheckNote reports whether another note may be created.
@@ -147,7 +162,7 @@ func (s *QuotaService) CheckNote(ctx context.Context, userID int64) error {
 	if err != nil {
 		return err
 	}
-	return checkCount(s.quotas.Notes, used, "notes", "Delete some notes you no longer need.")
+	return s.reject(userID, checkCount(s.quotas.Notes, used, "notes", "Delete some notes you no longer need."))
 }
 
 // CheckContext reports whether another context may be created.
@@ -159,7 +174,7 @@ func (s *QuotaService) CheckContext(ctx context.Context, userID int64) error {
 	if err != nil {
 		return err
 	}
-	return checkCount(s.quotas.Contexts, used, "contexts", "Delete a context you no longer use.")
+	return s.reject(userID, checkCount(s.quotas.Contexts, used, "contexts", "Delete a context you no longer use."))
 }
 
 // CheckRecurring reports whether another recurrence may be created.
@@ -171,7 +186,7 @@ func (s *QuotaService) CheckRecurring(ctx context.Context, userID int64) error {
 	if err != nil {
 		return err
 	}
-	return checkCount(s.quotas.Recurring, used, "recurring actions", "Delete a recurrence you no longer need.")
+	return s.reject(userID, checkCount(s.quotas.Recurring, used, "recurring actions", "Delete a recurrence you no longer need."))
 }
 
 // CheckTags bounds both the tags carried by one request and the account total.
@@ -184,11 +199,11 @@ func (s *QuotaService) CheckTags(ctx context.Context, userID int64, names []stri
 	}
 	names = normalizeTags(names)
 	if s.quotas.TagsPerTodo > 0 && len(names) > s.quotas.TagsPerTodo {
-		return &QuotaError{
+		return s.reject(userID, &QuotaError{
 			Resource: "tags on one action",
 			Limit:    fmt.Sprintf("%d", s.quotas.TagsPerTodo),
 			Remedy:   "Use fewer tags on this action.",
-		}
+		})
 	}
 	if s.quotas.Tags <= 0 {
 		return nil
@@ -210,11 +225,11 @@ func (s *QuotaService) CheckTags(ctx context.Context, userID int64, names []stri
 	if len(existing)+adding <= s.quotas.Tags {
 		return nil
 	}
-	return &QuotaError{
+	return s.reject(userID, &QuotaError{
 		Resource: "tags",
 		Limit:    fmt.Sprintf("%d", s.quotas.Tags),
 		Remedy:   "Remove tags you no longer use.",
-	}
+	})
 }
 
 // CheckStorage reports whether adding size bytes would exceed the allowance.
@@ -232,11 +247,11 @@ func (s *QuotaService) CheckStorage(ctx context.Context, userID, size int64) err
 	if used+size <= s.quotas.StorageBytes {
 		return nil
 	}
-	return &QuotaError{
+	return s.reject(userID, &QuotaError{
 		Resource: "storage",
 		Limit:    fmt.Sprintf("%d MB", s.quotas.StorageBytes/(1024*1024)),
 		Remedy:   "Delete some attachments to free space.",
-	}
+	})
 }
 
 // Usage is what an account has consumed, for showing in the UI.

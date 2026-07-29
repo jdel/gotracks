@@ -17,6 +17,7 @@ import (
 
 	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/domain"
+	"github.com/jdel/gotracks/internal/metrics"
 	"github.com/jdel/gotracks/internal/repo"
 )
 
@@ -66,7 +67,11 @@ type PasskeyService struct {
 	// decoySecret keys the invented credential ids handed to callers asking
 	// about an address that cannot sign in with a passkey. Server-side only.
 	decoySecret []byte
+	metrics     *metrics.Recorder
 }
+
+// SetMetrics enables passkey-ceremony metrics. Nil-safe.
+func (s *PasskeyService) SetMetrics(m *metrics.Recorder) { s.metrics = m }
 
 // SetDecoySecret keys the synthetic passkey options. Any stable server secret
 // will do; it never leaves the process and is only used so that repeated
@@ -221,10 +226,12 @@ func (s *PasskeyService) FinishRegistration(
 
 	parsed, err := protocol.ParseCredentialCreationResponseBytes(response)
 	if err != nil {
+		s.metrics.Passkey("register", metrics.OutcomeFailed)
 		return nil, fmt.Errorf("%w: %v", ErrPasskeySession, err)
 	}
 	cred, err := s.web.CreateCredential(webauthnUser{user: u, creds: creds}, data, parsed)
 	if err != nil {
+		s.metrics.Passkey("register", metrics.OutcomeFailed)
 		return nil, fmt.Errorf("%w: %v", ErrPasskeySession, err)
 	}
 
@@ -235,6 +242,7 @@ func (s *PasskeyService) FinishRegistration(
 	if err := s.credentials.Create(ctx, stored); err != nil {
 		return nil, err
 	}
+	s.metrics.Passkey("register", metrics.OutcomeSuccess)
 	return stored, nil
 }
 
@@ -308,10 +316,12 @@ func (s *PasskeyService) FinishLogin(ctx context.Context, sessionID string, resp
 
 	parsed, err := protocol.ParseCredentialRequestResponseBytes(response)
 	if err != nil {
+		s.metrics.Passkey("login", metrics.OutcomeFailed)
 		return nil, fmt.Errorf("%w: %v", ErrPasskeySession, err)
 	}
 	used, err := s.web.ValidateLogin(webauthnUser{user: u, creds: creds}, data, parsed)
 	if err != nil {
+		s.metrics.Passkey("login", metrics.OutcomeFailed)
 		return nil, fmt.Errorf("%w: %v", ErrPasskeySession, err)
 	}
 
@@ -329,6 +339,7 @@ func (s *PasskeyService) FinishLogin(ctx context.Context, sessionID string, resp
 			break
 		}
 	}
+	s.metrics.Passkey("login", metrics.OutcomeSuccess)
 	return u, nil
 }
 

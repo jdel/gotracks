@@ -9,6 +9,7 @@ import (
 
 	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/domain"
+	"github.com/jdel/gotracks/internal/metrics"
 	"github.com/jdel/gotracks/internal/repo"
 )
 
@@ -38,7 +39,11 @@ type TwoFactorService struct {
 	challenges *challengeStore
 	issuer     string
 	now        func() time.Time
+	metrics    *metrics.Recorder
 }
+
+// SetMetrics enables two-factor metrics. Nil-safe.
+func (s *TwoFactorService) SetMetrics(m *metrics.Recorder) { s.metrics = m }
 
 // NewTwoFactorService builds the service. issuer is the label shown in
 // authenticator apps.
@@ -157,12 +162,14 @@ func (s *TwoFactorService) Verify(ctx context.Context, challengeID, code string)
 		return nil, err
 	}
 	if !accepted {
+		s.metrics.TwoFactor(metrics.OutcomeFailed)
 		return nil, ErrTwoFactorCode
 	}
 
 	if _, ok := s.challenges.take(ctx, challengeID, kindLogin); !ok {
 		return nil, ErrTwoFactorChallenge
 	}
+	s.metrics.TwoFactor(metrics.OutcomePassed)
 	return s.users.ByID(ctx, c.userID)
 }
 

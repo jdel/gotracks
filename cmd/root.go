@@ -86,6 +86,9 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().Float64("http.rate.rps", 20, "per-client request rate")
 	cmd.PersistentFlags().Int("http.rate.burst", 40, "per-client burst")
 
+	cmd.PersistentFlags().String("metrics.addr", ":9091",
+		"listen address for the Prometheus metrics endpoint; empty disables it")
+
 	cmd.PersistentFlags().Bool("http.tls.enabled", false, "serve over HTTPS")
 	cmd.PersistentFlags().String("http.tls.cert", "", "TLS certificate file, PEM (required when TLS enabled)")
 	cmd.PersistentFlags().String("http.tls.key", "", "TLS private key file, PEM (required when TLS enabled)")
@@ -155,6 +158,7 @@ func RootCmd() *cobra.Command {
 		"db.url", "db.debug",
 		"auth.jwt-secret", "auth.access-ttl", "auth.refresh-ttl", "auth.allow-register",
 		"http.addr", "http.rate.rps", "http.rate.burst", "http.trusted-proxies", "http.allowed-origins", "http.public-url",
+		"metrics.addr",
 		"http.tls.enabled", "http.tls.cert", "http.tls.key",
 		"legal.enabled", "legal.retention-days",
 		"storage.uploads", "storage.max-upload-mb", "storage.type", "storage.bucket",
