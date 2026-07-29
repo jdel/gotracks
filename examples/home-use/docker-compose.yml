@@ -28,6 +28,14 @@ services:
       GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-home-use-change-me-0000000000000000000000000000000000}
       GOTRACKS_AUTH_ALLOW_REGISTER: "false"
       GOTRACKS_LOG_FORMAT: text
+      # No mail server here, so account links are printed to the log. At debug
+      # level the full message body (with the link) is logged; find it with:
+      #   docker compose logs gotracks | grep -A2 "mail body"
+      GOTRACKS_LOG_LEVEL: debug
+      # The externally reachable URL. Without it the logged activation link is
+      # relative (/accept-invitation?token=…); with it the link is absolute and
+      # clickable, and passkeys work (localhost is a secure WebAuthn origin).
+      GOTRACKS_HTTP_PUBLIC_URL: ${GOTRACKS_HTTP_PUBLIC_URL:-http://localhost:8080}
       # SQLite + local attachment storage, both under /data (the image default,
       # shown here for clarity).
       GOTRACKS_DB_URL: sqlite:/data/gotracks.db
