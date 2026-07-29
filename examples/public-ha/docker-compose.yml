@@ -23,6 +23,10 @@
 
 x-gotracks: &gotracks
   image: ghcr.io/jdel/gotracks:latest
+  # Build from this checkout instead of pulling. Both replicas share one build.
+  # Run:  docker compose up -d --build
+  build:
+    context: ../..
   restart: unless-stopped
   depends_on:
     db:

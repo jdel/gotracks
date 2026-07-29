@@ -5,6 +5,20 @@ into one and `docker compose up -d`. Secrets have working defaults so they run
 out of the box; every default is marked `*-change-me` and overridable through an
 `.env` file or the environment.
 
+Every gotracks service declares both an `image:` and a `build:` on the repo
+root, so:
+
+- **No image locally** → `docker compose up -d` **builds** it from your checkout
+  (a declared `build:` is used before any pull).
+- **Image already present** (pulled or built earlier) → `up` reuses it. Force a
+  rebuild from your current source with `--build`:
+
+  ```bash
+  docker compose up -d --build
+  ```
+
+- To use the **published** image instead, `docker compose pull` first.
+
 | Example | Node(s) | Database | Attachments | Legal | Mail |
 | --- | --- | --- | --- | --- | --- |
 | [`home-use`](home-use) | single | SQLite | local disk | off | logged |

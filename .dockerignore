@@ -13,6 +13,6 @@
 
 .git/
 .github/
-example/
+examples/
 docs/
 *.md
