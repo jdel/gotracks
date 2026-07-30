@@ -190,6 +190,15 @@ Watch `login_attempts{outcome="locked"}`, `ratelimit_rejections` and
 `registrations{outcome="refused"}` for someone hammering the instance; use the
 audit log to see which account.
 
+**HTTP** — request rate, latency and saturation, labelled by the matched mux
+route (`/api/v1/todos/{id}`), never the raw path, so cardinality stays bounded:
+
+| Metric | Labels |
+| --- | --- |
+| `gotracks_http_requests_total` | `method`, `route`, `status` |
+| `gotracks_http_request_duration_seconds` (histogram) | `method`, `route` |
+| `gotracks_http_requests_in_flight` (gauge) | — |
+
 ### Account enumeration
 
 Every public flow answers the same way whether or not an address has an account.

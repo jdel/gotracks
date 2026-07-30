@@ -15,6 +15,7 @@ import (
 
 	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/domain"
+	"github.com/jdel/gotracks/internal/metrics"
 	"github.com/jdel/gotracks/internal/service"
 )
 
@@ -49,6 +50,27 @@ type statusRecorder struct {
 func (s *statusRecorder) WriteHeader(code int) {
 	s.status = code
 	s.ResponseWriter.WriteHeader(code)
+}
+
+// httpMetrics records request count, latency and in-flight gauge. It runs
+// outermost so it times the whole chain, and reads the matched route from
+// r.Pattern (set by the mux during routing) after the request is served, so the
+// label is the registered pattern rather than the raw path. rec is nil-safe.
+func httpMetrics(rec *metrics.Recorder) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			rec.HTTPInFlight(1)
+			sr := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+			next.ServeHTTP(sr, r)
+			rec.HTTPInFlight(-1)
+			route := r.Pattern
+			if route == "" {
+				route = "other" // unmatched path; do not label by the raw URL
+			}
+			rec.HTTPRequest(r.Method, route, sr.status, time.Since(start).Seconds())
+		})
+	}
 }
 
 // RequestID assigns a unique ID to each request, exposed via header and context.

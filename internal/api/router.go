@@ -235,6 +235,7 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 
 	rl := NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	return Chain(mux,
+		httpMetrics(svc.Metrics),
 		Recover,
 		RequestID,
 		// Before Logger and the limiter: both read the address it resolves.

@@ -70,6 +70,10 @@ type Recorder struct {
 	registrations  *prometheus.CounterVec // outcome
 	rateLimited    *prometheus.CounterVec // limiter
 	inviteThrottle prometheus.Counter
+
+	httpRequests *prometheus.CounterVec   // method, route, status
+	httpDuration *prometheus.HistogramVec // method, route
+	httpInFlight prometheus.Gauge
 }
 
 // New builds a Recorder: the standard Go/process collectors, the live
@@ -99,6 +103,17 @@ func New(reports repo.UsageReportRepo, limits Limits) *Recorder {
 			Namespace: namespace, Name: "invitation_throttle_suppressed_total",
 			Help: "Invitation emails suppressed by the per-address cooldown.",
 		}),
+		httpRequests: counterVec("http_requests_total",
+			"HTTP requests by method, matched route and status.", "method", "route", "status"),
+		httpDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: namespace, Name: "http_request_duration_seconds",
+			Help:    "HTTP request latency by method and matched route.",
+			Buckets: prometheus.DefBuckets,
+		}, []string{"method", "route"}),
+		httpInFlight: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: namespace, Name: "http_requests_in_flight",
+			Help: "HTTP requests currently being served.",
+		}),
 	}
 	r.reg.MustRegister(
 		collectors.NewGoCollector(),
@@ -106,6 +121,7 @@ func New(reports repo.UsageReportRepo, limits Limits) *Recorder {
 		newAppCollector(reports, limits),
 		r.login, r.tokenRefresh, r.twoFactor, r.passkey, r.quotaReject,
 		r.activated, r.registrations, r.rateLimited, r.inviteThrottle,
+		r.httpRequests, r.httpDuration, r.httpInFlight,
 	)
 	return r
 }
@@ -192,6 +208,24 @@ func (r *Recorder) InvitationThrottled() {
 		return
 	}
 	r.inviteThrottle.Inc()
+}
+
+// HTTPInFlight adjusts the count of requests currently in flight.
+func (r *Recorder) HTTPInFlight(delta float64) {
+	if r == nil {
+		return
+	}
+	r.httpInFlight.Add(delta)
+}
+
+// HTTPRequest records a finished request. route is the matched mux pattern, not
+// the raw path, so cardinality stays bounded by the routing table.
+func (r *Recorder) HTTPRequest(method, route string, status int, seconds float64) {
+	if r == nil {
+		return
+	}
+	r.httpRequests.WithLabelValues(method, route, strconv.Itoa(status)).Inc()
+	r.httpDuration.WithLabelValues(method, route).Observe(seconds)
 }
 
 // resource is one per-account countable, exported as an instance-wide sum and

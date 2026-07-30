@@ -94,11 +94,31 @@ func TestSecurityCountersHaveNoUserLabel(t *testing.T) {
 	}
 }
 
+func TestHTTPMetricsLabelByRoute(t *testing.T) {
+	r := metrics.New(stubReports{}, metrics.Limits{})
+	r.HTTPInFlight(1)
+	r.HTTPInFlight(-1)
+	r.HTTPRequest("GET", "/api/v1/todos/{id}", 200, 0.012)
+
+	body := scrape(t, r)
+	for _, want := range []string{
+		`gotracks_http_requests_total{method="GET",route="/api/v1/todos/{id}",status="200"} 1`,
+		`gotracks_http_request_duration_seconds_count{method="GET",route="/api/v1/todos/{id}"} 1`,
+		"gotracks_http_requests_in_flight 0",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+}
+
 func TestNilRecorderIsSafe(t *testing.T) {
 	var r *metrics.Recorder
 	r.LoginAttempt(metrics.OutcomeSuccess) // must not panic
 	r.QuotaRejected("storage")
 	r.Registration("pending")
+	r.HTTPInFlight(1)
+	r.HTTPRequest("GET", "/x", 200, 0.1)
 }
 
 func TestGaugesSurviveAggregationError(t *testing.T) {
