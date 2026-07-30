@@ -72,6 +72,69 @@ func tokenFrom(t *testing.T, body string) string {
 
 const emailPassword = "Str0ng!Passw0rd"
 
+// SR-09: the public verification-resend and password-forgot flows must not be
+// usable to flood a mailbox — a second request to the same address inside the
+// cooldown sends nothing.
+func TestVerificationResendThrottledPerAddress(t *testing.T) {
+	svc, authSvc, _, m := emailFixture(t, true)
+	ctx := context.Background()
+	u, _, err := authSvc.Register(ctx, "u@example.com", emailPassword, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc.ResendVerification(ctx, u.Email)
+	svc.ResendVerification(ctx, u.Email)
+	if m.count() != 1 {
+		t.Fatalf("verification resend sent %d messages, want 1", m.count())
+	}
+}
+
+func TestPasswordResetThrottledPerAddress(t *testing.T) {
+	svc, authSvc, _, m := emailFixture(t, true)
+	ctx := context.Background()
+	u, _, err := authSvc.Register(ctx, "u@example.com", emailPassword, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.MarkVerified(ctx, u); err != nil { // reset needs a verified address
+		t.Fatal(err)
+	}
+	svc.RequestReset(ctx, u.Email)
+	svc.RequestReset(ctx, u.Email)
+	if m.count() != 1 {
+		t.Fatalf("password reset sent %d messages, want 1", m.count())
+	}
+}
+
+// SR-09: reissuing a link replaces the previous one rather than accumulating,
+// so a legitimate user is never refused a fresh link, and the newest wins.
+func TestVerificationTokenReplacedOnReissue(t *testing.T) {
+	svc, authSvc, _, m := emailFixture(t, true)
+	ctx := context.Background()
+	u, _, err := authSvc.Register(ctx, "u@example.com", emailPassword, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// SendVerification is the direct sender (not the throttled public wrapper),
+	// so it can be called repeatedly to prove reissue is never blocked.
+	if err := svc.SendVerification(ctx, u); err != nil {
+		t.Fatalf("first verification: %v", err)
+	}
+	first := tokenFrom(t, mustLast(t, m).Text)
+	if err := svc.SendVerification(ctx, u); err != nil {
+		t.Fatalf("reissued verification (must never be refused): %v", err)
+	}
+	second := tokenFrom(t, mustLast(t, m).Text)
+
+	if err := svc.Verify(ctx, first); !errors.Is(err, service.ErrEmailToken) {
+		t.Fatalf("superseded verification token = %v, want ErrEmailToken", err)
+	}
+	if err := svc.Verify(ctx, second); err != nil {
+		t.Fatalf("newest verification token should work: %v", err)
+	}
+}
+
 func TestVerificationRoundTrip(t *testing.T) {
 	svc, authSvc, store, m := emailFixture(t, true)
 	ctx := context.Background()

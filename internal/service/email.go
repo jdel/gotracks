@@ -32,12 +32,12 @@ var (
 )
 
 const (
-	kindEmailVerify    = "email-verify"
-	kindPasswordReset  = "password-reset"
-	kindInvitation     = "user-invitation"
-	kindAccountDelete  = "account-deletion"
-	kindEmailChange    = "email-change"
-	kindInviteThrottle = "invite-throttle"
+	kindEmailVerify   = "email-verify"
+	kindPasswordReset = "password-reset"
+	kindInvitation    = "user-invitation"
+	kindAccountDelete = "account-deletion"
+	kindEmailChange   = "email-change"
+	kindMailThrottle  = "mail-throttle"
 
 	// verifyTTL is generous: people read mail hours later.
 	verifyTTL = 24 * time.Hour
@@ -50,14 +50,11 @@ const (
 	accountDeletionTTL = 30 * time.Minute
 	// Changing an address requires proving control of the new mailbox.
 	emailChangeTTL = 24 * time.Hour
-	// invitationCooldown is the minimum gap between invitation emails to one
-	// address via the public register endpoint. The first invitation stays valid
-	// for invitationTTL, so a suppressed duplicate costs a legitimate user
-	// nothing; it only denies an attacker a mailbox flood.
-	invitationCooldown = 10 * time.Minute
-
-	// maxLiveTokensPerUser stops repeated requests filling the table.
-	maxLiveTokensPerUser = 5
+	// mailCooldown is the minimum gap between public-flow emails of one purpose
+	// to one address (invitation, verification resend, password reset). The
+	// issued link stays valid across the window, so a suppressed duplicate costs
+	// a legitimate user nothing; it only denies an attacker a mailbox flood.
+	mailCooldown = 10 * time.Minute
 )
 
 // EmailService owns address verification, invitations and password reset.
@@ -128,21 +125,16 @@ func (s *EmailService) issueToken(ctx context.Context, kind string, userID int64
 }
 
 func (s *EmailService) issueTokenWithPayload(ctx context.Context, kind string, userID int64, ttl time.Duration, payload []byte) (string, error) {
-	n, err := s.tokens.CountForUser(ctx, kind, userID)
-	if err != nil {
-		return "", err
-	}
-	if n >= maxLiveTokensPerUser {
-		// Enough links are already in flight; quietly reuse the allowance
-		// rather than letting a repeated request grow the table.
-		return "", ErrEmailToken
-	}
-
 	raw, err := randomToken()
 	if err != nil {
 		return "", err
 	}
-	if err := s.tokens.Put(ctx, &domain.Ephemeral{
+	// One live link per flow per account: issuing a new one invalidates the
+	// previous. This means a repeated request always yields a fresh, working
+	// link instead of being refused once a handful have accumulated, and it
+	// bounds the table to a single row per flow rather than letting requests
+	// pile up.
+	if err := s.tokens.ReplaceForUser(ctx, &domain.Ephemeral{
 		ID:        auth.HashEmailToken(raw),
 		Kind:      kind,
 		UserID:    userID,
@@ -230,7 +222,7 @@ func (s *EmailService) Enroll(
 	// outcome, so it cannot be turned into a mail flood against a chosen
 	// mailbox — from any number of source IPs. The response is unchanged, so it
 	// stays enumeration-safe.
-	if !s.invitationAllowed(ctx, normalised) {
+	if !s.mailAllowed(ctx, "invite", normalised) {
 		s.metrics.Registration("throttled")
 		return EnrollThrottled, nil
 	}
@@ -254,29 +246,37 @@ func (s *EmailService) Enroll(
 // recording a per-address cooldown marker when it may. Keyed on the address, so
 // the limit holds across source IPs; kept in the shared ephemeral store, so it
 // holds across replicas. It fails open: a store hiccup must never block signups.
-func (s *EmailService) invitationAllowed(ctx context.Context, address string) bool {
-	id := auth.HashEmailToken(kindInviteThrottle + ":" + address)
-	if _, err := s.tokens.Peek(ctx, kindInviteThrottle, id); err == nil {
+// mailAllowed reports whether a message of the given purpose may be sent to
+// address now, recording a per-address cooldown when it may. Keyed on
+// purpose+address, so the same address can still receive an invitation and a
+// reset within the window but cannot be flooded with either; kept in the shared
+// ephemeral store, so it holds across replicas. Purposes are independent.
+//
+// It fails open: a store hiccup must never stop a legitimate mail.
+func (s *EmailService) mailAllowed(ctx context.Context, purpose, address string) bool {
+	key := purpose + ":" + address
+	id := auth.HashEmailToken(kindMailThrottle + ":" + key)
+	if _, err := s.tokens.Peek(ctx, kindMailThrottle, id); err == nil {
 		s.metrics.InvitationThrottled()
 		return false // a live marker means we are still within the cooldown
 	}
 	if err := s.tokens.ReplaceForUser(ctx, &domain.Ephemeral{
 		ID:        id,
-		Kind:      kindInviteThrottle,
-		UserID:    addressBucket(address),
-		ExpiresAt: time.Now().Add(invitationCooldown),
+		Kind:      kindMailThrottle,
+		UserID:    addressBucket(key),
+		ExpiresAt: time.Now().Add(mailCooldown),
 	}); err != nil {
-		log.Warn().Err(err).Msg("could not record invitation throttle")
+		log.Warn().Err(err).Msg("could not record mail throttle")
 		return true
 	}
 	return true
 }
 
-// addressBucket derives a stable non-negative key for an address, used only to
-// scope the throttle marker's replacement to that address.
-func addressBucket(address string) int64 {
+// addressBucket derives a stable non-negative key for a throttle scope, used
+// only to scope the marker's replacement to that purpose+address.
+func addressBucket(scope string) int64 {
 	h := fnv.New64a()
-	_, _ = h.Write([]byte(address))
+	_, _ = h.Write([]byte(scope))
 	return int64(h.Sum64() & (1<<63 - 1))
 }
 
@@ -336,6 +336,9 @@ func (s *EmailService) ResendVerification(ctx context.Context, email string) {
 	if err != nil || u.EmailVerifiedAt != nil {
 		return
 	}
+	if !s.mailAllowed(ctx, "verify", u.Email) {
+		return
+	}
 	if err := s.SendVerification(ctx, u); err != nil {
 		log.Warn().Err(err).Msg("could not resend a verification mail")
 	}
@@ -352,6 +355,9 @@ func (s *EmailService) RequestReset(ctx context.Context, email string) {
 	}
 	// An unverified address has not been proven to belong to whoever is asking.
 	if s.enforcing && u.EmailVerifiedAt == nil {
+		return
+	}
+	if !s.mailAllowed(ctx, "reset", u.Email) {
 		return
 	}
 
