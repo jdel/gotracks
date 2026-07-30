@@ -6,10 +6,10 @@
 #     secret so a token minted by one is accepted by the other.
 #   - MinIO for shared S3 attachment storage, so a file uploaded on one replica
 #     is served by the other.
-#   - MinIO and Mailpit both speak TLS with a shared self-signed certificate,
-#     and gotracks trusts it through SSL_CERT_FILE — no InsecureSkipVerify. So
-#     both object storage and outgoing mail are encrypted and verified.
-#   - Legal pages on, and Mailpit as a fake SMTP inbox (STARTTLS, required).
+#   - MinIO (HTTPS) and Mailpit (SMTP implicit TLS) both use a shared self-signed
+#     certificate that gotracks trusts through SSL_CERT_FILE — no
+#     InsecureSkipVerify. Object storage and outgoing mail are both verified TLS.
+#   - Legal pages on, and Mailpit as a fake SMTP inbox.
 #
 #   docker compose up -d
 #   open http://localhost:8080        the app (through the load balancer)
@@ -18,8 +18,7 @@
 #
 # The self-signed certificate is generated on first `up` into ./certs by the
 # one-shot `certgen` service; its SAN covers both `minio` and `mailpit`. Delete
-# ./certs to regenerate (required if you ran an earlier version without Mailpit
-# TLS).
+# ./certs to regenerate.
 
 x-gotracks: &gotracks
   image: ghcr.io/jdel/gotracks:latest
@@ -74,9 +73,10 @@ x-gotracks: &gotracks
     GOTRACKS_MAIL_FROM: ${GOTRACKS_MAIL_FROM:-gotracks@example.test}
     GOTRACKS_MAIL_SMTP_HOST: mailpit
     GOTRACKS_MAIL_SMTP_PORT: "1025"
-    # STARTTLS to Mailpit, verified against the shared self-signed cert (which
-    # names `mailpit` in its SAN) through SSL_CERT_FILE above — no skip-verify.
-    GOTRACKS_MAIL_SMTP_ENCRYPTION: starttls
+    # Implicit TLS (SMTPS): the SMTP port speaks TLS from the first byte,
+    # verified against the shared self-signed cert (SAN includes `mailpit`)
+    # through SSL_CERT_FILE above — no skip-verify.
+    GOTRACKS_MAIL_SMTP_ENCRYPTION: tls
   volumes:
     - ./certs:/certs:ro
 
@@ -141,9 +141,10 @@ services:
     depends_on:
       certgen:
         condition: service_completed_successfully
+    # Implicit TLS (SMTPS): MP_SMTP_REQUIRE_TLS makes the SMTP port serve TLS
+    # from the first byte, which pairs with gotracks' encryption=tls. (The other
+    # mode is MP_SMTP_REQUIRE_STARTTLS + encryption=starttls, as in ../public-use.)
     environment:
-      # Serve STARTTLS on the SMTP port with the shared self-signed cert, and
-      # refuse senders that will not upgrade — so gotracks' mail leaves over TLS.
       MP_SMTP_TLS_CERT: /certs/public.crt
       MP_SMTP_TLS_KEY: /certs/private.key
       MP_SMTP_REQUIRE_TLS: "true"

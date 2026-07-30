@@ -1,3 +1,4 @@
 # Runtime data — never commit.
 /data/
+/certs/
 .env

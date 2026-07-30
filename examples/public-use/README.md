@@ -36,6 +36,11 @@ as more than one replica. For Postgres + shared S3 storage across replicas, see
 `./data` holds the SQLite file and `uploads/`. Mailpit's inbox is in-memory and
 resets when the container stops — it is a demo inbox, not a mail store.
 
+Mail to Mailpit goes over **STARTTLS** (`MP_SMTP_REQUIRE_STARTTLS` +
+`encryption=starttls`), verified against a self-signed cert generated into
+`./certs` on first `up` — gotracks trusts it via `SSL_CERT_FILE`, no skip-verify.
+Delete `./certs` to regenerate. (The HA example uses implicit TLS/SMTPS instead.)
+
 ## Adapting it for an internet-facing deployment
 
 This compose file is a reference, not a hardened deployment. To run it for real,

@@ -83,14 +83,23 @@ func (m *smtpMailer) Send(ctx context.Context, msg Message) error {
 	return client.Quit()
 }
 
+// smtpDeadline bounds the whole SMTP session — the TLS handshake and every
+// command, not just the initial connect. Without it a relay that accepts the
+// connection but then stalls (a common STARTTLS/implicit-TLS mismatch) would
+// block the request forever; net/smtp exposes no timeout of its own once the
+// socket is open, so we set one on the connection.
+const smtpDeadline = 30 * time.Second
+
 func dialSMTP(ctx context.Context, encryption, addr, host string) (*smtp.Client, error) {
 	d := &net.Dialer{Timeout: 10 * time.Second}
+	deadline := time.Now().Add(smtpDeadline)
 
 	if encryption == EncryptionTLS {
 		conn, err := tls.DialWithDialer(d, "tcp", addr, &tls.Config{ServerName: host})
 		if err != nil {
 			return nil, err
 		}
+		_ = conn.SetDeadline(deadline)
 		return smtp.NewClient(conn, host)
 	}
 
@@ -98,8 +107,10 @@ func dialSMTP(ctx context.Context, encryption, addr, host string) (*smtp.Client,
 	if err != nil {
 		return nil, err
 	}
+	_ = conn.SetDeadline(deadline)
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
+		conn.Close()
 		return nil, err
 	}
 	if encryption == EncryptionStartTLS {

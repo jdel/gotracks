@@ -37,8 +37,10 @@ to `./certs` whose SAN covers both `minio` and `mailpit`. Both services serve
 TLS with it:
 
 - **MinIO** serves the S3 API over HTTPS.
-- **Mailpit** serves STARTTLS on its SMTP port and **requires** it
-  (`MP_SMTP_REQUIRE_TLS`), so gotracks' mail cannot leave in the clear.
+- **Mailpit** serves **implicit TLS (SMTPS)** on its SMTP port
+  (`MP_SMTP_REQUIRE_TLS`) — TLS from the first byte — and gotracks connects with
+  `mail.smtp.encryption=tls`. (STARTTLS is the other mode —
+  `MP_SMTP_REQUIRE_STARTTLS` with `encryption=starttls`, as in `../public-use`.)
 
 gotracks trusts the certificate by pointing `SSL_CERT_FILE` at
 `./certs/public.crt`, so both the S3 connection and the SMTP STARTTLS session
