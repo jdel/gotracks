@@ -110,7 +110,7 @@ func TestConcurrentProjectCreatesRespectTheQuota(t *testing.T) {
 	_, quotas, store, _ := quotaFixture(t, service.Quotas{Projects: limit})
 	ctx := context.Background()
 
-	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring, store.Contexts)
 	projects.SetQuotas(quotas)
 
 	errs := startTogether(func(i int) error {

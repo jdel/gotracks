@@ -150,7 +150,7 @@ func TestProjectAndNoteQuotas(t *testing.T) {
 	_, quotas, store, _ := quotaFixture(t, service.Quotas{Projects: 1, Notes: 1})
 	ctx := context.Background()
 
-	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring, store.Contexts)
 	projects.SetQuotas(quotas)
 	name := "first"
 	if _, err := projects.Create(ctx, 1, service.ProjectInput{Name: &name}); err != nil {
@@ -330,7 +330,7 @@ func TestImplicitNamesRespectContextAndProjectQuotas(t *testing.T) {
 	}
 
 	projectName := "existing"
-	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring, store.Contexts)
 	projects.SetQuotas(quotas)
 	if _, err := projects.Create(ctx, 1, service.ProjectInput{Name: &projectName}); err != nil {
 		t.Fatal(err)

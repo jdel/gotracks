@@ -16,6 +16,7 @@ type ProjectService struct {
 	todos     repo.TodoRepo
 	notes     repo.NoteRepo
 	recurring repo.RecurringTodoRepo
+	contexts  repo.ContextRepo
 }
 
 // SetQuotas enables the per-account project limit. Nil leaves it unlimited.
@@ -27,8 +28,23 @@ func NewProjectService(
 	todos repo.TodoRepo,
 	notes repo.NoteRepo,
 	recurring repo.RecurringTodoRepo,
+	contexts repo.ContextRepo,
 ) *ProjectService {
-	return &ProjectService{projects: projects, todos: todos, notes: notes, recurring: recurring}
+	return &ProjectService{projects: projects, todos: todos, notes: notes, recurring: recurring, contexts: contexts}
+}
+
+// validateDefaultContext rejects a default context that is not the caller's own.
+// A project may reference a context only within the same account; a foreign or
+// nonexistent id is refused uniformly, so one account can never store a
+// reference to another's data.
+func (s *ProjectService) validateDefaultContext(ctx context.Context, userID int64, id *int64) error {
+	if id == nil {
+		return nil
+	}
+	if _, err := s.contexts.ByID(ctx, userID, *id); err != nil {
+		return ErrValidation
+	}
+	return nil
 }
 
 // ProjectInput carries create/update fields; nil means "leave unchanged".
@@ -109,6 +125,9 @@ func (s *ProjectService) Create(ctx context.Context, userID int64, in ProjectInp
 }
 
 func (s *ProjectService) create(ctx context.Context, userID int64, in ProjectInput) (*domain.Project, error) {
+	if err := s.validateDefaultContext(ctx, userID, in.DefaultContextID); err != nil {
+		return nil, err
+	}
 	if err := s.quotas.CheckProject(ctx, userID); err != nil {
 		return nil, err
 	}
@@ -181,6 +200,9 @@ func (s *ProjectService) Update(ctx context.Context, userID, id int64, in Projec
 	if in.ClearDefaultContext {
 		p.DefaultContextID = nil
 	} else if in.DefaultContextID != nil {
+		if err := s.validateDefaultContext(ctx, userID, in.DefaultContextID); err != nil {
+			return nil, err
+		}
 		p.DefaultContextID = in.DefaultContextID
 	}
 	p.UpdatedAt = time.Now()
@@ -219,29 +241,33 @@ func (s *ProjectService) Delete(ctx context.Context, userID, id int64, deleteNot
 	if _, err := s.projects.ByID(ctx, userID, id); err != nil {
 		return err
 	}
+
+	// Decide whether confirmation is needed before touching anything. A request
+	// that must be refused for want of an answer used to detach the project's
+	// todos and recurrences first, mutating it and then returning 409; now the
+	// refusal happens before any write, so a rejected deletion has no side
+	// effects.
+	notes, err := s.notes.List(ctx, userID, &id)
+	if err != nil {
+		return err
+	}
+	if len(notes) > 0 && deleteNotes == nil {
+		return &ProjectNotesInUseError{Notes: len(notes)}
+	}
+
 	if err := s.todos.DetachProject(ctx, userID, id); err != nil {
 		return err
 	}
 	if err := s.recurring.DetachProject(ctx, userID, id); err != nil {
 		return err
 	}
-
-	notes, err := s.notes.List(ctx, userID, &id)
-	if err != nil {
-		return err
-	}
 	if len(notes) > 0 {
-		switch {
-		case deleteNotes == nil:
-			return &ProjectNotesInUseError{Notes: len(notes)}
-		case *deleteNotes:
+		if *deleteNotes {
 			if err := s.notes.DeleteForProject(ctx, userID, id); err != nil {
 				return err
 			}
-		default:
-			if err := s.notes.DetachProject(ctx, userID, id); err != nil {
-				return err
-			}
+		} else if err := s.notes.DetachProject(ctx, userID, id); err != nil {
+			return err
 		}
 	}
 	return s.projects.Delete(ctx, userID, id)

@@ -41,7 +41,7 @@ func TestDeleteUserPurgesEverythingItOwned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring, store.Contexts)
 	p, err := projects.Create(ctx, victim.ID, service.ProjectInput{Name: strPtr("secret project")})
 	if err != nil {
 		t.Fatal(err)

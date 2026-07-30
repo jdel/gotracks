@@ -32,7 +32,7 @@ func TestTextLimitsAreEnforcedByServices(t *testing.T) {
 		t.Fatalf("oversized context update: %v", err)
 	}
 
-	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring, store.Contexts)
 	name := "project"
 	description := overLimit(service.MaxDescriptionCharacters)
 	if _, err := projects.Create(ctx, 1, service.ProjectInput{

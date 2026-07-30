@@ -17,7 +17,7 @@ import (
 func TestProjectDeleteDetachesTodosAndNotes(t *testing.T) {
 	todoSvc, store, ctxID := newTodoService(t)
 	ctx := context.Background()
-	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring, store.Contexts)
 
 	p, err := projects.Create(ctx, 1, service.ProjectInput{Name: strPtr("Repaint the shed")})
 	if err != nil {
@@ -72,7 +72,7 @@ func TestProjectDeleteDetachesTodosAndNotes(t *testing.T) {
 func TestProjectDeleteCanRemoveItsNotesInstead(t *testing.T) {
 	_, store, _ := newTodoService(t)
 	ctx := context.Background()
-	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring, store.Contexts)
 
 	p, err := projects.Create(ctx, 1, service.ProjectInput{Name: strPtr("Repaint the shed")})
 	if err != nil {

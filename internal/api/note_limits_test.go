@@ -16,7 +16,7 @@ import (
 
 func TestCreateNoteRejectsOversizedBody(t *testing.T) {
 	store := newTestStore(t)
-	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring, store.Contexts)
 	quotas := service.NewQuotaService(service.Quotas{}, store)
 	h := &noteHandler{notes: store.Notes, projects: projects, quotas: quotas}
 
@@ -34,7 +34,7 @@ func TestCreateNoteRejectsOversizedBody(t *testing.T) {
 
 func TestUpdateNoteRejectsOversizedBody(t *testing.T) {
 	store := newTestStore(t)
-	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projects := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring, store.Contexts)
 	quotas := service.NewQuotaService(service.Quotas{}, store)
 	h := &noteHandler{notes: store.Notes, projects: projects, quotas: quotas}
 	ctx := context.Background()

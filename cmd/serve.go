@@ -241,7 +241,7 @@ func serve(ctx context.Context) error {
 		log.Info().Str("rpID", cfg.RPID).Str("origin", cfg.RPOrigin).Msg("passkeys enabled")
 	}
 
-	projectSvc := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring)
+	projectSvc := service.NewProjectService(store.Projects, store.Todos, store.Notes, store.Recurring, store.Contexts)
 	projectSvc.SetQuotas(quotas)
 
 	contexts := service.NewContextService(store.Contexts, store.Todos, store.Recurring)
