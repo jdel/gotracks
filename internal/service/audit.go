@@ -5,7 +5,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 
 	"github.com/jdel/gotracks/internal/domain"
 	"github.com/jdel/gotracks/internal/repo"
@@ -72,7 +72,7 @@ func (s *AuditService) Record(ctx context.Context, e Entry) {
 	// Detached from the request: a client that goes away mid-request must not
 	// take the record of what it just did with it.
 	if err := s.audit.Append(context.WithoutCancel(ctx), event); err != nil {
-		log.Error().Err(err).
+		zerolog.Ctx(ctx).Error().Err(err).
 			Str("action", e.Action).
 			Str("outcome", e.Outcome).
 			Msg("could not write an audit entry")

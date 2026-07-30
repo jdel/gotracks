@@ -5,19 +5,21 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/driver/sqliteshim"
-	"github.com/uptrace/bun/extra/bundebug"
 	"github.com/uptrace/bun/migrate"
 
 	"github.com/jdel/gotracks/internal/domain"
@@ -97,10 +99,44 @@ func ensureParentDir(dsn string) error {
 }
 
 func withDebug(db *bun.DB, debug bool) *bun.DB {
+	// The hook is always installed so raising the log level to debug at runtime
+	// starts logging queries with no restart. It normally logs at debug (dropped
+	// unless the level is debug); --db.debug promotes it to info so queries are
+	// always visible.
+	level := zerolog.DebugLevel
 	if debug {
-		db.AddQueryHook(bundebug.NewQueryHook(bundebug.WithVerbose(true)))
+		level = zerolog.InfoLevel
 	}
+	db.AddQueryHook(queryLogHook{level: level})
 	return db
+}
+
+// queryLogHook logs each query through the request's correlation-scoped logger,
+// so a debug line ties a SQL statement to the HTTP request that caused it. It
+// logs the parameterized template, never the arg values, so credentials and
+// personal data stay out of the log.
+type queryLogHook struct{ level zerolog.Level }
+
+func (queryLogHook) BeforeQuery(ctx context.Context, _ *bun.QueryEvent) context.Context {
+	return ctx
+}
+
+func (h queryLogHook) AfterQuery(ctx context.Context, e *bun.QueryEvent) {
+	if h.level < zerolog.GlobalLevel() {
+		return // would be dropped; skip the work
+	}
+	query := e.QueryTemplate
+	if query == "" {
+		query = e.Query
+	}
+	ev := zerolog.Ctx(ctx).WithLevel(h.level).
+		Str("op", e.Operation()).
+		Str("query", query).
+		Dur("dur", time.Since(e.StartTime))
+	if e.Err != nil && !errors.Is(e.Err, sql.ErrNoRows) {
+		ev = ev.Err(e.Err)
+	}
+	ev.Msg("db query")
 }
 
 // models lists every table managed by the schema, in dependency order.

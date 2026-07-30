@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 
 	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/domain"
@@ -244,7 +244,7 @@ func (s *AuthService) AcceptEnrollment(
 			// The account is already active atomically. Preferences have safe
 			// defaults, so do not strand the user by pretending activation
 			// failed after consuming the link.
-			log.Warn().Err(err).Int64("user", user.ID).Msg("could not save enrollment preferences")
+			zerolog.Ctx(ctx).Warn().Err(err).Int64("user", user.ID).Msg("could not save enrollment preferences")
 		}
 	}
 	s.metrics.AccountActivated()
@@ -364,7 +364,7 @@ func (s *AuthService) AuthenticatePassword(ctx context.Context, email, password 
 	// few times is not carrying a count toward a future lockout.
 	if s.attempts != nil {
 		if err := s.attempts.Clear(ctx, email); err != nil {
-			log.Warn().Err(err).Msg("could not clear login attempts")
+			zerolog.Ctx(ctx).Warn().Err(err).Msg("could not clear login attempts")
 		}
 	}
 	return u, nil
@@ -382,7 +382,7 @@ func (s *AuthService) checkLocked(ctx context.Context, email string) error {
 	if err != nil {
 		// Never fail closed on a storage problem: that would turn a database
 		// hiccup into an outage of the whole sign-in path.
-		log.Warn().Err(err).Msg("could not read login attempts")
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("could not read login attempts")
 		return nil
 	}
 	if a.LockedUntil != nil && time.Now().Before(*a.LockedUntil) {
@@ -398,7 +398,7 @@ func (s *AuthService) recordFailure(ctx context.Context, email string) {
 		return
 	}
 	if _, err := s.attempts.RecordFailure(ctx, email, LoginLockDuration, MaxLoginFailures); err != nil {
-		log.Warn().Err(err).Msg("could not record a failed sign-in")
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("could not record a failed sign-in")
 	}
 }
 

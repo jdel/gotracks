@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 
 	"github.com/jdel/gotracks/internal/domain"
 	"github.com/jdel/gotracks/internal/repo"
@@ -89,7 +89,7 @@ func (s *UsageReportService) Run(ctx context.Context) (int, error) {
 	if err := s.settings.SetUsageReportRunAt(ctx, started); err != nil {
 		return 0, err
 	}
-	log.Info().Int("accounts", len(snapshots)).
+	zerolog.Ctx(ctx).Info().Int("accounts", len(snapshots)).
 		Dur("took", time.Since(started)).Msg("usage report rebuilt")
 	return len(snapshots), nil
 }
@@ -267,7 +267,7 @@ func (s *UsageReportService) Schedule(ctx context.Context) {
 				continue
 			}
 			if _, err := s.Run(ctx); err != nil {
-				log.Warn().Err(err).Msg("scheduled usage report failed")
+				zerolog.Ctx(ctx).Warn().Err(err).Msg("scheduled usage report failed")
 			}
 		case <-ctx.Done():
 			return

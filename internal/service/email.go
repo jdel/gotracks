@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 
 	"github.com/jdel/gotracks/internal/auth"
 	"github.com/jdel/gotracks/internal/domain"
@@ -266,7 +266,7 @@ func (s *EmailService) mailAllowed(ctx context.Context, purpose, address string)
 		UserID:    addressBucket(key),
 		ExpiresAt: time.Now().Add(mailCooldown),
 	}); err != nil {
-		log.Warn().Err(err).Msg("could not record mail throttle")
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("could not record mail throttle")
 		return true
 	}
 	return true
@@ -311,7 +311,7 @@ func (s *EmailService) RequestInvitation(ctx context.Context, email string) {
 		return
 	}
 	if err := s.SendInvitation(ctx, u); err != nil {
-		log.Warn().Err(err).Msg("could not resend an invitation")
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("could not resend an invitation")
 	}
 }
 
@@ -340,7 +340,7 @@ func (s *EmailService) ResendVerification(ctx context.Context, email string) {
 		return
 	}
 	if err := s.SendVerification(ctx, u); err != nil {
-		log.Warn().Err(err).Msg("could not resend a verification mail")
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("could not resend a verification mail")
 	}
 }
 
@@ -363,7 +363,7 @@ func (s *EmailService) RequestReset(ctx context.Context, email string) {
 
 	token, err := s.issueToken(ctx, kindPasswordReset, u.ID, resetTTL)
 	if err != nil {
-		log.Warn().Err(err).Msg("could not issue a password-reset token")
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("could not issue a password-reset token")
 		return
 	}
 	href := s.link("/reset-password", token)
@@ -378,7 +378,7 @@ func (s *EmailService) RequestReset(ctx context.Context, email string) {
 			`<p>The link is valid for 30 minutes and can be used once. ` +
 			`If it was not you, ignore this message — your password has not changed.</p>`,
 	}); err != nil {
-		log.Warn().Err(err).Msg("could not send a password-reset mail")
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("could not send a password-reset mail")
 	}
 }
 
@@ -497,7 +497,7 @@ func (s *EmailService) ConfirmEmailChange(ctx context.Context, token string) err
 		Text:    "The email address for your gotracks account was changed to " + newEmail + ".\n\nIf you did not make this change, contact your instance administrator immediately.",
 		HTML:    `<p>The email address for your gotracks account was changed to ` + safeNewEmail + `.</p><p>If you did not make this change, contact your instance administrator immediately.</p>`,
 	}); err != nil {
-		log.Warn().Err(err).Msg("could not notify previous address of email change")
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("could not notify previous address of email change")
 	}
 	return nil
 }
