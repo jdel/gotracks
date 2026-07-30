@@ -71,8 +71,8 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	// The build is shown in the shell, so it is read by signed-in clients only.
 	mux.Handle("GET /api/v1/version", requireAuth(http.HandlerFunc(mh.buildVersion)))
 
-	// Swagger UI + spec at /doc (public).
-	swaggerHandlers(mux, cfg.TLSEnabled())
+	// Swagger UI + spec at /doc, behind auth (see swaggerHandlers).
+	swaggerHandlers(mux, cfg.TLSEnabled(), requireAuth)
 
 	// Auth endpoints (public).
 	mux.Handle("POST /api/v1/auth/register", limit("register", registerLimit, ah.register))

@@ -27,10 +27,18 @@ const urlMutatorScript = `const UrlMutatorPlugin = (system) => ({
   }
 });`
 
-// swaggerHandlers registers /doc and /doc/* on mux (no auth required).
+// swaggerHandlers registers /doc and /doc/* on mux behind auth.
+//
+// The interactive docs are gated so they are not an unauthenticated surface:
+// the handler caches one instance per request Host, and reflects the Host into
+// its config script — behind auth, only a signed-in caller can reach either,
+// so an anonymous client can neither grow that cache nor influence the script.
+// (The app authenticates with a Bearer token, so the UI is reached with a token
+// from an API tool, not by plain browser navigation.)
+//
 // httpSwagger.Handler builds a fresh handler per call, so we cache one per
 // distinct (scheme, host) pair instead of rebuilding on every request.
-func swaggerHandlers(mux *http.ServeMux, secure bool) {
+func swaggerHandlers(mux *http.ServeMux, secure bool, protect func(http.Handler) http.Handler) {
 	var cache sync.Map // map[string]http.Handler, key "<scheme>|<host>"
 	build := func(scheme, host string) http.Handler {
 		return httpSwagger.Handler(
@@ -46,7 +54,7 @@ func swaggerHandlers(mux *http.ServeMux, secure bool) {
 		)
 	}
 
-	mux.Handle("GET /doc/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("GET /doc/", protect(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/doc/" {
 			http.Redirect(w, r, "/doc/index.html", http.StatusMovedPermanently)
 			return
@@ -61,8 +69,8 @@ func swaggerHandlers(mux *http.ServeMux, secure bool) {
 			h, _ = cache.LoadOrStore(key, build(scheme, r.Host))
 		}
 		h.(http.Handler).ServeHTTP(w, r)
-	}))
-	mux.HandleFunc("GET /doc", func(w http.ResponseWriter, r *http.Request) {
+	})))
+	mux.Handle("GET /doc", protect(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/doc/index.html", http.StatusMovedPermanently)
-	})
+	})))
 }
