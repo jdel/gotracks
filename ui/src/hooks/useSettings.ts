@@ -412,3 +412,27 @@ export function useResendVerification() {
     mutationFn: (input: { email: string }) => api.raw("/auth/email/resend", input),
   });
 }
+
+// Runtime log level (admin). Raising it takes effect with no restart and
+// reverts after the chosen window.
+export interface LogLevelState {
+  level: string;
+  baseline: string;
+  overrideUntil: string | null;
+}
+
+export function useLogLevel() {
+  return useQuery({
+    queryKey: ["log-level"],
+    queryFn: () => api.get<LogLevelState>("/admin/log-level"),
+  });
+}
+
+export function useSetLogLevel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { level: string; durationMinutes: number }) =>
+      api.put<LogLevelState>("/admin/log-level", input),
+    onSuccess: (data) => qc.setQueryData(["log-level"], data),
+  });
+}

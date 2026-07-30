@@ -111,8 +111,8 @@ describe("mobile navigation", () => {
   it("offers Admin to an admin, from the top bar", async () => {
     renderLayout({ isAdmin: true });
 
-    expect(topBarLinks()).toContain("Admin");
-    expect(await allMobileLinks()).toContain("Admin");
+    expect(topBarLinks()).toContain("Users");
+    expect(await allMobileLinks()).toContain("Users");
   });
 
   // Settings stays one tap from anywhere; Statistics lives in the sheet.
@@ -129,8 +129,8 @@ describe("mobile navigation", () => {
   it("does not offer Admin to a non-admin", async () => {
     renderLayout({ isAdmin: false });
 
-    expect(topBarLinks()).not.toContain("Admin");
-    expect(await allMobileLinks()).not.toContain("Admin");
+    expect(topBarLinks()).not.toContain("Users");
+    expect(await allMobileLinks()).not.toContain("Users");
   });
 
   it("keeps the tab bar small enough for thumbs", () => {

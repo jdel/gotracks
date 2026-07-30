@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -332,10 +333,11 @@ func serve(ctx context.Context) error {
 		Audit:       audit,
 		// Nil leaves the pages and their routes off entirely, rather than
 		// serving placeholder policies a private deployment never wanted.
-		Legal:   legalSvc,
-		Tags:    store.Tags,
-		Notes:   store.Notes,
-		Metrics: rec,
+		Legal:    legalSvc,
+		Tags:     store.Tags,
+		Notes:    store.Notes,
+		Metrics:  rec,
+		LogLevel: service.NewLogLevelService(zerolog.GlobalLevel()),
 	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,

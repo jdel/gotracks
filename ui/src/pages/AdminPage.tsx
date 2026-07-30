@@ -5,8 +5,6 @@ import {
   useDeleteUser,
   useResendUserInvitation,
   useResetUserTwoFactor,
-  useInstanceSettings,
-  useUpdateInstanceSettings,
   useUpdateUser,
   useUsers,
 } from "@/hooks/useSettings";
@@ -45,8 +43,6 @@ export function AdminPage() {
   const tn = useTn();
   const { user } = useAuth();
   const { data: users, isLoading } = useUsers();
-  const { data: settings } = useInstanceSettings();
-  const updateSettings = useUpdateInstanceSettings();
   const create = useCreateUser();
   const update = useUpdateUser();
   const del = useDeleteUser();
@@ -144,27 +140,6 @@ export function AdminPage() {
         </form>
       )}
     >
-      {/* Instance-wide switch: turning this off stops strangers creating their
-          own accounts, while an admin can still add users below. */}
-      <Card className="flex items-start justify-between gap-4 p-4">
-        <div>
-          <p className="text-sm font-medium">{t("admin.allowRegister")}</p>
-          <p className="text-xs text-muted-foreground">{t("admin.allowRegisterHelp")}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2 text-sm">
-          <Switch
-            id="allow-register"
-            checked={settings?.allowRegister ?? false}
-            disabled={!settings || updateSettings.isPending}
-            onCheckedChange={(checked) => updateSettings.mutate({ allowRegister: checked })}
-            aria-label={t("admin.allowRegister")}
-          />
-          <Label htmlFor="allow-register" className="cursor-pointer">
-            {settings?.allowRegister ? t("common.on") : t("common.off")}
-          </Label>
-        </div>
-      </Card>
-
       {error && <p className="text-sm text-destructive">{error}</p>}
       {notice && <p className="text-sm text-emerald-600">{notice}</p>}
       {isLoading && <p className="text-sm text-muted-foreground">{t("actions.loading")}</p>}

@@ -412,6 +412,63 @@ const docTemplate = `{
                 ]
             }
         },
+        "/api/v1/admin/log-level": {
+            "get": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get the runtime log level",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.LogLevelState"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Override the runtime log level",
+                "parameters": [
+                    {
+                        "description": "Level and duration",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.logLevelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.LogLevelState"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.errorBody"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/admin/reports/usage": {
             "get": {
                 "tags": [
@@ -3192,6 +3249,17 @@ const docTemplate = `{
                 }
             }
         },
+        "api.logLevelRequest": {
+            "type": "object",
+            "properties": {
+                "durationMinutes": {
+                    "type": "integer"
+                },
+                "level": {
+                    "type": "string"
+                }
+            }
+        },
         "api.loginRequest": {
             "type": "object",
             "properties": {
@@ -4011,6 +4079,20 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "kind": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.LogLevelState": {
+            "type": "object",
+            "properties": {
+                "baseline": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "overrideUntil": {
                     "type": "string"
                 }
             }

@@ -148,6 +148,13 @@ definitions:
           type: object
         type: object
     type: object
+  api.logLevelRequest:
+    properties:
+      durationMinutes:
+        type: integer
+      level:
+        type: string
+    type: object
   api.loginRequest:
     properties:
       email:
@@ -731,6 +738,15 @@ definitions:
       kind:
         type: string
     type: object
+  service.LogLevelState:
+    properties:
+      baseline:
+        type: string
+      level:
+        type: string
+      overrideUntil:
+        type: string
+    type: object
   service.MonthCount:
     properties:
       count:
@@ -1121,6 +1137,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Replace a legal document
+      tags:
+      - admin
+  /api/v1/admin/log-level:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.LogLevelState'
+      security:
+      - BearerAuth: []
+      summary: Get the runtime log level
+      tags:
+      - admin
+    put:
+      parameters:
+      - description: Level and duration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.logLevelRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.LogLevelState'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.errorBody'
+      security:
+      - BearerAuth: []
+      summary: Override the runtime log level
       tags:
       - admin
   /api/v1/admin/reports/usage:

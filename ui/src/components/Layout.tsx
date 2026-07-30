@@ -19,6 +19,7 @@ import {
   MoreHorizontal,
   Scale,
   ScrollText,
+  ServerCog,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useServerConfig, useServerVersion } from "@/hooks/useSettings";
@@ -61,7 +62,8 @@ const nav: NavItem[] = [
   { to: "/legal", labelKey: "nav.legal", icon: Scale, adminOnly: true, legalOnly: true },
   { to: "/reports", labelKey: "nav.reports", icon: BarChart4, adminOnly: true },
   { to: "/audit", labelKey: "nav.audit", icon: ScrollText, adminOnly: true },
-  { to: "/admin", labelKey: "nav.admin", icon: Users, adminOnly: true, topBar: true },
+  { to: "/admin", labelKey: "nav.users", icon: Users, adminOnly: true, topBar: true, end: true },
+  { to: "/admin/settings", labelKey: "nav.server", icon: ServerCog, adminOnly: true },
 ];
 
 // On mobile the list is dealt out three ways: a few tabs along the bottom, the

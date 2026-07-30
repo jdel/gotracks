@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/rs/zerolog"
 
 	"github.com/jdel/gotracks/internal/domain"
 	"github.com/jdel/gotracks/internal/service"
@@ -19,6 +22,71 @@ type adminHandler struct {
 	reports   *service.UsageReportService
 	email     *service.EmailService
 	audit     *service.AuditService
+	logLevel  *service.LogLevelService
+}
+
+// maxLogOverrideMinutes bounds a runtime log-level override so a forgotten
+// debug session cannot run unbounded.
+const maxLogOverrideMinutes = 24 * 60
+
+type logLevelRequest struct {
+	Level           string `json:"level"`
+	DurationMinutes int    `json:"durationMinutes"`
+}
+
+// getLogLevel reports the current level, the configured baseline, and when any
+// active override reverts.
+//
+//	@Summary	Get the runtime log level
+//	@Tags		admin
+//	@Security	BearerAuth
+//	@Success	200	{object}	service.LogLevelState
+//	@Router		/api/v1/admin/log-level [get]
+func (h *adminHandler) getLogLevel(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, h.logLevel.State())
+}
+
+// putLogLevel overrides the log level at runtime, reverting after the window.
+//
+//	@Summary	Override the runtime log level
+//	@Tags		admin
+//	@Security	BearerAuth
+//	@Param		body	body		logLevelRequest	true	"Level and duration"
+//	@Success	200		{object}	service.LogLevelState
+//	@Failure	400		{object}	errorBody
+//	@Router		/api/v1/admin/log-level [put]
+func (h *adminHandler) putLogLevel(w http.ResponseWriter, r *http.Request) {
+	var req logLevelRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	level, err := zerolog.ParseLevel(req.Level)
+	if err != nil || level == zerolog.NoLevel || level == zerolog.Disabled {
+		writeError(w, http.StatusBadRequest, "unknown log level")
+		return
+	}
+	if req.DurationMinutes < 0 || req.DurationMinutes > maxLogOverrideMinutes {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("duration must be between 0 and %d minutes", maxLogOverrideMinutes))
+		return
+	}
+
+	// A request that would not change the level is a no-op: no override, and
+	// nothing to record in the audit log.
+	if level == zerolog.GlobalLevel() {
+		writeJSON(w, http.StatusOK, h.logLevel.State())
+		return
+	}
+
+	h.logLevel.Override(level, time.Duration(req.DurationMinutes)*time.Minute)
+
+	entry := auditFrom(r, domain.AuditAdminLogLevelChanged)
+	if req.DurationMinutes > 0 {
+		entry.Detail = fmt.Sprintf("level %s for %d minutes", level, req.DurationMinutes)
+	} else {
+		entry.Detail = fmt.Sprintf("level %s (no auto-revert)", level)
+	}
+	h.audit.Record(r.Context(), entry)
+	writeJSON(w, http.StatusOK, h.logLevel.State())
 }
 
 // auditTarget starts an entry naming the account an administrator acted on.

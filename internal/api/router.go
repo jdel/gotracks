@@ -35,6 +35,7 @@ type Services struct {
 	Tags        repo.TagRepo
 	Notes       repo.NoteRepo
 	Metrics     *metrics.Recorder
+	LogLevel    *service.LogLevelService
 }
 
 // New builds the root HTTP handler: global middleware, API routes and SPA.
@@ -173,7 +174,7 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 
 	// Admin (protected + admin-only).
 	adminOnly := func(h http.HandlerFunc) http.Handler { return requireAuth(RequireAdmin(h)) }
-	adh := &adminHandler{admin: svc.Admin, settings: svc.Settings, twoFactor: svc.TwoFactor, quotas: svc.Quotas, reports: svc.Reports, email: svc.Email, audit: svc.Audit}
+	adh := &adminHandler{admin: svc.Admin, settings: svc.Settings, twoFactor: svc.TwoFactor, quotas: svc.Quotas, reports: svc.Reports, email: svc.Email, audit: svc.Audit, logLevel: svc.LogLevel}
 	mux.Handle("GET /api/v1/admin/users", adminOnly(adh.listUsers))
 	mux.Handle("POST /api/v1/admin/users", adminOnly(adh.createUser))
 	mux.Handle("PUT /api/v1/admin/users/{id}", adminOnly(adh.updateUser))
@@ -194,6 +195,10 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 
 	mux.Handle("GET /api/v1/admin/settings", adminOnly(adh.getSettings))
 	mux.Handle("PUT /api/v1/admin/settings", adminOnly(adh.updateSettings))
+	if svc.LogLevel != nil {
+		mux.Handle("GET /api/v1/admin/log-level", adminOnly(adh.getLogLevel))
+		mux.Handle("PUT /api/v1/admin/log-level", adminOnly(adh.putLogLevel))
+	}
 
 	// Legal documents. Reading is public because the pages have to render
 	// before an account exists; writing is administrator-only.

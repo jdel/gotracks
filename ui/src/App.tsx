@@ -16,6 +16,7 @@ import { RecurringPage } from "@/pages/RecurringPage";
 import { StatsPage } from "@/pages/StatsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { AdminPage } from "@/pages/AdminPage";
+import { ServerPage } from "@/pages/ServerPage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { AttachmentsPage } from "@/pages/AttachmentsPage";
 import { NotesPage } from "@/pages/NotesPage";
@@ -78,6 +79,7 @@ export function App() {
         <Route path="/notes" element={<NotesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/settings" element={<ServerPage />} />
         <Route path="/legal" element={<RequireLegal><LegalAdminPage /></RequireLegal>} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/audit" element={<AuditPage />} />

@@ -47,6 +47,7 @@ const (
 	AuditAdminTwoFactorReset   = "admin.user.2fa_reset"
 	AuditAdminInvitationResent = "admin.user.invitation_resent"
 	AuditAdminSettingsUpdated  = "admin.settings.updated"
+	AuditAdminLogLevelChanged  = "admin.log_level.changed"
 	AuditAdminLegalUpdated     = "admin.legal.updated"
 
 	// Reading the log is itself an administrative act on everyone else's
@@ -67,7 +68,7 @@ var AuditActions = []string{
 	AuditSessionRevoked,
 	AuditAdminUserCreated, AuditAdminUserUpdated, AuditAdminUserDeleted,
 	AuditAdminTwoFactorReset, AuditAdminInvitationResent,
-	AuditAdminSettingsUpdated, AuditAdminLegalUpdated,
+	AuditAdminSettingsUpdated, AuditAdminLogLevelChanged, AuditAdminLegalUpdated,
 	AuditAdminAuditSearched, AuditAdminAuditExported,
 }
 
