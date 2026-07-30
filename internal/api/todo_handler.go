@@ -125,7 +125,7 @@ func (h *todoHandler) list(w http.ResponseWriter, r *http.Request) {
 
 	todos, err := h.todos.List(r.Context(), uid, f)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, todos)
@@ -153,7 +153,7 @@ func (h *todoHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := h.todos.Create(r.Context(), uid, in)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, t)
@@ -176,7 +176,7 @@ func (h *todoHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := h.todos.Get(r.Context(), uid, id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, t)
@@ -209,7 +209,7 @@ func (h *todoHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := h.todos.Update(r.Context(), uid, id, in)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, t)
@@ -232,7 +232,7 @@ func (h *todoHandler) complete(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := h.todos.Complete(r.Context(), uid, id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, t)
@@ -255,7 +255,7 @@ func (h *todoHandler) reactivate(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := h.todos.Reactivate(r.Context(), uid, id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, t)
@@ -287,7 +287,7 @@ func (h *todoHandler) reorder(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := h.todos.Reorder(r.Context(), uid, id, req.Position)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, t)
@@ -309,7 +309,7 @@ func (h *todoHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.todos.Delete(r.Context(), uid, id); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

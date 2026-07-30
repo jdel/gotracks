@@ -58,7 +58,7 @@ type instanceSettingsRequest struct {
 func (h *adminHandler) getSettings(w http.ResponseWriter, r *http.Request) {
 	s, err := h.settings.Get(r.Context())
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, s)
@@ -91,19 +91,19 @@ func (h *adminHandler) updateSettings(w http.ResponseWriter, r *http.Request) {
 	)
 	if req.AllowRegister != nil {
 		if s, err = h.settings.SetAllowRegister(r.Context(), *req.AllowRegister); err != nil {
-			writeServiceError(w, err)
+			writeServiceError(w, r, err)
 			return
 		}
 	}
 	if req.UsageReportAtMinute != nil {
 		if s, err = h.settings.SetUsageReportAtMinute(r.Context(), *req.UsageReportAtMinute); err != nil {
-			writeServiceError(w, err)
+			writeServiceError(w, r, err)
 			return
 		}
 	}
 	if req.UsageReportTimeZone != nil {
 		if s, err = h.settings.SetUsageReportTimeZone(r.Context(), *req.UsageReportTimeZone); err != nil {
-			writeServiceError(w, err)
+			writeServiceError(w, r, err)
 			return
 		}
 	}
@@ -139,13 +139,13 @@ type updateUserRequest struct {
 func (h *adminHandler) listUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.admin.ListUsers(r.Context())
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	enabled := map[int64]bool{}
 	if h.twoFactor != nil {
 		if enabled, err = h.twoFactor.EnabledUsers(r.Context()); err != nil {
-			writeServiceError(w, err)
+			writeServiceError(w, r, err)
 			return
 		}
 	}
@@ -187,7 +187,7 @@ func (h *adminHandler) usageReport(w http.ResponseWriter, r *http.Request) {
 		PageSize:  atoi("pageSize"),
 	})
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, report)
@@ -204,7 +204,7 @@ func (h *adminHandler) usageReport(w http.ResponseWriter, r *http.Request) {
 func (h *adminHandler) runUsageReport(w http.ResponseWriter, r *http.Request) {
 	n, err := h.reports.Run(r.Context())
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"accounts": n})
@@ -236,12 +236,12 @@ func (h *adminHandler) usage(w http.ResponseWriter, r *http.Request) {
 	}
 	// Confirm the account exists, so a bad id is a 404 rather than zeroes.
 	if _, err := h.admin.GetUser(r.Context(), id); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	u, err := h.quotas.Usage(r.Context(), id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, u)
@@ -265,17 +265,17 @@ func (h *adminHandler) resetTwoFactor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.twoFactor == nil {
-		writeServiceError(w, service.ErrTwoFactorNotEnabled)
+		writeServiceError(w, r, service.ErrTwoFactorNotEnabled)
 		return
 	}
 	if err := h.twoFactor.Reset(r.Context(), id); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	// Removing a credential evicts the sessions issued under it, matching what
 	// a password change does.
 	if err := h.admin.RevokeSessions(r.Context(), id); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	target, _ := h.admin.GetUser(r.Context(), id)
@@ -299,11 +299,11 @@ func (h *adminHandler) createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := h.admin.CreateUser(r.Context(), req.Email, req.IsAdmin)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	if err := h.email.SendInvitation(r.Context(), u); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	entry := h.auditTarget(r, domain.AuditAdminUserCreated, u)
@@ -331,11 +331,11 @@ func (h *adminHandler) resendInvitation(w http.ResponseWriter, r *http.Request) 
 	}
 	u, err := h.admin.GetUser(r.Context(), id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	if err := h.email.SendInvitation(r.Context(), u); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	h.audit.Record(r.Context(), h.auditTarget(r, domain.AuditAdminInvitationResent, u))
@@ -366,7 +366,7 @@ func (h *adminHandler) updateUser(w http.ResponseWriter, r *http.Request) {
 	before, _ := h.admin.GetUser(r.Context(), id)
 	u, err := h.admin.UpdateUser(r.Context(), id, req.Email, req.Password, req.IsAdmin)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	entry := h.auditTarget(r, domain.AuditAdminUserUpdated, u)
@@ -394,7 +394,7 @@ func (h *adminHandler) deleteUser(w http.ResponseWriter, r *http.Request) {
 	// entry.
 	target, _ := h.admin.GetUser(r.Context(), id)
 	if err := h.admin.DeleteUser(r.Context(), claimsFrom(r).UserID, id); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	h.audit.Record(r.Context(), h.auditTarget(r, domain.AuditAdminUserDeleted, target))

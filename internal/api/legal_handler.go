@@ -42,7 +42,7 @@ func (h *legalHandler) locale(r *http.Request) string {
 func (h *legalHandler) get(w http.ResponseWriter, r *http.Request) {
 	docs, err := h.legal.Documents(r.Context(), h.locale(r))
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, docs)
@@ -66,7 +66,7 @@ type legalEditorBody struct {
 func (h *legalHandler) editor(w http.ResponseWriter, r *http.Request) {
 	overrides, err := h.legal.Overrides(r.Context())
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	defaults := map[string]map[string]string{}
@@ -108,7 +108,7 @@ func (h *legalHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	locale := r.PathValue("locale")
 	if err := h.legal.Save(r.Context(), locale, kind, req.Body); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	entry := auditFrom(r, domain.AuditAdminLegalUpdated)
@@ -133,7 +133,7 @@ func (h *legalHandler) update(w http.ResponseWriter, r *http.Request) {
 func (h *legalHandler) reset(w http.ResponseWriter, r *http.Request) {
 	locale, kind := r.PathValue("locale"), r.PathValue("kind")
 	if err := h.legal.Reset(r.Context(), locale, kind); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	entry := auditFrom(r, domain.AuditAdminLegalUpdated)

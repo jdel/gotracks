@@ -235,9 +235,11 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 
 	rl := NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	return Chain(mux,
+		// Outermost, so the correlation id and its logger are in context for
+		// every later middleware — including Recover's panic log.
+		RequestID(cfg.TrustedProxies),
 		httpMetrics(svc.Metrics),
 		Recover,
-		RequestID,
 		// Before Logger and the limiter: both read the address it resolves.
 		RealIP(cfg.TrustedProxies),
 		// After RealIP, so a new or refreshed session records the resolved

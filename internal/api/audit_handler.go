@@ -80,7 +80,7 @@ func (h *auditHandler) list(w http.ResponseWriter, r *http.Request) {
 	filter := auditFilterFrom(r)
 	result, err := h.audit.Search(r.Context(), filter, page, size)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	// Reading everyone else's history is itself an administrative act, so it
@@ -123,7 +123,7 @@ func (h *auditHandler) export(w http.ResponseWriter, r *http.Request) {
 	filter := auditFilterFrom(r)
 	events, err := h.audit.All(r.Context(), filter)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	format := r.URL.Query().Get("format")

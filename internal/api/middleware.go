@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/time/rate"
 
@@ -73,14 +74,64 @@ func httpMetrics(rec *metrics.Recorder) Middleware {
 	}
 }
 
-// RequestID assigns a unique ID to each request, exposed via header and context.
-func RequestID(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := uuid.NewString()
-		w.Header().Set("X-Request-ID", id)
-		ctx := context.WithValue(r.Context(), ctxKeyRequestID, id)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+// RequestID establishes a correlation id for the request. It is exposed to the
+// client as the X-Request-ID header, stored in the context, and attached to a
+// request-scoped logger so every log line emitted while serving the request —
+// not only the access line — carries it. Read it with CorrelationID(ctx) or log
+// through zerolog.Ctx(ctx).
+//
+// An inbound X-Request-ID is honoured only when the request comes from a trusted
+// proxy — the same trust model as RealIP — so a client cannot forge or collide
+// correlation ids by supplying the header directly. Even from a trusted proxy
+// the value is sanitised (bounded, printable) before it is believed. Anything
+// missing or untrusted gets a fresh uuid.
+func RequestID(trusted []netip.Prefix) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			id := ""
+			if peerTrusted(r, trusted) {
+				id = sanitizeCorrelationID(r.Header.Get("X-Request-ID"))
+			}
+			if id == "" {
+				id = uuid.NewString()
+			}
+			w.Header().Set("X-Request-ID", id)
+			ctx := context.WithValue(r.Context(), ctxKeyRequestID, id)
+			ctx = log.With().Str("id", id).Logger().WithContext(ctx)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// CorrelationID returns the request's correlation id, or "" outside a request.
+func CorrelationID(ctx context.Context) string {
+	id, _ := ctx.Value(ctxKeyRequestID).(string)
+	return id
+}
+
+// sanitizeCorrelationID accepts an inbound id only if it is short and printable
+// ASCII with no spaces or control characters, so a proxied value can never
+// inject into a log line. An unacceptable value yields "" so a fresh id is used.
+func sanitizeCorrelationID(s string) string {
+	if s == "" || len(s) > 128 {
+		return ""
+	}
+	for _, c := range s {
+		if c < 0x21 || c > 0x7e {
+			return ""
+		}
+	}
+	return s
+}
+
+// peerTrusted reports whether the immediate transport peer is a configured
+// trusted proxy, the precondition for believing proxy-supplied headers.
+func peerTrusted(r *http.Request, trusted []netip.Prefix) bool {
+	if len(trusted) == 0 {
+		return false
+	}
+	addr, err := netip.ParseAddr(peerHost(r))
+	return err == nil && trustedContains(trusted, addr)
 }
 
 // Logger logs each request with method, path, status and duration.
@@ -106,7 +157,7 @@ func Recover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if v := recover(); v != nil {
-				log.Error().Interface("err", v).Str("path", r.URL.Path).Msg("panic recovered")
+				zerolog.Ctx(r.Context()).Error().Interface("err", v).Str("path", r.URL.Path).Msg("panic recovered")
 				writeError(w, http.StatusInternalServerError, "internal error")
 			}
 		}()

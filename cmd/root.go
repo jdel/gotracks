@@ -196,6 +196,10 @@ func applyLogFormat(format string) error {
 	default:
 		return fmt.Errorf("invalid --log-format %q: want text or json", format)
 	}
+	// So zerolog.Ctx(ctx) falls back to the global logger when a context carries
+	// no request-scoped one — code can log through the context uniformly and
+	// still get output outside a request (with the correlation id inside one).
+	zerolog.DefaultContextLogger = &log.Logger
 	return nil
 }
 

@@ -41,7 +41,7 @@ func (h *projectHandler) list(w http.ResponseWriter, r *http.Request) {
 	uid := claimsFrom(r).UserID
 	ps, err := h.projects.List(r.Context(), uid, r.URL.Query().Get("state"))
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, ps)
@@ -64,7 +64,7 @@ func (h *projectHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.projects.Create(r.Context(), uid, req.toInput())
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, p)
@@ -87,7 +87,7 @@ func (h *projectHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.projects.Get(r.Context(), uid, id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, p)
@@ -115,7 +115,7 @@ func (h *projectHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.projects.Update(r.Context(), uid, id, req.toInput())
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, p)
@@ -138,7 +138,7 @@ func (h *projectHandler) review(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.projects.Review(r.Context(), uid, id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, p)
@@ -177,7 +177,7 @@ func (h *projectHandler) delete(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

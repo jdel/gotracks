@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/jdel/gotracks/internal/auth"
@@ -35,7 +36,10 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 }
 
 // writeServiceError translates a service-layer error into an HTTP response.
-func writeServiceError(w http.ResponseWriter, err error) {
+// It takes the request so an unhandled error is logged through the request's
+// correlation-scoped logger, tying the log line to the X-Request-ID the caller
+// was handed.
+func writeServiceError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, repo.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not found")
@@ -100,7 +104,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		// endpoint cannot be used to enumerate logins.
 		writeError(w, http.StatusNotFound, "no passkey enrolled for this account")
 	default:
-		log.Error().Err(err).Msg("unhandled service error")
+		zerolog.Ctx(r.Context()).Error().Err(err).Msg("unhandled service error")
 		writeError(w, http.StatusInternalServerError, "internal error")
 	}
 }

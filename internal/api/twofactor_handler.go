@@ -43,7 +43,7 @@ type recoveryCodesResponse struct {
 func (h *twoFactorHandler) status(w http.ResponseWriter, r *http.Request) {
 	status, err := h.twoFactor.Status(r.Context(), claimsFrom(r).UserID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, status)
@@ -59,7 +59,7 @@ func (h *twoFactorHandler) status(w http.ResponseWriter, r *http.Request) {
 func (h *twoFactorHandler) enrolBegin(w http.ResponseWriter, r *http.Request) {
 	enrolment, err := h.twoFactor.BeginEnrolment(r.Context(), claimsFrom(r).UserID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, enrolment)
@@ -81,7 +81,7 @@ func (h *twoFactorHandler) enrolFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	codes, err := h.twoFactor.FinishEnrolment(r.Context(), claimsFrom(r).UserID, req.EnrolmentID, req.Code)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	h.audit.Record(r.Context(), auditFrom(r, domain.AuditTwoFactorEnabled))
@@ -108,7 +108,7 @@ func (h *twoFactorHandler) regenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	codes, err := h.twoFactor.RegenerateRecoveryCodes(r.Context(), uid)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, recoveryCodesResponse{RecoveryCodes: codes})
@@ -133,7 +133,7 @@ func (h *twoFactorHandler) disable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.twoFactor.Disable(r.Context(), uid, req.Code); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	h.audit.Record(r.Context(), auditFrom(r, domain.AuditTwoFactorDisabled))
@@ -145,11 +145,11 @@ func (h *twoFactorHandler) disable(w http.ResponseWriter, r *http.Request) {
 func (h *twoFactorHandler) confirmPassword(w http.ResponseWriter, r *http.Request, userID int64, password string) bool {
 	u, err := h.auth.Me(r.Context(), userID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return false
 	}
 	if _, err := h.auth.AuthenticatePassword(r.Context(), u.Email, password); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return false
 	}
 	return true

@@ -30,7 +30,7 @@ func (h *contextHandler) list(w http.ResponseWriter, r *http.Request) {
 	uid := claimsFrom(r).UserID
 	cs, err := h.contexts.List(r.Context(), uid)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, cs)
@@ -53,7 +53,7 @@ func (h *contextHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := h.contexts.Create(r.Context(), uid, req.Name, req.State)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, c)
@@ -76,7 +76,7 @@ func (h *contextHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := h.contexts.Get(r.Context(), uid, id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, c)
@@ -104,7 +104,7 @@ func (h *contextHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := h.contexts.Update(r.Context(), uid, id, req.Name, req.State, req.Position)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, c)
@@ -141,7 +141,7 @@ func (h *contextHandler) delete(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

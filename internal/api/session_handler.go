@@ -24,7 +24,7 @@ func (h *sessionHandler) list(w http.ResponseWriter, r *http.Request) {
 	claims := claimsFrom(r)
 	sessions, err := h.auth.Sessions(r.Context(), claims.UserID, claims.SessionID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, sessions)
@@ -42,7 +42,7 @@ func (h *sessionHandler) revoke(w http.ResponseWriter, r *http.Request) {
 	claims := claimsFrom(r)
 	sessionID := r.PathValue("id")
 	if err := h.auth.RevokeSession(r.Context(), claims.UserID, sessionID); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	entry := auditFrom(r, domain.AuditSessionRevoked)
@@ -63,7 +63,7 @@ func (h *sessionHandler) revoke(w http.ResponseWriter, r *http.Request) {
 func (h *sessionHandler) revokeOthers(w http.ResponseWriter, r *http.Request) {
 	claims := claimsFrom(r)
 	if err := h.auth.RevokeOtherSessions(r.Context(), claims.UserID, claims.SessionID); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	entry := auditFrom(r, domain.AuditSessionRevoked)

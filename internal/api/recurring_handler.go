@@ -77,7 +77,7 @@ func (h *recurringHandler) list(w http.ResponseWriter, r *http.Request) {
 	uid := claimsFrom(r).UserID
 	recs, err := h.recurring.List(r.Context(), uid, r.URL.Query().Get("state"))
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, recs)
@@ -105,7 +105,7 @@ func (h *recurringHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	rec, err := h.recurring.Create(r.Context(), uid, in)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, rec)
@@ -128,7 +128,7 @@ func (h *recurringHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 	rec, err := h.recurring.Get(r.Context(), uid, id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, rec)
@@ -161,7 +161,7 @@ func (h *recurringHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	rec, err := h.recurring.Update(r.Context(), uid, id, in)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, rec)
@@ -183,7 +183,7 @@ func (h *recurringHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.recurring.Delete(r.Context(), uid, id); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

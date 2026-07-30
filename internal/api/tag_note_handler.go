@@ -28,7 +28,7 @@ func (h *tagHandler) list(w http.ResponseWriter, r *http.Request) {
 	uid := claimsFrom(r).UserID
 	tags, err := h.tags.List(r.Context(), uid)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, tags)
@@ -80,7 +80,7 @@ func (h *noteHandler) resolveProject(w http.ResponseWriter, r *http.Request, uid
 	if req.ProjectName != nil && strings.TrimSpace(*req.ProjectName) != "" {
 		resolved, err := h.projects.ResolveByName(r.Context(), uid, *req.ProjectName)
 		if err != nil {
-			writeServiceError(w, err)
+			writeServiceError(w, r, err)
 			return nil, false
 		}
 		return &resolved, true
@@ -109,7 +109,7 @@ func (h *noteHandler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	notes, err := h.notes.List(r.Context(), uid, projectID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, notes)
@@ -135,7 +135,7 @@ func (h *noteHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := service.ValidateNoteBody(req.Body); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	// The note allowance, and the project a name may create, are both
@@ -166,7 +166,7 @@ func (h *noteHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, n)
@@ -194,12 +194,12 @@ func (h *noteHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	n, err := h.notes.ByID(r.Context(), uid, id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	if req.Body != "" {
 		if err := service.ValidateNoteBody(req.Body); err != nil {
-			writeServiceError(w, err)
+			writeServiceError(w, r, err)
 			return
 		}
 		n.Body = req.Body
@@ -215,7 +215,7 @@ func (h *noteHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	n.UpdatedAt = time.Now()
 	if err := h.notes.Update(r.Context(), n); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, n)
@@ -237,7 +237,7 @@ func (h *noteHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.notes.Delete(r.Context(), uid, id); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

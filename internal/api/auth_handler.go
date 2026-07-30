@@ -145,7 +145,7 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit.Record(r.Context(), entry)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -170,7 +170,7 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 		entry.Outcome = domain.AuditFailure
 		entry.Detail = err.Error()
 		h.audit.Record(r.Context(), entry)
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	success := h.auditPublic(r, domain.AuditLoginSucceeded, u.Email)
@@ -180,7 +180,7 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 
 	if h.email != nil {
 		if err := h.email.CheckVerified(u); err != nil {
-			writeServiceError(w, err)
+			writeServiceError(w, r, err)
 			return
 		}
 	}
@@ -190,13 +190,13 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 	if h.twoFactor != nil {
 		enabled, err := h.twoFactor.Enabled(r.Context(), u.ID)
 		if err != nil {
-			writeServiceError(w, err)
+			writeServiceError(w, r, err)
 			return
 		}
 		if enabled {
 			challenge, err := h.twoFactor.Begin(r.Context(), u.ID)
 			if err != nil {
-				writeServiceError(w, err)
+				writeServiceError(w, r, err)
 				return
 			}
 			writeJSON(w, http.StatusOK, authResponse{TwoFactor: challenge})
@@ -206,7 +206,7 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := h.auth.IssueFor(r.Context(), u)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, authResponse{User: u, Tokens: tokens})
@@ -227,17 +227,17 @@ func (h *authHandler) verifyTwoFactor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.twoFactor == nil {
-		writeServiceError(w, service.ErrTwoFactorChallenge)
+		writeServiceError(w, r, service.ErrTwoFactorChallenge)
 		return
 	}
 	u, err := h.twoFactor.Verify(r.Context(), req.ChallengeID, req.Code)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	tokens, err := h.auth.IssueFor(r.Context(), u)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, authResponse{User: u, Tokens: tokens})
@@ -270,11 +270,11 @@ func (h *authHandler) changePassword(w http.ResponseWriter, r *http.Request) {
 		// Passkey proof: verify the assertion, then set the password without a
 		// current-password check.
 		if h.passkeys == nil {
-			writeServiceError(w, service.ErrPasskeyDisabled)
+			writeServiceError(w, r, service.ErrPasskeyDisabled)
 			return
 		}
 		if err := h.passkeys.FinishReauth(r.Context(), uid, req.PasskeySessionID, req.PasskeyResponse); err != nil {
-			writeServiceError(w, err)
+			writeServiceError(w, r, err)
 			return
 		}
 		tokens, err = h.auth.SetPassword(r.Context(), uid, req.NewPassword)
@@ -282,7 +282,7 @@ func (h *authHandler) changePassword(w http.ResponseWriter, r *http.Request) {
 		tokens, err = h.auth.ChangePassword(r.Context(), uid, req.CurrentPassword, req.NewPassword)
 	}
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	h.audit.Record(r.Context(), auditFrom(r, domain.AuditPasswordChanged))
@@ -300,12 +300,12 @@ func (h *authHandler) changePassword(w http.ResponseWriter, r *http.Request) {
 //	@Router		/api/v1/me/reauth/passkey/begin [post]
 func (h *authHandler) reauthPasskeyBegin(w http.ResponseWriter, r *http.Request) {
 	if h.passkeys == nil {
-		writeServiceError(w, service.ErrPasskeyDisabled)
+		writeServiceError(w, r, service.ErrPasskeyDisabled)
 		return
 	}
 	options, sessionID, err := h.passkeys.BeginReauth(r.Context(), claimsFrom(r).UserID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"options": options, "sessionId": sessionID})
@@ -325,7 +325,7 @@ func (h *authHandler) verifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.email.Verify(r.Context(), req.Token); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	h.audit.Record(r.Context(), auditFrom(r, domain.AuditEmailVerified))
@@ -368,7 +368,7 @@ func (h *authHandler) requestEmailChange(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := h.email.SendEmailChange(r.Context(), claimsFrom(r).UserID, req.NewEmail); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	change := auditFrom(r, domain.AuditEmailChangeRequested)
@@ -392,7 +392,7 @@ func (h *authHandler) confirmEmailChange(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := h.email.ConfirmEmailChange(r.Context(), req.Token); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	h.audit.Record(r.Context(), auditFrom(r, domain.AuditEmailChanged))
@@ -434,7 +434,7 @@ func (h *authHandler) resetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.email.ResetPassword(r.Context(), req.Token, req.NewPassword); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	// No session here — reaching the mailed link is the proof — so the entry
@@ -467,12 +467,12 @@ func (h *authHandler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 
 	u, err := h.email.AcceptInvitation(r.Context(), req.Token, req.NewPassword)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	if h.legal != nil {
 		if err := h.legal.Accept(r.Context(), u.ID); err != nil {
-			writeServiceError(w, err)
+			writeServiceError(w, r, err)
 			return
 		}
 		accepted := auditFrom(r, domain.AuditLegalAccepted)
@@ -484,7 +484,7 @@ func (h *authHandler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 	h.audit.Record(r.Context(), created)
 	tokens, err := h.auth.IssueFor(r.Context(), u)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, authResponse{User: u, Tokens: tokens})
@@ -503,11 +503,11 @@ func (h *authHandler) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 func (h *authHandler) requestAccountDeletion(w http.ResponseWriter, r *http.Request) {
 	userID := claimsFrom(r).UserID
 	if err := h.admin.CanDeleteOwnAccount(r.Context(), userID); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	if err := h.email.SendAccountDeletion(r.Context(), userID); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	h.audit.Record(r.Context(), auditFrom(r, domain.AuditAccountDeletionRequested))
@@ -531,7 +531,7 @@ func (h *authHandler) confirmAccountDeletion(w http.ResponseWriter, r *http.Requ
 	}
 	userID, err := h.email.RedeemAccountDeletion(r.Context(), req.Token)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	// Read before the account goes: afterwards there is nobody to name, and an
@@ -541,7 +541,7 @@ func (h *authHandler) confirmAccountDeletion(w http.ResponseWriter, r *http.Requ
 		email = u.Email
 	}
 	if err := h.admin.DeleteOwnAccount(r.Context(), userID); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	deleted := auditFrom(r, domain.AuditAccountDeleted)
@@ -566,7 +566,7 @@ func (h *authHandler) refresh(w http.ResponseWriter, r *http.Request) {
 	}
 	tokens, err := h.auth.Refresh(r.Context(), req.RefreshToken)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, tokens)
@@ -583,7 +583,7 @@ func (h *authHandler) refresh(w http.ResponseWriter, r *http.Request) {
 func (h *authHandler) me(w http.ResponseWriter, r *http.Request) {
 	u, err := h.auth.Me(r.Context(), claimsFrom(r).UserID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, u)
@@ -604,7 +604,7 @@ func (h *authHandler) usage(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := h.quotas.Usage(r.Context(), claimsFrom(r).UserID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, u)
@@ -623,7 +623,7 @@ func (h *authHandler) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.auth.Logout(r.Context(), req.RefreshToken); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

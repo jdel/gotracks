@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 
 	"github.com/jdel/gotracks/internal/service"
 )
@@ -58,14 +58,14 @@ func (h *metaHandler) healthz(w http.ResponseWriter, r *http.Request) {
 func (h *metaHandler) config(w http.ResponseWriter, r *http.Request) {
 	allowRegister, err := h.settings.AllowRegister(r.Context())
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	// The first account on an empty instance must be able to register even when
 	// public registration is off, so it can become the administrator.
 	needsFirstUser, err := h.auth.NeedsFirstUser(r.Context())
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, publicConfig{
@@ -120,7 +120,7 @@ type preferenceRequest struct {
 func (h *preferenceHandler) get(w http.ResponseWriter, r *http.Request) {
 	p, err := h.prefs.Get(r.Context(), claimsFrom(r).UserID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, p)
@@ -150,7 +150,7 @@ func (h *preferenceHandler) update(w http.ResponseWriter, r *http.Request) {
 		AutoDeleteAttachments: req.AutoDeleteAttachments,
 	})
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, p)
@@ -171,7 +171,7 @@ type statsHandler struct {
 func (h *statsHandler) get(w http.ResponseWriter, r *http.Request) {
 	s, err := h.stats.Compute(r.Context(), claimsFrom(r).UserID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, s)
@@ -206,7 +206,7 @@ func (h *transferHandler) export(w http.ResponseWriter, r *http.Request) {
 		// The archive streams as it is built, so by the time this can fail the
 		// status line is long gone and the download is a truncated zip. Say so
 		// in the log rather than pretending a response can still be written.
-		log.Error().Err(err).Int64("user", uid).Msg("export failed part-way through")
+		zerolog.Ctx(r.Context()).Error().Err(err).Int64("user", uid).Msg("export failed part-way through")
 	}
 }
 
@@ -226,7 +226,7 @@ func (h *attachmentHandler) listAll(w http.ResponseWriter, r *http.Request) {
 	uid := claimsFrom(r).UserID
 	as, err := h.attachments.ListAll(r.Context(), uid)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, as)
@@ -249,7 +249,7 @@ func (h *attachmentHandler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	as, err := h.attachments.List(r.Context(), uid, id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, as)
@@ -287,7 +287,7 @@ func (h *attachmentHandler) upload(w http.ResponseWriter, r *http.Request) {
 		r.Context(), uid, todoID, header.Filename, header.Header.Get("Content-Type"), file,
 	)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, a)
@@ -311,7 +311,7 @@ func (h *attachmentHandler) download(w http.ResponseWriter, r *http.Request) {
 	}
 	a, f, err := h.attachments.Open(r.Context(), uid, id)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	defer f.Close()
@@ -339,7 +339,7 @@ func (h *attachmentHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.attachments.Delete(r.Context(), uid, id); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

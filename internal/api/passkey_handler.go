@@ -59,7 +59,7 @@ func (h *passkeyHandler) status(w http.ResponseWriter, r *http.Request) {
 func (h *passkeyHandler) list(w http.ResponseWriter, r *http.Request) {
 	creds, err := h.passkeys.List(r.Context(), claimsFrom(r).UserID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, creds)
@@ -75,7 +75,7 @@ func (h *passkeyHandler) list(w http.ResponseWriter, r *http.Request) {
 func (h *passkeyHandler) registerBegin(w http.ResponseWriter, r *http.Request) {
 	options, sessionID, err := h.passkeys.BeginRegistration(r.Context(), claimsFrom(r).UserID)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, passkeyBeginResponse{Options: options, SessionID: sessionID})
@@ -98,7 +98,7 @@ func (h *passkeyHandler) registerFinish(w http.ResponseWriter, r *http.Request) 
 	cred, err := h.passkeys.FinishRegistration(
 		r.Context(), claimsFrom(r).UserID, req.SessionID, req.Name, req.Response)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	entry := auditFrom(r, domain.AuditPasskeyAdded)
@@ -122,7 +122,7 @@ func (h *passkeyHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.passkeys.Delete(r.Context(), claimsFrom(r).UserID, id); err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	h.audit.Record(r.Context(), auditFrom(r, domain.AuditPasskeyRemoved))
@@ -143,7 +143,7 @@ func (h *passkeyHandler) loginBegin(w http.ResponseWriter, r *http.Request) {
 	}
 	options, sessionID, err := h.passkeys.BeginLogin(r.Context(), req.Email)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, passkeyBeginResponse{Options: options, SessionID: sessionID})
@@ -171,12 +171,12 @@ func (h *passkeyHandler) loginFinish(w http.ResponseWriter, r *http.Request) {
 
 	u, err := h.passkeys.FinishLogin(r.Context(), req.SessionID, req.Response)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	tokens, err := h.auth.IssueFor(r.Context(), u)
 	if err != nil {
-		writeServiceError(w, err)
+		writeServiceError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, authResponse{User: u, Tokens: tokens})
