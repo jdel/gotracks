@@ -73,7 +73,7 @@ func New(cfg *config.Config, tm *auth.TokenManager, svc *Services, staticFS fs.F
 	mux.Handle("GET /api/v1/version", requireAuth(http.HandlerFunc(mh.buildVersion)))
 
 	// Swagger UI + spec at /doc, behind auth (see swaggerHandlers).
-	swaggerHandlers(mux, cfg.TLSEnabled(), requireAuth)
+	swaggerHandlers(mux, requireAuth)
 
 	// Auth endpoints (public).
 	mux.Handle("POST /api/v1/auth/register", limit("register", registerLimit, ah.register))
