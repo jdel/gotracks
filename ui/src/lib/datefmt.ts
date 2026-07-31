@@ -1,10 +1,27 @@
 import { useCallback } from "react";
 import { usePreferences } from "@/hooks/useSettings";
 
+/**
+ * usableZone returns tz when the platform can format with it, otherwise "UTC".
+ * Some environments report placeholders such as "Etc/Unknown" that are truthy
+ * but make Intl.DateTimeFormat throw; a bad zone must never crash a render.
+ */
+function usableZone(tz: string): string {
+  if (!tz) {
+    return "UTC";
+  }
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return tz;
+  } catch {
+    return "UTC";
+  }
+}
+
 /** browserTimeZone is the IANA zone the browser reports (e.g. "Europe/Paris"). */
 export function browserTimeZone(): string {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    return usableZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
   } catch {
     return "UTC";
   }
@@ -23,7 +40,9 @@ const LAYOUTS: Record<string, { locale: string; opts: Intl.DateTimeFormatOptions
 /** formatDate renders an ISO string in the given zone and layout. */
 export function formatDate(iso: string, timeZone: string, layout: string): string {
   const l = LAYOUTS[layout] ?? LAYOUTS["2006-01-02"];
-  return new Intl.DateTimeFormat(l.locale, { ...l.opts, timeZone }).format(new Date(iso));
+  return new Intl.DateTimeFormat(l.locale, { ...l.opts, timeZone: usableZone(timeZone) }).format(
+    new Date(iso),
+  );
 }
 
 /** formatDateTime renders date + time in the given zone. */
@@ -31,15 +50,17 @@ export function formatDateTime(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
-    timeZone,
+    timeZone: usableZone(timeZone),
   }).format(new Date(iso));
 }
 
 /** formatDay renders a compact "12 Jul" in the given zone, for dense rows. */
 export function formatDay(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone }).format(
-    new Date(iso),
-  );
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: usableZone(timeZone),
+  }).format(new Date(iso));
 }
 
 /**
