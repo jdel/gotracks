@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/rs/zerolog"
@@ -115,6 +116,11 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return false
+	}
+	// The body must be exactly one JSON value: a second Decode has to hit EOF.
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return false
 	}
