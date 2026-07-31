@@ -101,6 +101,41 @@ func (r *userRepo) List(ctx context.Context) ([]*domain.User, error) {
 	return us, err
 }
 
+// applyUserFilter adds the shared WHERE clauses for the admin list to a users
+// query, so ListPage and CountFiltered count and page the same set.
+func applyUserFilter(q *bun.SelectQuery, f UserFilter) *bun.SelectQuery {
+	if s := strings.TrimSpace(strings.ToLower(f.Search)); s != "" {
+		q = q.Where("LOWER(email) LIKE ?", "%"+s+"%")
+	}
+	switch f.Admin {
+	case "on":
+		q = q.Where("is_admin = ?", true)
+	case "off":
+		q = q.Where("is_admin = ?", false)
+	}
+	switch f.TwoFactor {
+	case "on":
+		q = q.Where("id IN (SELECT user_id FROM two_factor WHERE enabled = ?)", true)
+	case "off":
+		q = q.Where("id NOT IN (SELECT user_id FROM two_factor WHERE enabled = ?)", true)
+	}
+	return q
+}
+
+func (r *userRepo) ListPage(ctx context.Context, f UserFilter, offset, limit int) ([]*domain.User, error) {
+	us := []*domain.User{}
+	q := applyUserFilter(r.db.NewSelect().Model(&us), f).Order("id ASC").Offset(offset)
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	err := q.Scan(ctx)
+	return us, err
+}
+
+func (r *userRepo) CountFiltered(ctx context.Context, f UserFilter) (int, error) {
+	return applyUserFilter(r.db.NewSelect().Model((*domain.User)(nil)), f).Count(ctx)
+}
+
 type refreshTokenRepo struct{ db *bun.DB }
 
 func (r *refreshTokenRepo) Create(ctx context.Context, t *domain.RefreshToken) error {

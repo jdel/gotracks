@@ -33,6 +33,19 @@ definitions:
       updatedAt:
         type: string
     type: object
+  api.adminUserPage:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/api.adminUser'
+        type: array
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+    type: object
   api.authResponse:
     properties:
       tokens:
@@ -1252,13 +1265,32 @@ paths:
       - admin
   /api/v1/admin/users:
     get:
+      parameters:
+      - description: Search by email
+        in: query
+        name: q
+        type: string
+      - description: 'Filter admins: on|off'
+        in: query
+        name: admin
+        type: string
+      - description: 'Filter 2FA: on|off'
+        in: query
+        name: twoFactor
+        type: string
+      - description: 1-based page
+        in: query
+        name: page
+        type: integer
+      - description: Rows per page
+        in: query
+        name: pageSize
+        type: integer
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/api.adminUser'
-            type: array
+            $ref: '#/definitions/api.adminUserPage'
         "403":
           description: Forbidden
           schema:

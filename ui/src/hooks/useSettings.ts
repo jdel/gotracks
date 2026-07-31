@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, tokenStore } from "@/lib/api";
 import type {
-  AdminUser,
+  AdminUserPage,
   AuthResponse,
   Attachment,
   AttachmentWithTodo,
@@ -40,8 +40,22 @@ export function useStats() {
 }
 
 // Admin
-export function useUsers() {
-  return useQuery({ queryKey: ["admin-users"], queryFn: () => api.get<AdminUser[]>("/admin/users") });
+/** Server-side filters for the admin user list; empty strings mean "no filter". */
+export interface UserFilters {
+  q: string;
+  admin: string;
+  twoFactor: string;
+}
+
+export function useUsers(page: number, pageSize: number, filters: UserFilters) {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (filters.q) params.set("q", filters.q);
+  if (filters.admin) params.set("admin", filters.admin);
+  if (filters.twoFactor) params.set("twoFactor", filters.twoFactor);
+  return useQuery({
+    queryKey: ["admin-users", page, pageSize, filters.q, filters.admin, filters.twoFactor],
+    queryFn: () => api.get<AdminUserPage>(`/admin/users?${params.toString()}`),
+  });
 }
 
 function useAdminMutation<TVars>(fn: (vars: TVars) => Promise<unknown>) {

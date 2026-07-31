@@ -24,8 +24,21 @@ type UserRepo interface {
 	ByEmail(ctx context.Context, email string) (*domain.User, error)
 	ByID(ctx context.Context, id int64) (*domain.User, error)
 	List(ctx context.Context) ([]*domain.User, error)
+	// ListPage returns one filtered page of accounts, oldest first.
+	ListPage(ctx context.Context, f UserFilter, offset, limit int) ([]*domain.User, error)
 	Count(ctx context.Context) (int, error)
+	// CountFiltered counts the accounts matching the same filter as ListPage,
+	// so a page can report the total it belongs to.
+	CountFiltered(ctx context.Context, f UserFilter) (int, error)
 	CountAdmins(ctx context.Context) (int, error)
+}
+
+// UserFilter narrows the admin user list. Empty fields match everything; the
+// tri-state strings are "on", "off" or "" like the usage report.
+type UserFilter struct {
+	Search    string
+	Admin     string
+	TwoFactor string
 }
 
 // PendingEnrollmentRepo stores public signups before mailbox proof.
@@ -67,6 +80,9 @@ type TwoFactorRepo interface {
 	// EnabledUserIDs lists the users with 2FA on, so the admin screen can show
 	// the flag without a query per row.
 	EnabledUserIDs(ctx context.Context) ([]int64, error)
+	// EnabledUserIDsIn lists which of the given users have 2FA on, so a paged
+	// admin list only loads the flag for the page it shows.
+	EnabledUserIDsIn(ctx context.Context, ids []int64) ([]int64, error)
 	DeleteForUser(ctx context.Context, userID int64) error
 }
 

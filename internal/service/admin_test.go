@@ -14,6 +14,58 @@ import (
 	"github.com/jdel/gotracks/internal/service"
 )
 
+// The admin user list pages and filters in the database, so the whole table is
+// never loaded and the filters see every match, not just one page.
+func TestListUsersFiltersAndPages(t *testing.T) {
+	_, store, _ := newTodoService(t)
+	admin := service.NewAdminService(store, nil)
+	ctx := context.Background()
+
+	mk := func(email string, isAdmin, twoFA bool) {
+		u := &domain.User{Email: email, Password: "x", IsAdmin: isAdmin}
+		if err := store.Users.Create(ctx, u); err != nil {
+			t.Fatal(err)
+		}
+		if twoFA {
+			if err := store.TwoFactor.Upsert(ctx, &domain.TwoFactor{UserID: u.ID, Enabled: true, Secret: "s"}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	mk("root@example.com", true, true)
+	mk("alice@example.com", false, false)
+	mk("bob@corp.test", false, true)
+	mk("carol@example.com", false, false)
+
+	// 4 accounts, page size 2: two pages of two, total reported as four.
+	p1, err := admin.ListUsers(ctx, repo.UserFilter{}, service.Page{Number: 1, Size: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p1.Total != 4 || len(p1.Users) != 2 {
+		t.Fatalf("page 1: total=%d n=%d, want 4 and 2", p1.Total, len(p1.Users))
+	}
+	p2, _ := admin.ListUsers(ctx, repo.UserFilter{}, service.Page{Number: 2, Size: 2})
+	if len(p2.Users) != 2 || p2.Users[0].ID == p1.Users[0].ID {
+		t.Fatalf("page 2 did not advance: %+v", p2.Users)
+	}
+
+	// Filters count every match, not just the current page.
+	byEmail, _ := admin.ListUsers(ctx, repo.UserFilter{Search: "CORP"}, service.Page{})
+	if byEmail.Total != 1 || byEmail.Users[0].Email != "bob@corp.test" {
+		t.Fatalf("search: total=%d, want 1 (bob)", byEmail.Total)
+	}
+	admins, _ := admin.ListUsers(ctx, repo.UserFilter{Admin: "on"}, service.Page{})
+	if admins.Total != 1 || !admins.Users[0].IsAdmin {
+		t.Fatalf("admin filter: total=%d, want 1 admin", admins.Total)
+	}
+	on, _ := admin.ListUsers(ctx, repo.UserFilter{TwoFactor: "on"}, service.Page{})
+	off, _ := admin.ListUsers(ctx, repo.UserFilter{TwoFactor: "off"}, service.Page{})
+	if on.Total != 2 || off.Total != 2 {
+		t.Fatalf("2fa split: on=%d off=%d, want 2 and 2", on.Total, off.Total)
+	}
+}
+
 // Deleting an account must take everything private to it. Nothing cascades in
 // the schema, so anything missed here outlives the account it belonged to.
 func TestDeleteUserPurgesEverythingItOwned(t *testing.T) {

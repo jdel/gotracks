@@ -43,9 +43,30 @@ func (s *AdminService) GetUser(ctx context.Context, id int64) (*domain.User, err
 	return s.store.Users.ByID(ctx, id)
 }
 
-// ListUsers returns every account.
-func (s *AdminService) ListUsers(ctx context.Context) ([]*domain.User, error) {
-	return s.store.Users.List(ctx)
+// MaxUserPageSize bounds one page of the admin user list.
+const MaxUserPageSize = 200
+
+// UsersPage is one filtered page of accounts plus the total that matched.
+type UsersPage struct {
+	Users []*domain.User
+	Total int
+	Page  int
+	Size  int
+}
+
+// ListUsers returns one filtered page of accounts, oldest first. Filtering and
+// paging both run in the database so the whole table is never loaded.
+func (s *AdminService) ListUsers(ctx context.Context, f repo.UserFilter, p Page) (*UsersPage, error) {
+	page, size, offset := p.Resolve(MaxUserPageSize)
+	total, err := s.store.Users.CountFiltered(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	users, err := s.store.Users.ListPage(ctx, f, offset, size)
+	if err != nil {
+		return nil, err
+	}
+	return &UsersPage{Users: users, Total: total, Page: page, Size: size}, nil
 }
 
 // CreateUser adds an account that cannot sign in until it accepts the emailed

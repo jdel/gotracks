@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Plus, Trash2, ShieldCheck, Shield, ShieldOff, Gauge, Mail } from "lucide-react";
 import {
   useCreateUser,
@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { ApiError } from "@/lib/api";
-import { filterUsers, nextTriState, type TriState } from "@/lib/adminFilter";
+import { nextTriState, type TriState } from "@/lib/adminFilter";
 import type { AdminUser } from "@/lib/types";
 
 /** Label for a tri-state filter button, so its current meaning is readable. */
@@ -42,7 +42,6 @@ export function AdminPage() {
   const t = useT();
   const tn = useTn();
   const { user } = useAuth();
-  const { data: users, isLoading } = useUsers();
   const create = useCreateUser();
   const update = useUpdateUser();
   const del = useDeleteUser();
@@ -71,16 +70,22 @@ export function AdminPage() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
 
-  const visible = filterUsers(users ?? [], {
-    query,
-    admin: adminFilter,
-    twoFactor: twoFactorFilter,
+  // Search hits the server, so debounce it rather than firing a request per
+  // keystroke. The tri-state filters map "all" to no filter.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(id);
+  }, [query]);
+  const tri = (s: TriState) => (s === "all" ? "" : s);
+
+  const { data, isLoading } = useUsers(page, PAGE_SIZE, {
+    q: debouncedQuery,
+    admin: tri(adminFilter),
+    twoFactor: tri(twoFactorFilter),
   });
-  // Paged in the browser: the list is already fetched whole and filtered here,
-  // so paging it server-side would mean moving the filters there too for no
-  // gain at this size.
-  const pageStart = Math.min((page - 1) * PAGE_SIZE, Math.max(0, visible.length - 1));
-  const paged = visible.slice(pageStart, pageStart + PAGE_SIZE);
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
 
   function onCreate(e: FormEvent, onAdded?: () => void) {
     e.preventDefault();
@@ -186,14 +191,14 @@ export function AdminPage() {
         </div>
       </div>
 
-      {!isLoading && users && (
+      {!isLoading && data && (
         <p className="text-xs text-muted-foreground">
-          {tn(users.length, "admin.matchCount", { visible: visible.length, total: users.length })}
+          {tn(total, "admin.matchCount", { count: total })}
         </p>
       )}
 
       <ul className="space-y-2">
-        {paged.map((u) => (
+        {items.map((u) => (
           <li key={u.id}>
             <Card className="flex items-center gap-3 p-3">
               <div className="min-w-0 flex-1">
@@ -281,7 +286,7 @@ export function AdminPage() {
         ))}
       </ul>
 
-      <Pagination page={page} pageSize={PAGE_SIZE} total={visible.length} onPage={setPage} />
+      <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPage={setPage} />
 
       <UserUsageDialog user={showingUsage} onOpenChange={(open) => !open && setShowingUsage(null)} />
 

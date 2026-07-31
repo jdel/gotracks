@@ -13,6 +13,14 @@ export interface AdminUser extends User {
   twoFactorEnabled: boolean;
 }
 
+/** One filtered page of the admin user list. */
+export interface AdminUserPage {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface Tokens {
   accessToken: string;
   refreshToken: string;

@@ -151,6 +151,18 @@ func (r *twoFactorRepo) EnabledUserIDs(ctx context.Context) ([]int64, error) {
 	return ids, err
 }
 
+func (r *twoFactorRepo) EnabledUserIDsIn(ctx context.Context, ids []int64) ([]int64, error) {
+	out := []int64{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	err := r.db.NewSelect().Model((*domain.TwoFactor)(nil)).
+		Column("user_id").
+		Where("enabled = ? AND user_id IN (?)", true, bun.In(ids)).
+		Scan(ctx, &out)
+	return out, err
+}
+
 func (r *twoFactorRepo) DeleteForUser(ctx context.Context, userID int64) error {
 	_, err := r.db.NewDelete().Model((*domain.TwoFactor)(nil)).
 		Where("user_id = ?", userID).Exec(ctx)

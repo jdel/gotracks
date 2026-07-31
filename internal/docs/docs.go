@@ -603,14 +603,43 @@ const docTemplate = `{
                     "admin"
                 ],
                 "summary": "List users",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search by email",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter admins: on|off",
+                        "name": "admin",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter 2FA: on|off",
+                        "name": "twoFactor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "1-based page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows per page",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/api.adminUser"
-                            }
+                            "$ref": "#/definitions/api.adminUserPage"
                         }
                     },
                     "403": {
@@ -3078,6 +3107,26 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
+                }
+            }
+        },
+        "api.adminUserPage": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.adminUser"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },

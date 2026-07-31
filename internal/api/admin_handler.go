@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/jdel/gotracks/internal/domain"
+	"github.com/jdel/gotracks/internal/repo"
 	"github.com/jdel/gotracks/internal/service"
 )
 
@@ -108,6 +109,14 @@ type adminUser struct {
 	TwoFactorEnabled bool `json:"twoFactorEnabled"`
 }
 
+// adminUserPage is one page of the admin user list with the filtered total.
+type adminUserPage struct {
+	Items    []adminUser `json:"items"`
+	Total    int         `json:"total"`
+	Page     int         `json:"page"`
+	PageSize int         `json:"pageSize"`
+}
+
 type instanceSettingsRequest struct {
 	AllowRegister *bool `json:"allowRegister"`
 	// UsageReportAtMinute is a pointer so "absent" is distinct from midnight.
@@ -196,32 +205,54 @@ type updateUserRequest struct {
 	IsAdmin  *bool   `json:"isAdmin"`
 }
 
-// listUsers returns every account with admin-only annotations.
+// listUsers returns one filtered page of accounts with admin-only annotations.
 //
 //	@Summary	List users
 //	@Tags		admin
 //	@Security	BearerAuth
-//	@Success	200	{array}	adminUser
+//	@Param		q			query	string	false	"Search by email"
+//	@Param		admin		query	string	false	"Filter admins: on|off"
+//	@Param		twoFactor	query	string	false	"Filter 2FA: on|off"
+//	@Param		page		query	int		false	"1-based page"
+//	@Param		pageSize	query	int		false	"Rows per page"
+//	@Success	200	{object}	adminUserPage
 //	@Failure	403	{object}	errorBody
 //	@Router		/api/v1/admin/users [get]
 func (h *adminHandler) listUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.admin.ListUsers(r.Context())
+	q := r.URL.Query()
+	atoi := func(name string) int {
+		n, _ := strconv.Atoi(q.Get(name))
+		return n
+	}
+	result, err := h.admin.ListUsers(r.Context(), repo.UserFilter{
+		Search:    q.Get("q"),
+		Admin:     q.Get("admin"),
+		TwoFactor: q.Get("twoFactor"),
+	}, service.Page{Number: atoi("page"), Size: atoi("pageSize")})
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
 	}
+
+	ids := make([]int64, len(result.Users))
+	for i, u := range result.Users {
+		ids[i] = u.ID
+	}
 	enabled := map[int64]bool{}
 	if h.twoFactor != nil {
-		if enabled, err = h.twoFactor.EnabledUsers(r.Context()); err != nil {
+		if enabled, err = h.twoFactor.EnabledFor(r.Context(), ids); err != nil {
 			writeServiceError(w, r, err)
 			return
 		}
 	}
-	out := make([]adminUser, 0, len(users))
-	for _, u := range users {
-		out = append(out, adminUser{User: u, TwoFactorEnabled: enabled[u.ID]})
+
+	items := make([]adminUser, 0, len(result.Users))
+	for _, u := range result.Users {
+		items = append(items, adminUser{User: u, TwoFactorEnabled: enabled[u.ID]})
 	}
-	writeJSON(w, http.StatusOK, out)
+	writeJSON(w, http.StatusOK, adminUserPage{
+		Items: items, Total: result.Total, Page: result.Page, PageSize: result.Size,
+	})
 }
 
 // usageReport returns the stored instance-wide report.

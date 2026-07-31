@@ -38,7 +38,12 @@ beforeEach(() => {
           { status: 409, headers: { "Content-Type": "application/json" } },
         );
       }
-      if (url.includes("/admin/users")) return new Response("[]", { status: 200 });
+      if (url.includes("/admin/users")) {
+        return new Response(JSON.stringify({ items: [], total: 0, page: 1, pageSize: 25 }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
       if (url.includes("/admin/settings")) {
         return new Response(JSON.stringify({ allowRegister: false }), { status: 200 });
       }

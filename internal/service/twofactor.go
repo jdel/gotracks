@@ -341,6 +341,20 @@ func (s *TwoFactorService) EnabledUsers(ctx context.Context) (map[int64]bool, er
 	return out, nil
 }
 
+// EnabledFor returns which of the given users have 2FA on, so a paged admin
+// list loads the flag only for the page it shows.
+func (s *TwoFactorService) EnabledFor(ctx context.Context, ids []int64) (map[int64]bool, error) {
+	enabled, err := s.twoFactor.EnabledUserIDsIn(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]bool, len(enabled))
+	for _, id := range enabled {
+		out[id] = true
+	}
+	return out, nil
+}
+
 // Reset removes 2FA entirely. Used by Disable and by an admin unlocking an
 // account whose owner lost both authenticator and codes.
 func (s *TwoFactorService) Reset(ctx context.Context, userID int64) error {
