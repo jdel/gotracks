@@ -119,13 +119,9 @@ type Report struct {
 	Accounts    []*AccountUsage `json:"accounts"`
 }
 
-const (
-	defaultReportPageSize = 50
-	// maxReportPageSize bounds a single page, so a request cannot ask for an
-	// arbitrarily large slice and (page-1)*size cannot overflow into a negative
-	// slice index.
-	maxReportPageSize = 200
-)
+// maxReportPageSize bounds a single page, so a request cannot ask for an
+// arbitrarily large slice.
+const maxReportPageSize = 200
 
 func matchesTri(value bool, filter string) bool {
 	switch filter {
@@ -169,24 +165,10 @@ func (s *UsageReportService) Latest(ctx context.Context, q ReportQuery) (*Report
 	sortAccounts(accounts, q.SortBy, q.SortDesc)
 
 	total := len(accounts)
-	size := q.PageSize
-	if size <= 0 {
-		size = defaultReportPageSize
-	}
-	if size > maxReportPageSize {
-		size = maxReportPageSize
-	}
-	page := max(q.Page, 1)
-	// Clamp the page to the last one that holds rows before multiplying, so a
-	// huge page number cannot overflow (page-1)*size into a negative index.
-	lastPage := 1
-	if total > 0 {
-		lastPage = (total + size - 1) / size
-	}
-	if page > lastPage {
-		page = lastPage
-	}
-	start := (page - 1) * size
+	page, size, offset := Page{Number: q.Page, Size: q.PageSize}.Resolve(maxReportPageSize)
+	// The rows are already in memory, so bound the slice by the total the
+	// offset alone does not know about.
+	start := min(offset, total)
 	end := min(start+size, total)
 
 	return &Report{
