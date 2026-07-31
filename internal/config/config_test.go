@@ -6,6 +6,26 @@ import (
 	"github.com/jdel/gotracks/internal/config"
 )
 
+func TestWeakSecret(t *testing.T) {
+	cases := []struct {
+		name   string
+		secret string
+		weak   bool
+	}{
+		{"single character", "x", true},
+		{"below floor", "0123456789abcdef0123456789abcde", true}, // 31 bytes
+		{"exactly at floor", "0123456789abcdef0123456789abcdef", false}, // 32 bytes
+		{"openssl rand -hex 32 output", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", false}, // 64 bytes
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := config.WeakSecret(tc.secret); got != tc.weak {
+				t.Fatalf("WeakSecret(%q) = %v, want %v", tc.secret, got, tc.weak)
+			}
+		})
+	}
+}
+
 func TestParseTrustedProxies(t *testing.T) {
 	cases := []struct {
 		name  string

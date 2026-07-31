@@ -155,6 +155,18 @@ func ParseTrustedProxies(s string) ([]netip.Prefix, error) {
 	return out, nil
 }
 
+// MinSecretBytes is the shortest auth.jwt-secret that does not draw a startup
+// warning. GenerateSecret emits 64 hex characters and `openssl rand -hex 32`
+// matches it, so a properly generated key clears this comfortably.
+const MinSecretBytes = 32
+
+// WeakSecret reports whether a configured signing secret is short enough to be
+// guessable. It is advisory only: startup warns but never refuses, so an
+// operator who insists on a weak key keeps it.
+func WeakSecret(secret string) bool {
+	return len(secret) < MinSecretBytes
+}
+
 // GenerateSecret returns a random signing key, used when none is configured.
 // Sessions issued with it stop working after a restart, so a real deployment
 // should always set one explicitly.

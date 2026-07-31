@@ -22,10 +22,15 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # A fixed signing key keeps you signed in across restarts. Fine to leave
-      # for a throwaway home instance; change it for anything real:
-      #   openssl rand -hex 32
-      GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-home-use-change-me-0000000000000000000000000000000000}
+      # Signing key for sessions. Deliberately unset: gotracks generates a random
+      # one at startup, so there is NO secret committed in this file to leak. The
+      # only cost is that a restart signs everyone out. For an instance you keep,
+      # set your own so sessions survive restarts:
+      #   GOTRACKS_AUTH_JWT_SECRET: <output of: openssl rand -hex 32>
+      # NEVER copy a signing secret out of an example into a real deployment — a
+      # key anyone can read from this repo is a key anyone can forge admin tokens
+      # with.
+      # GOTRACKS_AUTH_JWT_SECRET:  (unset — auto-generated each boot)
       GOTRACKS_AUTH_ALLOW_REGISTER: "false"
       GOTRACKS_LOG_FORMAT: text
       # No mail server here, so account links are printed to the log. At debug

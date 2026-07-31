@@ -25,8 +25,15 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Change both for a real deployment: openssl rand -hex 32
-      GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-public-use-change-me-000000000000000000000000000000000000}
+      # Signing key for sessions. Deliberately unset: gotracks generates a random
+      # one at startup, so there is NO secret committed in this file to leak. The
+      # only cost is that a restart signs everyone out. For a deployment you keep,
+      # set your own so sessions survive restarts:
+      #   GOTRACKS_AUTH_JWT_SECRET: <output of: openssl rand -hex 32>
+      # NEVER copy a signing secret out of an example into a real deployment — a
+      # key anyone can read from this repo is a key anyone can forge admin tokens
+      # with.
+      # GOTRACKS_AUTH_JWT_SECRET:  (unset — auto-generated each boot)
       # Public registration is open. Register the first account (which becomes
       # the administrator) before exposing this to the internet; the admin can
       # close registration from the UI afterwards if wanted.

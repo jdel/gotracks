@@ -112,6 +112,13 @@ func configFromViper() (*config.Config, error) {
 	}
 
 	if secret := viper.GetString("auth.jwt-secret"); secret != "" {
+		if config.WeakSecret(secret) {
+			if suggestion, err := config.GenerateSecret(); err == nil {
+				log.Warn().Msgf("auth.jwt-secret is shorter than 32 bytes and easy to guess; replace it with a strong key such as: %s", suggestion)
+			} else {
+				log.Warn().Msg("auth.jwt-secret is shorter than 32 bytes and easy to guess; generate a strong one with: openssl rand -hex 32")
+			}
+		}
 		cfg.JWTSecret = []byte(secret)
 	} else {
 		// Convenient for a first look, but a fresh secret each boot signs

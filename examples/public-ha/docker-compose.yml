@@ -36,9 +36,12 @@ x-gotracks: &gotracks
       condition: service_started
   environment:
     # ONE secret, identical on every replica. Without this each instance signs
-    # tokens with its own key and the load balancer would hand users 401s.
-    # Change it: openssl rand -hex 32
-    GOTRACKS_AUTH_JWT_SECRET: ${GOTRACKS_AUTH_JWT_SECRET:-public-ha-shared-secret-change-me-0000000000000000000000}
+    # tokens with its own key and the load balancer would hand users 401s — so,
+    # unlike the single-node examples, this cannot be auto-generated per process.
+    # It fails closed: the stack refuses to start until you supply one. Generate
+    # it once and export it before `up` (NEVER reuse a value from this repo):
+    #   export GOTRACKS_AUTH_JWT_SECRET=$(openssl rand -hex 32)
+    GOTRACKS_AUTH_JWT_SECRET: "${GOTRACKS_AUTH_JWT_SECRET:?generate one and export it: openssl rand -hex 32}"
     # Public registration is open. The first account to register becomes the
     # admin — register it before this stack is reachable from the internet (see
     # the README).
