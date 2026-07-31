@@ -60,6 +60,8 @@ func writeServiceError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, http.StatusConflict, "cannot remove the last admin")
 	case errors.Is(err, service.ErrSelfDelete):
 		writeError(w, http.StatusConflict, "cannot delete your own account")
+	case errors.Is(err, service.ErrSelfDemote):
+		writeError(w, http.StatusConflict, "cannot remove your own admin status")
 	case errors.Is(err, service.ErrContextInUse):
 		writeError(w, http.StatusConflict, "context still holds actions; move or delete them first")
 	case errors.Is(err, service.ErrNotDue):

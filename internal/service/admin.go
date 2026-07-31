@@ -14,6 +14,7 @@ import (
 var (
 	ErrLastAdmin  = errors.New("cannot remove the last admin")
 	ErrSelfDelete = errors.New("cannot delete your own account")
+	ErrSelfDemote = errors.New("cannot remove your own admin status")
 	ErrForbidden  = errors.New("forbidden")
 )
 
@@ -105,11 +106,23 @@ func (s *AdminService) CreateUser(ctx context.Context, email string, isAdmin boo
 	return u, nil
 }
 
-// UpdateUser changes an account's email, password or admin flag.
-func (s *AdminService) UpdateUser(ctx context.Context, id int64, email, password *string, isAdmin *bool) (*domain.User, error) {
+// adminGuardKey serializes every admin-count-then-mutate section on one shared
+// lock. The last-admin invariant is instance-wide — two *different* admins can
+// be removed at once — so unlike a quota it cannot key on the target account.
+// Account ids start at 1, so 0 never collides with a real per-account guard.
+const adminGuardKey = 0
+
+// UpdateUser changes an account's email, password or admin flag. callerID is the
+// administrator making the change, so an admin cannot strip their own rights.
+func (s *AdminService) UpdateUser(ctx context.Context, callerID, id int64, email, password *string, isAdmin *bool) (*domain.User, error) {
 	u, err := s.store.Users.ByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	// Removing your own admin rights is refused like self-deletion: an admin
+	// who can still act should not lock themselves out in one click.
+	if isAdmin != nil && !*isAdmin && u.IsAdmin && callerID == id {
+		return nil, ErrSelfDemote
 	}
 	if email != nil {
 		// Normalise and validate exactly as Register/CreateUser do: login looks
@@ -132,21 +145,25 @@ func (s *AdminService) UpdateUser(ctx context.Context, id int64, email, password
 		}
 		u.Password = hash
 	}
-	if isAdmin != nil && *isAdmin != u.IsAdmin {
-		// Demoting the final admin would lock everyone out of administration.
-		if !*isAdmin && u.IsAdmin {
-			admins, err := s.store.Users.CountAdmins(ctx)
-			if err != nil {
-				return nil, err
-			}
-			if admins <= 1 {
-				return nil, ErrLastAdmin
-			}
-		}
-		u.IsAdmin = *isAdmin
-	}
 	u.UpdatedAt = time.Now()
-	if err := s.store.Users.Update(ctx, u); err != nil {
+	// The last-admin count and the write that depends on it must not interleave
+	// with another admin change, or two demotions each see two admins and remove
+	// both. The shared guard serializes every admin mutation instance-wide.
+	if err := s.store.Guard.WithUser(ctx, adminGuardKey, func(ctx context.Context) error {
+		if isAdmin != nil && *isAdmin != u.IsAdmin {
+			if !*isAdmin && u.IsAdmin {
+				admins, err := s.store.Users.CountAdmins(ctx)
+				if err != nil {
+					return err
+				}
+				if admins <= 1 {
+					return ErrLastAdmin
+				}
+			}
+			u.IsAdmin = *isAdmin
+		}
+		return s.store.Users.Update(ctx, u)
+	}); err != nil {
 		return nil, err
 	}
 	// A password is usually reset because the account is compromised. Sessions
@@ -174,16 +191,20 @@ func (s *AdminService) DeleteUser(ctx context.Context, callerID, id int64) error
 	if err != nil {
 		return err
 	}
-	if u.IsAdmin {
-		admins, err := s.store.Users.CountAdmins(ctx)
-		if err != nil {
-			return err
+	// Same instance-wide invariant: the count and the purge it authorizes run
+	// under the shared admin guard so a concurrent change cannot slip between.
+	return s.store.Guard.WithUser(ctx, adminGuardKey, func(ctx context.Context) error {
+		if u.IsAdmin {
+			admins, err := s.store.Users.CountAdmins(ctx)
+			if err != nil {
+				return err
+			}
+			if admins <= 1 {
+				return ErrLastAdmin
+			}
 		}
-		if admins <= 1 {
-			return ErrLastAdmin
-		}
-	}
-	return s.purgeAccount(ctx, id)
+		return s.purgeAccount(ctx, id)
+	})
 }
 
 // DeleteOwnAccount removes the requesting account and everything it owns.
@@ -191,10 +212,12 @@ func (s *AdminService) DeleteUser(ctx context.Context, callerID, id int64) error
 // with administrator-initiated deletion, the last administrator is preserved
 // so the instance cannot be left without administration by accident.
 func (s *AdminService) DeleteOwnAccount(ctx context.Context, id int64) error {
-	if err := s.CanDeleteOwnAccount(ctx, id); err != nil {
-		return err
-	}
-	return s.purgeAccount(ctx, id)
+	return s.store.Guard.WithUser(ctx, adminGuardKey, func(ctx context.Context) error {
+		if err := s.CanDeleteOwnAccount(ctx, id); err != nil {
+			return err
+		}
+		return s.purgeAccount(ctx, id)
+	})
 }
 
 // CanDeleteOwnAccount checks the administration invariant before a deletion

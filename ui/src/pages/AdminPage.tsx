@@ -227,24 +227,30 @@ export function AdminPage() {
                 <OverflowMenu
                   label={t("common.moreActions")}
                   actions={[
-                    {
-                      label: u.isAdmin ? t("admin.menuRevokeAdmin") : t("admin.menuMakeAdmin"),
-                      icon: u.isAdmin ? (
-                        <ShieldCheck className="size-4 text-emerald-600" />
-                      ) : (
-                        <Shield className="size-4" />
-                      ),
-                      onSelect: () =>
-                        act(() =>
-                          update.mutate(
-                            { id: u.id, isAdmin: !u.isAdmin },
-                            {
-                              onError: (err) =>
-                                setError(err instanceof ApiError ? err.message : t("common.errorGeneric")),
-                            },
-                          ),
-                        ),
-                    },
+                    // No admin-toggle on your own row: the server refuses a
+                    // self-demotion, and you are already an admin.
+                    ...(u.id !== user?.id
+                      ? [
+                          {
+                            label: u.isAdmin ? t("admin.menuRevokeAdmin") : t("admin.menuMakeAdmin"),
+                            icon: u.isAdmin ? (
+                              <ShieldCheck className="size-4 text-emerald-600" />
+                            ) : (
+                              <Shield className="size-4" />
+                            ),
+                            onSelect: () =>
+                              act(() =>
+                                update.mutate(
+                                  { id: u.id, isAdmin: !u.isAdmin },
+                                  {
+                                    onError: (err) =>
+                                      setError(err instanceof ApiError ? err.message : t("common.errorGeneric")),
+                                  },
+                                ),
+                              ),
+                          },
+                        ]
+                      : []),
                     // Only when the user has 2FA: an admin is the only way back
                     // in for someone who lost both their authenticator and codes.
                     ...(u.twoFactorEnabled

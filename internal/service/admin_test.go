@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,69 @@ import (
 	"github.com/jdel/gotracks/internal/repo"
 	"github.com/jdel/gotracks/internal/service"
 )
+
+// twoAdmins creates two administrator accounts for the invariant tests.
+func twoAdmins(t *testing.T, store *repo.Store) (*domain.User, *domain.User) {
+	t.Helper()
+	ctx := context.Background()
+	a := &domain.User{Email: "a@example.com", Password: "x", IsAdmin: true}
+	b := &domain.User{Email: "b@example.com", Password: "x", IsAdmin: true}
+	for _, u := range []*domain.User{a, b} {
+		if err := store.Users.Create(ctx, u); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return a, b
+}
+
+// An admin cannot strip their own rights even with another admin present, the
+// same way they cannot delete their own account.
+func TestAdminCannotDemoteSelf(t *testing.T) {
+	_, store, _ := newTodoService(t)
+	admin := service.NewAdminService(store, nil)
+	ctx := context.Background()
+	a, b := twoAdmins(t, store)
+
+	no := false
+	if _, err := admin.UpdateUser(ctx, a.ID, a.ID, nil, nil, &no); !errors.Is(err, service.ErrSelfDemote) {
+		t.Fatalf("self-demote err = %v, want ErrSelfDemote", err)
+	}
+	// Demoting the other admin is still fine while two exist.
+	if _, err := admin.UpdateUser(ctx, a.ID, b.ID, nil, nil, &no); err != nil {
+		t.Fatalf("A demoting B: %v", err)
+	}
+}
+
+// SR-13: A demotes B while B demotes A. Without serialization both see two
+// admins and remove both; the guard must leave exactly one standing.
+func TestConcurrentCrossDemotionsKeepOneAdmin(t *testing.T) {
+	_, store, _ := newTodoService(t)
+	admin := service.NewAdminService(store, nil)
+	ctx := context.Background()
+	a, b := twoAdmins(t, store)
+
+	no := false
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for _, p := range []struct{ caller, target int64 }{{a.ID, b.ID}, {b.ID, a.ID}} {
+		wg.Add(1)
+		go func(caller, target int64) {
+			defer wg.Done()
+			<-start
+			_, _ = admin.UpdateUser(ctx, caller, target, nil, nil, &no)
+		}(p.caller, p.target)
+	}
+	close(start)
+	wg.Wait()
+
+	n, err := store.Users.CountAdmins(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("admins after concurrent cross-demotion = %d, want 1", n)
+	}
+}
 
 // The admin user list pages and filters in the database, so the whole table is
 // never loaded and the filters see every match, not just one page.
@@ -293,7 +357,7 @@ func TestPasswordResetRevokesRefreshTokens(t *testing.T) {
 	}
 
 	newPassword := "New-Passw0rd!"
-	if _, err := admin.UpdateUser(ctx, u.ID, nil, &newPassword, nil); err != nil {
+	if _, err := admin.UpdateUser(ctx, 999, u.ID, nil, &newPassword, nil); err != nil {
 		t.Fatalf("update user: %v", err)
 	}
 

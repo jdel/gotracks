@@ -22,7 +22,7 @@ func TestUpdateUserNormalisesEmail(t *testing.T) {
 	}
 
 	mixed := "Alice@Example.com "
-	if _, err := admin.UpdateUser(ctx, u.ID, &mixed, nil, nil); err != nil {
+	if _, err := admin.UpdateUser(ctx, 999, u.ID, &mixed, nil, nil); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 
@@ -47,7 +47,7 @@ func TestUpdateUserRejectsInvalidEmail(t *testing.T) {
 	}
 
 	bad := "not-an-email"
-	if _, err := admin.UpdateUser(ctx, u.ID, &bad, nil, nil); err == nil {
+	if _, err := admin.UpdateUser(ctx, 999, u.ID, &bad, nil, nil); err == nil {
 		t.Fatal("admin set a malformed email without error")
 	} else if err != auth.ErrInvalidEmail {
 		t.Fatalf("want ErrInvalidEmail, got %v", err)

@@ -463,7 +463,7 @@ func (h *adminHandler) updateUser(w http.ResponseWriter, r *http.Request) {
 	// Read first so the entry can say what actually changed rather than that
 	// something did.
 	before, _ := h.admin.GetUser(r.Context(), id)
-	u, err := h.admin.UpdateUser(r.Context(), id, req.Email, req.Password, req.IsAdmin)
+	u, err := h.admin.UpdateUser(r.Context(), claimsFrom(r).UserID, id, req.Email, req.Password, req.IsAdmin)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
