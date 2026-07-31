@@ -101,6 +101,11 @@ type AuditPage struct {
 // matched instead, which is a deliberate, separate choice.
 const MaxAuditPageSize = 200
 
+// maxAuditPage caps the page number so (page-1)*pageSize cannot overflow into a
+// negative SQL offset. A page this far past the data is empty regardless — over
+// a million pages of up to 200 rows is well beyond anything a reader scrolls to.
+const maxAuditPage = 1 << 20
+
 // Search returns one page of the log, newest first.
 func (s *AuditService) Search(
 	ctx context.Context, f repo.AuditFilter, page, pageSize int,
@@ -110,6 +115,9 @@ func (s *AuditService) Search(
 	}
 	if page < 1 {
 		page = 1
+	}
+	if page > maxAuditPage {
+		page = maxAuditPage
 	}
 	if pageSize < 1 || pageSize > MaxAuditPageSize {
 		pageSize = 50

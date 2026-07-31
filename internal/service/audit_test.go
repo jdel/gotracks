@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,26 @@ import (
 	"github.com/jdel/gotracks/internal/repo"
 	"github.com/jdel/gotracks/internal/service"
 )
+
+// SR-15: an out-of-range page must not overflow (page-1)*pageSize into a
+// negative SQL offset (a 500 on Postgres, a silent first page on SQLite).
+func TestAuditSearchHugePageDoesNotOverflow(t *testing.T) {
+	svc, _ := auditFixture(t)
+	ctx := context.Background()
+	for i := 0; i < 3; i++ {
+		record(t, svc, service.Entry{Action: domain.AuditLoginSucceeded, ActorEmail: "a@example.com"})
+	}
+	page, err := svc.Search(ctx, repo.AuditFilter{}, math.MaxInt, math.MaxInt)
+	if err != nil {
+		t.Fatalf("huge page errored: %v", err)
+	}
+	if page.Total != 3 {
+		t.Fatalf("total = %d, want 3", page.Total)
+	}
+	if len(page.Items) != 0 {
+		t.Fatalf("a page past the data returned %d items, want 0", len(page.Items))
+	}
+}
 
 func auditFixture(t *testing.T) (*service.AuditService, *repo.Store) {
 	t.Helper()
