@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## v0.4.0 - 2026-08-02
 
 ### Breaking changes
 
@@ -10,9 +10,19 @@ All notable changes to this project are documented here.
   instance now becomes the administrator with no secret; registering it on a
   private deployment before exposing the service is the operator's
   responsibility.
+- The admin user list (`GET /api/v1/admin/users`) is now paginated and filtered
+  in the database: it returns `{items, total, page, pageSize}` instead of a bare
+  array and accepts `q`, `admin`, `twoFactor`, `page` and `pageSize` query
+  parameters.
+- An administrator can no longer remove their own administrator rights, mirroring
+  the existing self-deletion guard.
 
 ### Added
 
+- Prometheus metrics on a separate listener (`--metrics.addr`): instance-wide
+  gauges (accounts, attachment storage, configured quotas) pulled live at scrape
+  time, plus HTTP request metrics (rate, latency, in-flight) and security
+  counters. Metric labels are bounded — no per-account series.
 - Optional S3 attachment storage (`--storage.type s3`) for shared, HA-capable
   storage; endpoint and credentials come from the standard `AWS_*` environment.
   The default `local` store speaks S3 to an in-process server, keeping a single
@@ -25,12 +35,42 @@ All notable changes to this project are documented here.
   export carrying a SHA-256 fingerprint of the exact bytes produced.
 - Session management: list active sessions per device and revoke them, including
   "sign out everywhere else".
+- Server settings admin page with a runtime log-level override that takes effect
+  without a restart.
+- Request correlation: an `X-Request-ID` is inherited from trusted proxies (or
+  generated) and threaded through service logs and per-query database logs.
+- Per-address invitation-email throttle to block mailbox flooding.
 - Data export as a zip archive containing structured JSON alongside every
   uploaded attachment.
 - Passkey sign-in enumeration resistance: an unknown address receives an
   invented ceremony indistinguishable from a real one.
 - Italian and German interface translations, joining English and French.
 - The build version is shown in the interface (to signed-in users only).
+
+### Fixed
+
+- Logout, session revocation and password/email changes now invalidate the
+  access token immediately rather than at its expiry (SR-12).
+- Concurrent last-admin changes can no longer leave an instance with no
+  administrator (SR-13).
+- Public mail flows (invitation, verification, reset) are throttled per address
+  and keep a single live link per flow (SR-09).
+- Project default-context references are validated and ownership-scoped, and
+  project deletion no longer detaches actions before confirming (SR-11).
+- The interactive API docs are served with relative URLs and require
+  authentication; the per-Host handler cache and Host reflection are removed
+  (SR-10).
+- Request bodies must contain exactly one JSON value, and usage-report and
+  audit-log pagination are bounded against integer overflow (SR-15).
+- The public deployment examples no longer ship a usable JWT signing secret, and
+  a short configured secret is warned about at startup (SR-14).
+- Date formatting falls back to UTC when the browser reports an unusable time
+  zone such as `Etc/Unknown`.
+- The SMTP client bounds the whole session with a deadline so a hung server
+  cannot stall a request.
+- The auto-delete-attachments preference persists on update, a detected time
+  zone is validated before registration, and legal acceptances are removed when
+  an account is deleted.
 
 ## v0.3.0 - 2026-07-23
 
