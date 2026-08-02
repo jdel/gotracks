@@ -147,10 +147,12 @@ gotracks serves Prometheus metrics on its own address — `--metrics.addr`,
 default `:9091` — separate from the API port, at `GET /metrics`. Set it empty to
 turn the endpoint off.
 
-The endpoint is **unauthenticated and its per-account gauges carry the account's
-email as a label**, so keep the port private: bind it to a private interface, put
-it behind a firewall, or leave the container port unpublished and let Prometheus
-reach it on the internal network. Do not expose `:9091` to the internet.
+The endpoint is **unauthenticated**, so keep the port private: bind it to a
+private interface, put it behind a firewall, or leave the container port
+unpublished and let Prometheus reach it on the internal network. Do not expose
+`:9091` to the internet. The metrics carry no account identifiers — gauges are
+instance-wide totals and every counter label is bounded (see the tables below) —
+but they are still internal operational data.
 
 Alongside the standard Go runtime and process collectors, it exposes two
 families.
