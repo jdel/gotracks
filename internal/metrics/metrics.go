@@ -5,9 +5,11 @@
 // storage, configured quotas) are pulled live at scrape time from the same
 // per-account aggregation the admin usage report uses, so the two cannot drift;
 // deliberately only totals, never a series per account. Security counters are
-// held in memory and incremented at the event, labelled by the account they
-// concern — so a series appears only once something has happened to that
-// account, and idle accounts never show up.
+// held in memory and incremented at the event, labelled only by bounded
+// attributes (outcome, type, resource) and never by account — so their
+// cardinality cannot grow with historical accounts and no identifier leaks on
+// the unauthenticated endpoint. Which account was involved lives in the audit
+// log.
 //
 // A *Recorder is nil-safe: every method is a no-op on a nil receiver, so a
 // service can be wired with metrics or without (tests leave it nil).
