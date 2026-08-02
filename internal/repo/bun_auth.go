@@ -158,7 +158,7 @@ func (r *twoFactorRepo) EnabledUserIDsIn(ctx context.Context, ids []int64) ([]in
 	}
 	err := r.db.NewSelect().Model((*domain.TwoFactor)(nil)).
 		Column("user_id").
-		Where("enabled = ? AND user_id IN (?)", true, bun.In(ids)).
+		Where("enabled = ? AND user_id IN (?)", true, bun.List(ids)).
 		Scan(ctx, &out)
 	return out, err
 }

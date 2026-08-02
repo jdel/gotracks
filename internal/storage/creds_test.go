@@ -1,9 +1,12 @@
 package storage
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 // TestCredentialChainReadsProfileFile proves the shared credentials file and
@@ -23,7 +26,7 @@ func TestCredentialChainReadsProfileFile(t *testing.T) {
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", file)
 	t.Setenv("AWS_PROFILE", "work")
 
-	v, err := awsCredentials().Get()
+	v, err := awsCredentials().GetWithContext(&credentials.CredContext{Client: http.DefaultClient})
 	if err != nil {
 		t.Fatalf("resolve credentials: %v", err)
 	}
@@ -43,7 +46,7 @@ func TestCredentialChainPrefersEnv(t *testing.T) {
 	t.Setenv("AWS_ACCESS_KEY_ID", "FROMENV")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "envsecret")
 
-	v, err := awsCredentials().Get()
+	v, err := awsCredentials().GetWithContext(&credentials.CredContext{Client: http.DefaultClient})
 	if err != nil {
 		t.Fatalf("resolve credentials: %v", err)
 	}
