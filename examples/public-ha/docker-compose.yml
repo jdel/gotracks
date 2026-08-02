@@ -21,7 +21,7 @@
 # ./certs to regenerate.
 
 x-gotracks: &gotracks
-  image: ghcr.io/jdel/gotracks:latest
+  image: ghcr.io/jdel/gotracks:v0.4.0
   # Build from this checkout instead of pulling. Both replicas share one build.
   # Run:  docker compose up -d --build
   build:

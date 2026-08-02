@@ -11,7 +11,7 @@
 # SQLite and local storage pin it to one node. For that, see ../public-ha.
 services:
   gotracks:
-    image: ghcr.io/jdel/gotracks:latest
+    image: ghcr.io/jdel/gotracks:v0.4.0
     # Build from this checkout instead of pulling the published image.
     # Run:  docker compose up -d --build
     build:
