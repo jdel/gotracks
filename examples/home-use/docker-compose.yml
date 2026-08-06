@@ -33,10 +33,9 @@ services:
       # GOTRACKS_AUTH_JWT_SECRET:  (unset — auto-generated each boot)
       GOTRACKS_AUTH_ALLOW_REGISTER: "false"
       GOTRACKS_LOG_FORMAT: text
-      # No mail server here, so account links are printed to the log. At debug
-      # level the full message body (with the link) is logged; find it with:
+      # No mail server here, so account links are printed to the log at the
+      # default info level (the full message body, with the link); find it with:
       #   docker compose logs gotracks | grep -A2 "mail body"
-      GOTRACKS_LOG_LEVEL: debug
       # The externally reachable URL. Without it the logged activation link is
       # relative (/accept-invitation?token=…); with it the link is absolute and
       # clickable, and passkeys work (localhost is a secure WebAuthn origin).

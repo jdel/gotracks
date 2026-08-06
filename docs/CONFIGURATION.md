@@ -119,11 +119,12 @@ Configuration is validated at startup, so a missing key or a malformed sender
 address stops the server rather than surfacing when somebody first asks for a
 password reset.
 
-Run the development backend at debug level to see the bodies and links. Setting
-the public URL makes the logged links directly clickable:
+With no provider configured the message bodies and links are written to the logs
+(at info level), so they show without raising the log level. Setting the public
+URL makes the logged links directly clickable:
 
 ```bash
-go run . serve --log-level debug --http.public-url http://localhost:8080
+go run . serve --http.public-url http://localhost:8080
 ```
 
 `--http.public-url` must be set once a provider is configured: verification,
@@ -138,8 +139,8 @@ instances. Choosing a password through it both activates the account and
 verifies control of the email address, creates the initial session, and opens
 the application without asking for the same credentials again. Administrators
 can resend invitations even when public enrollment is disabled. Without a mail
-provider, development invitations are written to the debug log instead of
-being delivered.
+provider, invitations are written to the log (at info level) instead of being
+delivered.
 
 ## Deliverability
 

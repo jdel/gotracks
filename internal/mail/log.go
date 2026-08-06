@@ -10,8 +10,8 @@ import (
 // the log instead of sending it, so local development needs no mail server and
 // the reset flow can still be walked end to end.
 //
-// The body is logged at debug level only: reset links are credentials, and they
-// should not sit in an operator's info-level logs by default.
+// With no provider configured the body is logged at info level, so the reset
+// link is visible in the default logs without raising the level.
 type logMailer struct{}
 
 func (m *logMailer) Name() string { return "log" }
@@ -22,6 +22,6 @@ func (m *logMailer) Send(_ context.Context, msg Message) error {
 	}
 	log.Info().Str("to", msg.To).Str("subject", msg.Subject).
 		Msg("mail not sent: no provider configured")
-	log.Debug().Str("to", msg.To).Str("body", msg.Text).Msg("mail body")
+	log.Info().Str("to", msg.To).Str("body", msg.Text).Msg("mail body")
 	return nil
 }

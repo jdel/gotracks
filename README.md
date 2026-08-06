@@ -20,7 +20,7 @@ and run:
 
 ```bash
 curl -sL https://github.com/jdel/gotracks/releases/download/v0.4.0/gotracks-0.4.0-linux-amd64.tar.gz | tar zxfv - gotracks
-./gotracks serve --log.level=debug
+./gotracks serve
 ```
 
 **Go.** If you have the Go toolchain installed, run:
@@ -32,7 +32,7 @@ go install github.com/jdel/gotracks@v0.4.0
 **Docker.** Pull the image from ghcr.io/jdel/gotracks
 
 ```bash
-docker run -p 8080:8080 -e GOTRACKS_LOG_LEVEL=debug -v $(PWD)/gotracks-data:/data ghcr.io/jdel/gotracks:v0.4.0
+docker run -p 8080:8080 -v $(PWD)/gotracks-data:/data ghcr.io/jdel/gotracks:v0.4.0
 ```
 
 **Docker Compose.** The [`examples/home-use`](examples/home-use) stack is a
@@ -46,8 +46,8 @@ Then open <http://localhost:8080> and register. **The first account to register
 becomes the administrator** — see [First administrator](#first-administrator-and-public-enrollment)
 below.
 
-In the quick start examples above, the emails are sent to the debug logs, 
-check your logs to find the activation link for the first administrator.
+With no mail provider configured, the emails are written to the logs (at info
+level) — check your logs to find the activation link for the first administrator.
 
 More complex deployment setups (ha, postgres, s3) are located in [`examples/`](examples).
 
@@ -116,7 +116,7 @@ cd ui && npm ci && npm run dev            # UI on :5173
 ```
 
 Open <http://localhost:5173>. Register the first account, then follow the
-invitation link written to the backend's debug log; the first account to
+invitation link written to the backend's log; the first account to
 register becomes the administrator.
 
 Build the production single binary (UI built and embedded):
