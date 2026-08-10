@@ -213,6 +213,8 @@ type updateUserRequest struct {
 //	@Param		q			query	string	false	"Search by email"
 //	@Param		admin		query	string	false	"Filter admins: on|off"
 //	@Param		twoFactor	query	string	false	"Filter 2FA: on|off"
+//	@Param		sort		query	string	false	"Sort column: email|created|verified"
+//	@Param		dir			query	string	false	"Sort direction: asc|desc"
 //	@Param		page		query	int		false	"1-based page"
 //	@Param		pageSize	query	int		false	"Rows per page"
 //	@Success	200	{object}	adminUserPage
@@ -228,6 +230,8 @@ func (h *adminHandler) listUsers(w http.ResponseWriter, r *http.Request) {
 		Search:    q.Get("q"),
 		Admin:     q.Get("admin"),
 		TwoFactor: q.Get("twoFactor"),
+		SortBy:    q.Get("sort"),
+		SortDesc:  q.Get("dir") == "desc",
 	}, service.Page{Number: atoi("page"), Size: atoi("pageSize")})
 	if err != nil {
 		writeServiceError(w, r, err)

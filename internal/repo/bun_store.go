@@ -124,7 +124,7 @@ func applyUserFilter(q *bun.SelectQuery, f UserFilter) *bun.SelectQuery {
 
 func (r *userRepo) ListPage(ctx context.Context, f UserFilter, offset, limit int) ([]*domain.User, error) {
 	us := []*domain.User{}
-	q := applyUserFilter(r.db.NewSelect().Model(&us), f).Order("id ASC").Offset(offset)
+	q := applyUserFilter(r.db.NewSelect().Model(&us), f).OrderExpr(f.OrderBy()).Offset(offset)
 	if limit > 0 {
 		q = q.Limit(limit)
 	}

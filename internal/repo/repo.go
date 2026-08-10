@@ -24,7 +24,8 @@ type UserRepo interface {
 	ByEmail(ctx context.Context, email string) (*domain.User, error)
 	ByID(ctx context.Context, id int64) (*domain.User, error)
 	List(ctx context.Context) ([]*domain.User, error)
-	// ListPage returns one filtered page of accounts, oldest first.
+	// ListPage returns one filtered page of accounts in the filter's order,
+	// oldest first by default.
 	ListPage(ctx context.Context, f UserFilter, offset, limit int) ([]*domain.User, error)
 	Count(ctx context.Context) (int, error)
 	// CountFiltered counts the accounts matching the same filter as ListPage,
@@ -33,12 +34,39 @@ type UserRepo interface {
 	CountAdmins(ctx context.Context) (int, error)
 }
 
-// UserFilter narrows the admin user list. Empty fields match everything; the
-// tri-state strings are "on", "off" or "" like the usage report.
+// UserFilter narrows and orders the admin user list. Empty fields match
+// everything; the tri-state strings are "on", "off" or "" like the usage report.
 type UserFilter struct {
 	Search    string
 	Admin     string
 	TwoFactor string
+	// SortBy names a column to order by: "email", "created" or "verified".
+	// Anything else — including the empty string — keeps the default id order.
+	// The value reaches SQL only through a whitelist, never interpolated.
+	SortBy   string
+	SortDesc bool
+}
+
+// userSortColumns whitelists what SortBy may order by. The list is the contract:
+// a value that is not a key here can never reach the ORDER BY clause.
+var userSortColumns = map[string]string{
+	"email":    "email",
+	"created":  "created_at",
+	"verified": "email_verified_at",
+}
+
+// OrderBy returns the SQL ordering for the filter. The id is always appended as
+// a tiebreak, so a page boundary cannot duplicate or drop a row when several
+// accounts share a value (many share a verified-at of NULL).
+func (f UserFilter) OrderBy() string {
+	column, ok := userSortColumns[f.SortBy]
+	if !ok {
+		return "id ASC"
+	}
+	if f.SortDesc {
+		return column + " DESC, id DESC"
+	}
+	return column + " ASC, id ASC"
 }
 
 // PendingEnrollmentRepo stores public signups before mailbox proof.
