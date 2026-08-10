@@ -286,8 +286,11 @@ type TodoRepo interface {
 	MaxPosition(ctx context.Context, userID, contextID int64) (int, error)
 	// ActivateDue flips deferred todos whose show_from has passed to active.
 	ActivateDue(ctx context.Context, userID int64, now time.Time) error
-	// CountByProject returns the number of todos per project for the user.
-	CountByProject(ctx context.Context, userID int64, state string) (map[int64]int, error)
+	// CountByProjectState returns, per project, the number of todos in each
+	// state. One grouped query rather than one per state: the projects list
+	// needs open, done and total together, and asking three times for the same
+	// rows costs three scans to answer one screen.
+	CountByProjectState(ctx context.Context, userID int64) (map[int64]map[string]int, error)
 	// CountInContext counts the todos held by one context.
 	CountInContext(ctx context.Context, userID, contextID int64) (int, error)
 	// CountForUser counts every todo an account owns, for quota checks.

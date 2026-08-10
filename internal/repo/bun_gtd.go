@@ -181,23 +181,28 @@ func (r *todoRepo) ActivateDue(ctx context.Context, userID int64, now time.Time)
 	return err
 }
 
-func (r *todoRepo) CountByProject(ctx context.Context, userID int64, state string) (map[int64]int, error) {
+func (r *todoRepo) CountByProjectState(ctx context.Context, userID int64) (map[int64]map[string]int, error) {
 	var rows []struct {
-		ProjectID int64 `bun:"project_id"`
-		N         int   `bun:"n"`
+		ProjectID int64  `bun:"project_id"`
+		State     string `bun:"state"`
+		N         int    `bun:"n"`
 	}
-	q := r.db.NewSelect().Model((*domain.Todo)(nil)).
-		ColumnExpr("project_id").ColumnExpr("COUNT(*) AS n").
-		Where("user_id = ? AND project_id IS NOT NULL", userID)
-	if state != "" {
-		q = q.Where("state = ?", state)
-	}
-	if err := q.GroupExpr("project_id").Scan(ctx, &rows); err != nil {
+	err := r.db.NewSelect().Model((*domain.Todo)(nil)).
+		ColumnExpr("project_id").ColumnExpr("state").ColumnExpr("COUNT(*) AS n").
+		Where("user_id = ? AND project_id IS NOT NULL", userID).
+		GroupExpr("project_id, state").
+		Scan(ctx, &rows)
+	if err != nil {
 		return nil, err
 	}
-	out := make(map[int64]int, len(rows))
+	out := make(map[int64]map[string]int, len(rows))
 	for _, row := range rows {
-		out[row.ProjectID] = row.N
+		byState := out[row.ProjectID]
+		if byState == nil {
+			byState = map[string]int{}
+			out[row.ProjectID] = byState
+		}
+		byState[row.State] = row.N
 	}
 	return out, nil
 }

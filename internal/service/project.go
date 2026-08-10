@@ -57,10 +57,17 @@ type ProjectInput struct {
 	ClearDefaultContext bool
 }
 
-// ProjectWithCount is a project plus its open-action count.
+// ProjectWithCount is a project plus its action counts.
+//
+// Open stays "active" alone, as it always was. Done and Total are what the
+// project card's progress meter is drawn from, and Total counts every action
+// filed under the project whatever its state — a deferred action is still work
+// the project is carrying.
 type ProjectWithCount struct {
 	*domain.Project
-	OpenCount int `json:"openCount"`
+	OpenCount  int `json:"openCount"`
+	DoneCount  int `json:"doneCount"`
+	TotalCount int `json:"totalCount"`
 }
 
 // ProjectNotesInUseError is returned when deleting a project whose notes have
@@ -87,13 +94,23 @@ func (s *ProjectService) List(ctx context.Context, userID int64, state string) (
 	if err != nil {
 		return nil, err
 	}
-	counts, err := s.todos.CountByProject(ctx, userID, domain.StateActive)
+	counts, err := s.todos.CountByProjectState(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]*ProjectWithCount, 0, len(ps))
 	for _, p := range ps {
-		out = append(out, &ProjectWithCount{Project: p, OpenCount: counts[p.ID]})
+		byState := counts[p.ID]
+		total := 0
+		for _, n := range byState {
+			total += n
+		}
+		out = append(out, &ProjectWithCount{
+			Project:    p,
+			OpenCount:  byState[domain.StateActive],
+			DoneCount:  byState[domain.StateCompleted],
+			TotalCount: total,
+		})
 	}
 	return out, nil
 }

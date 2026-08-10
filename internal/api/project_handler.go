@@ -30,12 +30,12 @@ func (r *projectRequest) toInput() service.ProjectInput {
 	}
 }
 
-// list returns the caller's projects.
+// list returns the caller's projects, each with its action counts.
 //
 //	@Summary	List projects
 //	@Tags		projects
 //	@Security	BearerAuth
-//	@Success	200	{array}	domain.Project
+//	@Success	200	{array}	service.ProjectWithCount
 //	@Router		/api/v1/projects [get]
 func (h *projectHandler) list(w http.ResponseWriter, r *http.Request) {
 	uid := claimsFrom(r).UserID
