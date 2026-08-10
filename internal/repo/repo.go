@@ -58,15 +58,18 @@ var userSortColumns = map[string]string{
 // OrderBy returns the SQL ordering for the filter. The id is always appended as
 // a tiebreak, so a page boundary cannot duplicate or drop a row when several
 // accounts share a value (many share a verified-at of NULL).
+// NULLS FIRST/LAST is spelled out rather than left to the engine: SQLite sorts
+// NULLs first on ASC and Postgres sorts them last, so an unverified account
+// would appear at opposite ends of the same page depending on the database.
 func (f UserFilter) OrderBy() string {
 	column, ok := userSortColumns[f.SortBy]
 	if !ok {
 		return "id ASC"
 	}
 	if f.SortDesc {
-		return column + " DESC, id DESC"
+		return column + " DESC NULLS LAST, id DESC"
 	}
-	return column + " ASC, id ASC"
+	return column + " ASC NULLS FIRST, id ASC"
 }
 
 // PendingEnrollmentRepo stores public signups before mailbox proof.

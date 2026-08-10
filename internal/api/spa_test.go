@@ -38,3 +38,25 @@ func TestSPAHandlerRejectsUnknownAPIPaths(t *testing.T) {
 		}
 	})
 }
+
+// The fonts are self-hosted under /static/fonts/, which the cookie policy
+// depends on — nothing may be fetched from a third-party domain. A path that
+// silently fell through to index.html would leave the browser parsing HTML as
+// a font and quietly falling back to a system face.
+func TestSPAHandlerServesTheSelfHostedFonts(t *testing.T) {
+	fs := fstest.MapFS{
+		"index.html": {Data: []byte("<!doctype html>")},
+		"static/fonts/manrope-latin-wght-normal.woff2": {Data: []byte("wOF2")},
+	}
+	h := spaHandler(fs)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/fonts/manrope-latin-wght-normal.woff2", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if body := rec.Body.String(); body != "wOF2" {
+		t.Fatalf("body = %q, want the font bytes rather than the SPA", body)
+	}
+}

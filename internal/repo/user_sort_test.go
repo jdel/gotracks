@@ -18,10 +18,10 @@ func TestUserFilterOrderByWhitelistsTheColumn(t *testing.T) {
 		want string
 	}{
 		{"default", repo.UserFilter{}, "id ASC"},
-		{"email", repo.UserFilter{SortBy: "email"}, "email ASC, id ASC"},
-		{"email desc", repo.UserFilter{SortBy: "email", SortDesc: true}, "email DESC, id DESC"},
-		{"created", repo.UserFilter{SortBy: "created"}, "created_at ASC, id ASC"},
-		{"verified", repo.UserFilter{SortBy: "verified"}, "email_verified_at ASC, id ASC"},
+		{"email", repo.UserFilter{SortBy: "email"}, "email ASC NULLS FIRST, id ASC"},
+		{"email desc", repo.UserFilter{SortBy: "email", SortDesc: true}, "email DESC NULLS LAST, id DESC"},
+		{"created", repo.UserFilter{SortBy: "created"}, "created_at ASC NULLS FIRST, id ASC"},
+		{"verified", repo.UserFilter{SortBy: "verified"}, "email_verified_at ASC NULLS FIRST, id ASC"},
 		// Anything outside the whitelist falls back rather than reaching SQL.
 		{"unknown", repo.UserFilter{SortBy: "password"}, "id ASC"},
 		{"injection", repo.UserFilter{SortBy: "email; DROP TABLE users"}, "id ASC"},
@@ -121,4 +121,44 @@ func equal(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// Sorting by verification has to put the unverified accounts at a predictable
+// end. SQLite sorts NULLs first and Postgres sorts them last, so the ordering
+// says so explicitly rather than inheriting whatever the engine prefers.
+func TestListPageGroupsUnverifiedAccountsPredictably(t *testing.T) {
+	eachEngine(t, func(t *testing.T, store *repo.Store) {
+		ctx := context.Background()
+		verified := time.Now().Add(-24 * time.Hour)
+
+		for _, u := range []*domain.User{
+			{Email: "invited@example.com", Password: "x"},
+			{Email: "proven@example.com", Password: "x", EmailVerifiedAt: &verified},
+		} {
+			u.CreatedAt, u.UpdatedAt = time.Now(), time.Now()
+			if err := store.Users.Create(ctx, u); err != nil {
+				t.Fatalf("create %s: %v", u.Email, err)
+			}
+		}
+
+		first := func(f repo.UserFilter) string {
+			us, err := store.Users.ListPage(ctx, f, 0, 10)
+			if err != nil {
+				t.Fatalf("list page: %v", err)
+			}
+			if len(us) == 0 {
+				t.Fatal("no accounts returned")
+			}
+			return us[0].Email
+		}
+
+		// Ascending: never-verified first, on either engine.
+		if got := first(repo.UserFilter{SortBy: "verified"}); got != "invited@example.com" {
+			t.Errorf("verified ASC first = %s, want invited@example.com", got)
+		}
+		// Descending inverts it, so the unverified move to the end.
+		if got := first(repo.UserFilter{SortBy: "verified", SortDesc: true}); got != "proven@example.com" {
+			t.Errorf("verified DESC first = %s, want proven@example.com", got)
+		}
+	})
 }
