@@ -2,6 +2,44 @@
 
 All notable changes to this project are documented here.
 
+## v0.5.0 - 2026-08-10
+
+### Added
+
+- The interface was rebuilt on a shared design system: self-hosted fonts, a
+  token-only palette with a full dark theme, and a set of shared primitives every
+  screen is composed from. The desktop navigation is now an icon sidebar that
+  collapses to icons only and remembers the choice per device; on phones the tab
+  bar and "More" sheet are unchanged.
+- Deleting an action, note or recurrence is optimistic and undoable: the row
+  leaves at once and a 5s toast offers Undo, replacing the confirmation dialog.
+  Completing an action works the same way — it strikes through, and un-checking
+  the box inside the window cancels it.
+- Actions carry touch gestures: swipe left to delete, swipe right to star, and
+  long-press for an action sheet.
+- The tickler and the completed archive group their rows by day, in the
+  account's time zone.
+- Projects report `doneCount` and `totalCount` alongside `openCount`, so a
+  project card can show its progress.
+- The admin user list can be ordered by email, verification or creation date
+  (`sort` and `dir` query parameters, whitelisted server-side), and flags
+  accounts with a pending deletion request or past one of their quotas.
+- Project detail lists the files attached to the project's actions.
+
+### Fixed
+
+- "Today", "overdue" and the count of actions completed today are calculated in
+  the account's time zone rather than the browser's, so an action is no longer
+  reported overdue purely because the machine sits in a different zone.
+- Unverified accounts sort to the same end of the admin user list on SQLite and
+  on Postgres, which disagree on where NULLs belong.
+- Account emails are logged at info level when no mail provider is configured,
+  so the activation link for the first administrator is visible in the logs.
+
+### Changed
+
+- Fonts are served from `/static/fonts/` instead of `/fonts/`.
+
 ## v0.4.0 - 2026-08-02
 
 ### Breaking changes
