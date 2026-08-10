@@ -17,11 +17,6 @@ const docTemplate = `{
     "paths": {
         "/api/v1/2fa": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "tags": [
                     "twofactor"
                 ],
@@ -36,16 +31,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/2fa/disable": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/2fa/disable": {
+            "post": {
                 "tags": [
                     "twofactor"
                 ],
@@ -71,16 +66,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/2fa/enrol/begin": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/2fa/enrol/begin": {
+            "post": {
                 "tags": [
                     "twofactor"
                 ],
@@ -93,16 +88,16 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/2fa/enrol/finish": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/2fa/enrol/finish": {
+            "post": {
                 "tags": [
                     "twofactor"
                 ],
@@ -132,16 +127,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/2fa/recovery/regenerate": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/2fa/recovery/regenerate": {
+            "post": {
                 "tags": [
                     "twofactor"
                 ],
@@ -171,16 +166,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/audit": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/audit": {
+            "get": {
                 "tags": [
                     "admin"
                 ],
@@ -242,16 +237,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/audit/actions": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/audit/actions": {
+            "get": {
                 "tags": [
                     "admin"
                 ],
@@ -266,16 +261,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/audit/export": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/audit/export": {
+            "get": {
                 "tags": [
                     "admin"
                 ],
@@ -301,16 +296,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/legal": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/legal": {
+            "get": {
                 "tags": [
                     "admin"
                 ],
@@ -322,16 +317,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.legalEditorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/legal/{locale}/{kind}": {
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/legal/{locale}/{kind}": {
+            "put": {
                 "tags": [
                     "admin"
                 ],
@@ -371,14 +366,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "tags": [
                     "admin"
                 ],
@@ -409,16 +404,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/log-level": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/log-level": {
+            "get": {
                 "tags": [
                     "admin"
                 ],
@@ -430,14 +425,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/service.LogLevelState"
                         }
                     }
-                }
-            },
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "put": {
                 "tags": [
                     "admin"
                 ],
@@ -466,16 +461,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/reports/usage": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/reports/usage": {
+            "get": {
                 "tags": [
                     "admin"
                 ],
@@ -507,16 +502,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/service.Report"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/reports/usage/run": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/reports/usage/run": {
+            "post": {
                 "tags": [
                     "admin"
                 ],
@@ -531,16 +526,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/settings": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/settings": {
+            "get": {
                 "tags": [
                     "admin"
                 ],
@@ -558,14 +553,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "put": {
                 "tags": [
                     "admin"
                 ],
@@ -594,16 +589,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/users": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/users": {
+            "get": {
                 "tags": [
                     "admin"
                 ],
@@ -665,14 +660,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "post": {
                 "tags": [
                     "admin"
                 ],
@@ -701,16 +696,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/users/{id}": {
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/users/{id}": {
+            "put": {
                 "tags": [
                     "admin"
                 ],
@@ -746,14 +741,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "tags": [
                     "admin"
                 ],
@@ -777,16 +772,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/users/{id}/2fa/reset": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/users/{id}/2fa/reset": {
+            "post": {
                 "tags": [
                     "admin"
                 ],
@@ -810,16 +805,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/users/{id}/invitation": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/users/{id}/invitation": {
+            "post": {
                 "tags": [
                     "admin"
                 ],
@@ -843,16 +838,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/admin/users/{id}/usage": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/admin/users/{id}/usage": {
+            "get": {
                 "tags": [
                     "admin"
                 ],
@@ -879,16 +874,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/attachments": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/attachments": {
+            "get": {
                 "tags": [
                     "attachments"
                 ],
@@ -903,16 +898,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/attachments/{id}": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/attachments/{id}": {
+            "get": {
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -942,14 +937,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "tags": [
                     "attachments"
                 ],
@@ -973,7 +968,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/auth/2fa/verify": {
@@ -1435,11 +1435,6 @@ const docTemplate = `{
         },
         "/api/v1/contexts": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "tags": [
                     "contexts"
                 ],
@@ -1454,14 +1449,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            },
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "post": {
                 "tags": [
                     "contexts"
                 ],
@@ -1490,16 +1485,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/contexts/{id}": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/contexts/{id}": {
+            "get": {
                 "tags": [
                     "contexts"
                 ],
@@ -1526,14 +1521,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "put": {
                 "tags": [
                     "contexts"
                 ],
@@ -1569,14 +1564,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "tags": [
                     "contexts"
                 ],
@@ -1606,16 +1601,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.contextInUseBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/export": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/export": {
+            "get": {
                 "produces": [
                     "application/zip"
                 ],
@@ -1636,7 +1631,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/legal": {
@@ -1668,11 +1668,6 @@ const docTemplate = `{
         },
         "/api/v1/me": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "tags": [
                     "account"
                 ],
@@ -1690,16 +1685,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/me/deletion": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/me/deletion": {
+            "post": {
                 "tags": [
                     "account"
                 ],
@@ -1714,16 +1709,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/me/email-change": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/me/email-change": {
+            "post": {
                 "tags": [
                     "account"
                 ],
@@ -1755,16 +1750,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/me/password": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/me/password": {
+            "post": {
                 "tags": [
                     "account"
                 ],
@@ -1793,16 +1788,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/me/reauth/passkey/begin": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/me/reauth/passkey/begin": {
+            "post": {
                 "tags": [
                     "account"
                 ],
@@ -1815,16 +1810,16 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/me/sessions": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/me/sessions": {
+            "get": {
                 "tags": [
                     "account"
                 ],
@@ -1839,14 +1834,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "tags": [
                     "account"
                 ],
@@ -1855,16 +1850,16 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     }
-                }
-            }
-        },
-        "/api/v1/me/sessions/{id}": {
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/me/sessions/{id}": {
+            "delete": {
                 "tags": [
                     "account"
                 ],
@@ -1882,16 +1877,16 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     }
-                }
-            }
-        },
-        "/api/v1/notes": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/notes": {
+            "get": {
                 "tags": [
                     "notes"
                 ],
@@ -1914,14 +1909,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            },
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "post": {
                 "tags": [
                     "notes"
                 ],
@@ -1950,16 +1945,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/notes/{id}": {
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/notes/{id}": {
+            "put": {
                 "tags": [
                     "notes"
                 ],
@@ -1995,14 +1990,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "tags": [
                     "notes"
                 ],
@@ -2026,16 +2021,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/passkeys": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/passkeys": {
+            "get": {
                 "tags": [
                     "passkeys"
                 ],
@@ -2050,16 +2045,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/passkeys/register/begin": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/passkeys/register/begin": {
+            "post": {
                 "tags": [
                     "passkeys"
                 ],
@@ -2072,16 +2067,16 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/passkeys/register/finish": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/passkeys/register/finish": {
+            "post": {
                 "tags": [
                     "passkeys"
                 ],
@@ -2110,16 +2105,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/passkeys/{id}": {
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/passkeys/{id}": {
+            "delete": {
                 "tags": [
                     "passkeys"
                 ],
@@ -2143,16 +2138,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/preferences": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/preferences": {
+            "get": {
                 "tags": [
                     "preferences"
                 ],
@@ -2164,14 +2159,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/domain.Preference"
                         }
                     }
-                }
-            },
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "put": {
                 "tags": [
                     "preferences"
                 ],
@@ -2200,16 +2195,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/projects": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/projects": {
+            "get": {
                 "tags": [
                     "projects"
                 ],
@@ -2224,14 +2219,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            },
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "post": {
                 "tags": [
                     "projects"
                 ],
@@ -2260,16 +2255,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/projects/{id}": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/projects/{id}": {
+            "get": {
                 "tags": [
                     "projects"
                 ],
@@ -2296,14 +2291,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "put": {
                 "tags": [
                     "projects"
                 ],
@@ -2339,14 +2334,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "tags": [
                     "projects"
                 ],
@@ -2370,16 +2365,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/projects/{id}/review": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/projects/{id}/review": {
+            "post": {
                 "tags": [
                     "projects"
                 ],
@@ -2406,16 +2401,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/recurring": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/recurring": {
+            "get": {
                 "tags": [
                     "recurring"
                 ],
@@ -2430,14 +2425,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            },
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "post": {
                 "tags": [
                     "recurring"
                 ],
@@ -2466,16 +2461,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/recurring/{id}": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/recurring/{id}": {
+            "get": {
                 "tags": [
                     "recurring"
                 ],
@@ -2502,14 +2497,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "put": {
                 "tags": [
                     "recurring"
                 ],
@@ -2545,14 +2540,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "tags": [
                     "recurring"
                 ],
@@ -2576,16 +2571,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/stats": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/stats": {
+            "get": {
                 "tags": [
                     "stats"
                 ],
@@ -2597,16 +2592,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/service.Stats"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/tags": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/tags": {
+            "get": {
                 "tags": [
                     "tags"
                 ],
@@ -2621,16 +2616,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/todos": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/todos": {
+            "get": {
                 "tags": [
                     "todos"
                 ],
@@ -2665,14 +2660,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            },
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "post": {
                 "tags": [
                     "todos"
                 ],
@@ -2701,16 +2696,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/todos/{id}": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/todos/{id}": {
+            "get": {
                 "tags": [
                     "todos"
                 ],
@@ -2737,14 +2732,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "put": {
                 "tags": [
                     "todos"
                 ],
@@ -2780,14 +2775,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "tags": [
                     "todos"
                 ],
@@ -2811,16 +2806,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/todos/{id}/attachments": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/todos/{id}/attachments": {
+            "get": {
                 "tags": [
                     "attachments"
                 ],
@@ -2850,14 +2845,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            },
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "post": {
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -2894,16 +2889,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/todos/{id}/complete": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/todos/{id}/complete": {
+            "post": {
                 "tags": [
                     "todos"
                 ],
@@ -2930,16 +2925,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/todos/{id}/reactivate": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/todos/{id}/reactivate": {
+            "post": {
                 "tags": [
                     "todos"
                 ],
@@ -2966,16 +2961,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/todos/{id}/reorder": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/todos/{id}/reorder": {
+            "post": {
                 "tags": [
                     "todos"
                 ],
@@ -3008,16 +3003,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/usage": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/usage": {
+            "get": {
                 "tags": [
                     "account"
                 ],
@@ -3035,16 +3030,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/version": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/version": {
+            "get": {
                 "tags": [
                     "meta"
                 ],
@@ -3056,7 +3051,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.versionBody"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
             }
         },
         "/healthz": {
