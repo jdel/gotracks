@@ -19,9 +19,27 @@ class NoopResizeObserver {
 vi.stubGlobal("ResizeObserver", NoopResizeObserver);
 
 const requests: string[] = [];
+/** Rows the fake backend returns for the user list. */
+let users: Record<string, unknown>[] = [];
+
+function adminUser(over: Record<string, unknown> = {}) {
+  return {
+    id: 2,
+    email: "bob@example.com",
+    isAdmin: false,
+    twoFactorEnabled: false,
+    deletionRequested: false,
+    overQuota: false,
+    emailVerifiedAt: "2026-07-01T00:00:00Z",
+    createdAt: "2026-06-01T00:00:00Z",
+    updatedAt: "2026-06-01T00:00:00Z",
+    ...over,
+  };
+}
 
 beforeEach(() => {
   requests.length = 0;
+  users = [];
   vi.mocked(useAuth).mockReturnValue({
     user: { id: 1, email: "admin@example.com", isAdmin: true },
     ready: true,
@@ -39,10 +57,13 @@ beforeEach(() => {
         );
       }
       if (url.includes("/admin/users")) {
-        return new Response(JSON.stringify({ items: [], total: 0, page: 1, pageSize: 25 }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ items: users, total: users.length, page: 1, pageSize: 25 }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
       if (url.includes("/admin/settings")) {
         return new Response(JSON.stringify({ allowRegister: false }), { status: 200 });
@@ -81,6 +102,58 @@ describe("admin user invitation", () => {
 
     await waitFor(() =>
       expect(screen.getAllByText("that email address is already registered")).toHaveLength(1),
+    );
+  });
+});
+
+// The state column is chips rather than prose, and two of them warn: an account
+// on its way out, and one that cannot create anything more.
+describe("admin user state chips", () => {
+  it("flags a pending deletion and an account over its quota", async () => {
+    users = [
+      adminUser({ id: 2, email: "leaving@example.com", deletionRequested: true }),
+      adminUser({ id: 3, email: "full@example.com", overQuota: true }),
+      adminUser({ id: 4, email: "invited@example.com", emailVerifiedAt: undefined }),
+    ];
+    renderPage();
+
+    // Rendered twice by DataTable — once as a card, once as a table row.
+    expect((await screen.findAllByText("deletion requested")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("over quota").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("invited").length).toBeGreaterThan(0);
+  });
+
+  it("shows no warning chips for an ordinary account", async () => {
+    users = [adminUser()];
+    renderPage();
+
+    await screen.findAllByText("bob@example.com");
+    expect(screen.queryByText("deletion requested")).toBeNull();
+    expect(screen.queryByText("over quota")).toBeNull();
+  });
+});
+
+// Sorting is the server's job, so a header click has to reach the API — sorting
+// the page in the browser would only reorder the rows already fetched.
+describe("admin user sorting", () => {
+  it("asks the server for each order in turn", async () => {
+    const user = userEvent.setup();
+    users = [adminUser()];
+    renderPage();
+
+    await screen.findAllByText("bob@example.com");
+    const header = () => screen.getByRole("button", { name: /Email/i });
+
+    await user.click(header());
+    await waitFor(() => expect(requests.some((r) => r.includes("sort=email&dir=asc"))).toBe(true));
+
+    await user.click(header());
+    await waitFor(() => expect(requests.some((r) => r.includes("sort=email&dir=desc"))).toBe(true));
+
+    // A third click clears the sort rather than cycling back to ascending.
+    await user.click(header());
+    await waitFor(() =>
+      expect(requests.filter((r) => r.includes("/admin/users")).at(-1)).not.toContain("sort="),
     );
   });
 });

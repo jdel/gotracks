@@ -165,8 +165,9 @@ has uploaded across all their actions, each showing which action it's attached
 to, sortable by name, action, size or upload date. Files can be downloaded or
 deleted from there directly. On phones the table becomes touch-friendly cards,
 with the same sorting controls and no horizontal page scrolling. In an action
-list, the paperclip is tinted when that action has files — whether or not its
-panel is open.
+list on a desktop, the paperclip is tinted when that action has files — whether
+or not its panel is open. On phones the row icons give way to gestures, and the
+same tinted paperclip appears in the long-press action sheet.
 
 Completing an action with attachments normally prompts to delete them, with a
 note that this can be automated in Settings. Turning on "auto-delete
@@ -243,9 +244,13 @@ without a quota bar.
 
 An administrator can see any account's consumption from the user list — the
 gauge icon opens a usage panel — or through
-`GET /api/v1/admin/users/{id}/usage`. It is a separate call rather than a
-column in the user list, since it is seven counts per account and is read one
+`GET /api/v1/admin/users/{id}/usage`. The detail is a separate call rather than
+a column in the user list, since it is seven counts per account and is read one
 account at a time.
+
+The list itself carries only a coarse **over quota** chip, taken from the stored
+usage report rather than computed live, so it is as fresh as the last rebuild.
+Accounts created since that rebuild have no snapshot and show no chip.
 
 ## Data export
 
