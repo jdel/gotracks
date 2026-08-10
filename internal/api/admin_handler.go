@@ -107,6 +107,10 @@ func (h *adminHandler) auditTarget(r *http.Request, action string, target *domai
 type adminUser struct {
 	*domain.User
 	TwoFactorEnabled bool `json:"twoFactorEnabled"`
+	// DeletionRequested is live state (a mailed link that has not expired);
+	// OverQuota is as fresh as the last usage report.
+	DeletionRequested bool `json:"deletionRequested"`
+	OverQuota         bool `json:"overQuota"`
 }
 
 // adminUserPage is one page of the admin user list with the filtered total.
@@ -250,9 +254,20 @@ func (h *adminHandler) listUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	states, err := h.admin.StatesFor(r.Context(), ids)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+
 	items := make([]adminUser, 0, len(result.Users))
 	for _, u := range result.Users {
-		items = append(items, adminUser{User: u, TwoFactorEnabled: enabled[u.ID]})
+		items = append(items, adminUser{
+			User:              u,
+			TwoFactorEnabled:  enabled[u.ID],
+			DeletionRequested: states[u.ID].DeletionRequested,
+			OverQuota:         states[u.ID].OverQuota,
+		})
 	}
 	writeJSON(w, http.StatusOK, adminUserPage{
 		Items: items, Total: result.Total, Page: result.Page, PageSize: result.Size,

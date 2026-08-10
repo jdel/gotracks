@@ -150,6 +150,9 @@ type UsageReportRepo interface {
 	Replace(ctx context.Context, snapshots []*domain.UsageSnapshot) error
 	// List returns the stored report in one query, worst offenders first.
 	List(ctx context.Context, limit int) ([]*domain.UsageSnapshot, error)
+	// ByUserIDs returns the stored snapshot for each of userIDs that has one.
+	// Accounts created since the last run are simply absent.
+	ByUserIDs(ctx context.Context, userIDs []int64) (map[int64]*domain.UsageSnapshot, error)
 	DeleteForUser(ctx context.Context, userID int64) error
 }
 
@@ -169,6 +172,9 @@ type EphemeralRepo interface {
 	Attempt(ctx context.Context, kind, id string, maxAttempts int) (*domain.Ephemeral, error)
 	// CountForUser bounds how much pending state one account can accumulate.
 	CountForUser(ctx context.Context, kind string, userID int64) (int, error)
+	// UsersWithLive reports which of userIDs currently hold a live entry of the
+	// kind. One query for a page of accounts, rather than CountForUser per row.
+	UsersWithLive(ctx context.Context, kind string, userIDs []int64) (map[int64]bool, error)
 	DeleteForUser(ctx context.Context, userID int64) error
 	PurgeExpired(ctx context.Context, now time.Time) error
 }

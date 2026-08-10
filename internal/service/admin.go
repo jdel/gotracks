@@ -26,11 +26,79 @@ var (
 type AdminService struct {
 	store       *repo.Store
 	attachments *AttachmentService
+	quotas      Quotas
 }
 
 // NewAdminService builds an AdminService.
 func NewAdminService(store *repo.Store, attachments *AttachmentService) *AdminService {
 	return &AdminService{store: store, attachments: attachments}
+}
+
+// SetQuotas supplies the limits the user list reports accounts against. Set
+// separately rather than taken at construction: the limits are configuration
+// that the many call sites building this service for a single operation have no
+// interest in, and a zero Quotas simply means nothing is over its limit.
+func (s *AdminService) SetQuotas(q Quotas) { s.quotas = q }
+
+// UserState is what an account's row shows beyond its own columns.
+type UserState struct {
+	// DeletionRequested is true while a mailed account-deletion link is live.
+	// The request is a token, not a column: it expires on its own, and this is
+	// the only place the pending state is visible.
+	DeletionRequested bool
+	// OverQuota is true when the last usage report put the account at or past
+	// one of its limits. It is as fresh as that report, not live — computing it
+	// live would be seven counts per account per page.
+	OverQuota bool
+}
+
+// StatesFor annotates a page of accounts. Two queries for the whole page, so the
+// cost does not grow with the number of rows shown.
+func (s *AdminService) StatesFor(ctx context.Context, userIDs []int64) (map[int64]UserState, error) {
+	out := make(map[int64]UserState, len(userIDs))
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+
+	deleting, err := s.store.Ephemeral.UsersWithLive(ctx, kindAccountDelete, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	snapshots, err := s.store.UsageReports.ByUserIDs(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, id := range userIDs {
+		state := UserState{DeletionRequested: deleting[id]}
+		if snapshot, ok := snapshots[id]; ok {
+			state.OverQuota = s.overQuota(snapshot)
+		}
+		out[id] = state
+	}
+	return out, nil
+}
+
+// overQuota reports whether any of the account's stored counts has reached the
+// limit currently in force. Reaching a limit counts: at the limit nothing more
+// can be created, which is the thing the chip warns about. A limit of zero or
+// less is "unlimited" and cannot be exceeded.
+func (s *AdminService) overQuota(u *domain.UsageSnapshot) bool {
+	pairs := [][2]int64{
+		{u.StorageBytes, s.quotas.StorageBytes},
+		{int64(u.Todos), int64(s.quotas.Todos)},
+		{int64(u.Projects), int64(s.quotas.Projects)},
+		{int64(u.Notes), int64(s.quotas.Notes)},
+		{int64(u.Contexts), int64(s.quotas.Contexts)},
+		{int64(u.Tags), int64(s.quotas.Tags)},
+		{int64(u.Recurring), int64(s.quotas.Recurring)},
+	}
+	for _, p := range pairs {
+		if used, limit := p[0], p[1]; limit > 0 && used >= limit {
+			return true
+		}
+	}
+	return false
 }
 
 // RevokeSessions drops every refresh token a user holds, signing them out

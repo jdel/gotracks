@@ -24,6 +24,9 @@ func (s stubReports) Aggregate(context.Context) ([]*domain.UsageSnapshot, error)
 func (s stubReports) Replace(context.Context, []*domain.UsageSnapshot) error     { return nil }
 func (s stubReports) List(context.Context, int) ([]*domain.UsageSnapshot, error) { return s.snaps, nil }
 func (s stubReports) DeleteForUser(context.Context, int64) error                 { return nil }
+func (s stubReports) ByUserIDs(context.Context, []int64) (map[int64]*domain.UsageSnapshot, error) {
+	return nil, nil
+}
 
 func scrape(t *testing.T, r *metrics.Recorder) string {
 	t.Helper()

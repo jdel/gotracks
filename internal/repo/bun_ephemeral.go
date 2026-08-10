@@ -123,6 +123,27 @@ func (r *ephemeralRepo) CountForUser(ctx context.Context, kind string, userID in
 		Where("kind = ? AND user_id = ? AND expires_at > ?", kind, userID, time.Now()).Count(ctx)
 }
 
+func (r *ephemeralRepo) UsersWithLive(ctx context.Context, kind string, userIDs []int64) (map[int64]bool, error) {
+	out := map[int64]bool{}
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+	var rows []struct {
+		UserID int64 `bun:"user_id"`
+	}
+	err := r.db.NewSelect().Model((*domain.Ephemeral)(nil)).
+		ColumnExpr("DISTINCT user_id").
+		Where("kind = ? AND expires_at > ? AND user_id IN (?)", kind, time.Now(), bun.In(userIDs)).
+		Scan(ctx, &rows)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		out[row.UserID] = true
+	}
+	return out, nil
+}
+
 func (r *ephemeralRepo) DeleteForUser(ctx context.Context, userID int64) error {
 	_, err := r.db.NewDelete().Model((*domain.Ephemeral)(nil)).
 		Where("user_id = ? AND user_id <> 0", userID).Exec(ctx)

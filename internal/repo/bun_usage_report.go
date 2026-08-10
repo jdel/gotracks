@@ -139,6 +139,22 @@ func (r *usageReportRepo) Replace(ctx context.Context, snapshots []*domain.Usage
 }
 
 // List returns the stored report in a single query, worst offenders first.
+func (r *usageReportRepo) ByUserIDs(ctx context.Context, userIDs []int64) (map[int64]*domain.UsageSnapshot, error) {
+	out := map[int64]*domain.UsageSnapshot{}
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+	rows := []*domain.UsageSnapshot{}
+	err := r.db.NewSelect().Model(&rows).Where("user_id IN (?)", bun.In(userIDs)).Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		out[row.UserID] = row
+	}
+	return out, nil
+}
+
 func (r *usageReportRepo) List(ctx context.Context, limit int) ([]*domain.UsageSnapshot, error) {
 	out := []*domain.UsageSnapshot{}
 	// Ordering, filtering and paging happen above this: they depend on the

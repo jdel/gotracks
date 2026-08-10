@@ -294,6 +294,11 @@ func serve(ctx context.Context) error {
 	reports := service.NewUsageReportService(store.UsageReports, settings, reportQuotas)
 	go reports.Schedule(ctx)
 
+	// The user list reports accounts against the same limits the report uses,
+	// so the "over quota" chip and the usage report cannot disagree.
+	adminSvc := service.NewAdminService(store, attachments)
+	adminSvc.SetQuotas(reportQuotas)
+
 	if passkeys != nil {
 		// Keys the synthetic passkey options, so an address without a key is
 		// answered the same way twice.
@@ -330,7 +335,7 @@ func serve(ctx context.Context) error {
 		Stats:       service.NewStatsService(store.Stats, store.Contexts),
 		Transfer:    transfer,
 		Attachments: attachments,
-		Admin:       service.NewAdminService(store, attachments),
+		Admin:       adminSvc,
 		Settings:    settings,
 		Passkeys:    passkeys,
 		Quotas:      quotas,
