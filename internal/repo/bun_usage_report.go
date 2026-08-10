@@ -138,14 +138,15 @@ func (r *usageReportRepo) Replace(ctx context.Context, snapshots []*domain.Usage
 	})
 }
 
-// List returns the stored report in a single query, worst offenders first.
+// ByUserIDs returns the stored snapshot for each of userIDs that has one.
+// Accounts created since the last rebuild are simply absent.
 func (r *usageReportRepo) ByUserIDs(ctx context.Context, userIDs []int64) (map[int64]*domain.UsageSnapshot, error) {
 	out := map[int64]*domain.UsageSnapshot{}
 	if len(userIDs) == 0 {
 		return out, nil
 	}
 	rows := []*domain.UsageSnapshot{}
-	err := r.db.NewSelect().Model(&rows).Where("user_id IN (?)", bun.In(userIDs)).Scan(ctx)
+	err := r.db.NewSelect().Model(&rows).Where("user_id IN (?)", bun.List(userIDs)).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -155,6 +156,7 @@ func (r *usageReportRepo) ByUserIDs(ctx context.Context, userIDs []int64) (map[i
 	return out, nil
 }
 
+// List returns the stored report in a single query.
 func (r *usageReportRepo) List(ctx context.Context, limit int) ([]*domain.UsageSnapshot, error) {
 	out := []*domain.UsageSnapshot{}
 	// Ordering, filtering and paging happen above this: they depend on the

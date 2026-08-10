@@ -133,7 +133,7 @@ func (r *ephemeralRepo) UsersWithLive(ctx context.Context, kind string, userIDs 
 	}
 	err := r.db.NewSelect().Model((*domain.Ephemeral)(nil)).
 		ColumnExpr("DISTINCT user_id").
-		Where("kind = ? AND expires_at > ? AND user_id IN (?)", kind, time.Now(), bun.In(userIDs)).
+		Where("kind = ? AND expires_at > ? AND user_id IN (?)", kind, time.Now(), bun.List(userIDs)).
 		Scan(ctx, &rows)
 	if err != nil {
 		return nil, err
