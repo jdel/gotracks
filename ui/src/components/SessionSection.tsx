@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Monitor, Trash2 } from "lucide-react";
 import { useSessions, useRevokeSession, useRevokeOtherSessions } from "@/hooks/useSessions";
-import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, Panel, Chip } from "@/components/primitives";
 import { apiMessage } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
@@ -38,30 +37,26 @@ export function SessionSection() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t("sessions.title")}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">{t("sessions.subtitle")}</p>
+    <Panel title={t("sessions.title")}>
+        <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">{t("sessions.subtitle")}</p>
 
-        <ul className="space-y-2">
+        <ul className="flex flex-col gap-2">
           {(sessions ?? []).map((s) => (
-            <li key={s.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
+            <li key={s.id} className="flex items-start justify-between gap-3 rounded-control border border-line-3 p-3 dark:border-line-dark">
               <div className="min-w-0 space-y-0.5 text-sm">
                 <div className="flex items-center gap-2">
-                  <Monitor className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="break-all">{s.userAgent || t("sessions.unknownDevice")}</span>
+                  <Monitor className="size-4 shrink-0 text-ink-4" />
+                  <span className="line-clamp-2 font-medium text-ink dark:text-ink-dark">{s.userAgent || t("sessions.unknownDevice")}</span>
                   {s.current && (
-                    <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-xs font-medium">
-                      {t("sessions.current")}
+                    <span className="shrink-0">
+                      <Chip tone="done">{t("sessions.current")}</Chip>
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="mono text-[10px] text-ink-4">
                   {s.ip || t("sessions.unknownAddress")} · {t("sessions.lastUsed")} {dateTime(s.lastUsed)}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="mono text-[10px] text-ink-4">
                   {t("sessions.signedIn")} {dateTime(s.startedAt)}
                 </p>
               </div>
@@ -72,26 +67,25 @@ export function SessionSection() {
                   onClick={() => end(s.id)}
                   disabled={revoke.isPending}
                 >
-                  <Trash2 />
+                  <Trash2 className="text-danger" />
                 </IconButton>
               )}
             </li>
           ))}
         </ul>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm font-medium text-danger">{error}</p>}
 
         {others > 0 && (
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            className="w-fit"
             onClick={() => setConfirmingOthers(true)}
             disabled={revokeOthers.isPending}
           >
             {t("sessions.signOutOthers")}
           </Button>
         )}
-      </CardContent>
 
       <ConfirmDialog
         open={confirmingOthers}
@@ -110,6 +104,6 @@ export function SessionSection() {
           }
         }}
       />
-    </Card>
+    </Panel>
   );
 }

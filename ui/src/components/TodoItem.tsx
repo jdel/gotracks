@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Check,
   Star,
   Trash2,
-  RotateCcw,
   CalendarClock,
   Repeat,
   Paperclip,
@@ -24,20 +23,23 @@ import {
   useUpdateTodo,
 } from "@/hooks/useTodos";
 import { IconButton } from "@/components/ui/icon-button";
-import { Button } from "@/components/ui/button";
+import { Chip, DueChip, Sheet } from "@/components/primitives";
+import { rowActions, inlineEdit } from "@/components/primitive-styles";
+import { SwipeRow } from "@/components/SwipeRow";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { useUndo } from "@/lib/undo";
+import { LEAVE_MS, prefersReducedMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useT, useTn } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
 
-// dueClass colour-codes urgency the way Tracks does:
-// red = today/overdue, orange = within a week, green = later.
-function dueClass(due: string): string {
-  const days = Math.ceil((new Date(due).getTime() - Date.now()) / 86_400_000);
-  if (days <= 0) return "text-destructive";
-  if (days <= 7) return "text-orange-500";
-  return "text-emerald-600 dark:text-emerald-500";
+// An action is overdue once its due date falls before today — asked in the
+// account's time zone, not the browser's, so the red chip does not depend on
+// where the machine happens to be. dayKey is a sortable YYYY-MM-DD, so the
+// string comparison is a day comparison.
+function isOverdue(due: string, dayKey: (iso: string) => string): boolean {
+  return dayKey(due) < dayKey(new Date().toISOString());
 }
 
 /**
@@ -51,52 +53,57 @@ function dueClass(due: string): string {
  */
 function DescriptionEditor({
   todo,
-  busy,
   onCancel,
   onSave,
 }: {
   todo: Todo;
-  busy: boolean;
   onCancel: () => void;
   onSave: (description: string) => void;
 }) {
   const t = useT();
   const [text, setText] = useState(todo.description);
-  const trimmed = text.trim();
+  // Enter or clicking away commits; Escape abandons. No buttons. The ref makes
+  // the edit finish exactly once, so the blur that follows an Enter/Escape does
+  // not fire a second time (and Escape's blur never saves the discarded text).
+  const finished = useRef(false);
+
+  function finish(save: boolean) {
+    if (finished.current) return;
+    finished.current = true;
+    const trimmed = text.trim();
+    if (save && trimmed && trimmed !== todo.description) onSave(trimmed);
+    else onCancel();
+  }
 
   return (
-    <div className="space-y-2">
-      <Input
-        autoFocus
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onCancel();
-          if (e.key === "Enter" && trimmed) onSave(trimmed);
-        }}
-        aria-label={t("todo.actionDescription")}
-        className="h-8"
-      />
-      <div className="flex items-center gap-2">
-        <Button type="button" size="sm" disabled={!trimmed || busy} onClick={() => onSave(trimmed)}>
-          {t("common.save")}
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onCancel}>
-          {t("common.cancel")}
-        </Button>
-      </div>
-    </div>
+    <Input
+      autoFocus
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") finish(false);
+        if (e.key === "Enter") finish(true);
+      }}
+      onBlur={() => finish(true)}
+      aria-label={t("todo.actionDescription")}
+      className={cn(inlineEdit, "text-sm leading-[1.3] font-semibold text-ink dark:text-ink-dark")}
+    />
   );
 }
 
 export interface TodoItemProps {
   todo: Todo;
   showContext?: string;
+  /** Suppress the @context chip — used in the context-grouped view where the
+   *  group header already names the context, so repeating it is noise. */
+  hideContext?: boolean;
+  /** True while this row is lifted during a drag — rotates + elevates it. */
+  lifted?: boolean;
   /** Drag handle props supplied by the sortable wrapper, when reordering is enabled. */
   dragHandle?: React.HTMLAttributes<HTMLButtonElement>;
 }
 
-export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
+export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }: TodoItemProps) {
   const qc = useQueryClient();
   const t = useT();
   const tn = useTn();
@@ -110,29 +117,55 @@ export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
   // request, so this costs nothing extra beyond the first item on the page.
   const { data: allAttachments } = useAllAttachments();
   const hasAttachments = allAttachments?.some((a) => a.todoId === todo.id) ?? false;
+  const { pendingKey, schedule, cancel } = useUndo();
+  const deleteKey = `todo:${todo.id}`;
+  const completeKey = `complete:${todo.id}`;
+  const pendingComplete = pendingKey === completeKey;
+  // True for the few hundred ms the row spends animating out after the undo
+  // window closes.
+  const [leaving, setLeaving] = useState(false);
   const [showFiles, setShowFiles] = useState(false);
-  const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
+  // The mobile long-press action sheet.
+  const [actionsOpen, setActionsOpen] = useState(false);
   // Set right after marking an action done, when it had attachments and
   // auto-delete is off — offers to clean them up instead of doing it silently.
   const [attachmentPrompt, setAttachmentPrompt] = useState<Attachment[] | null>(null);
   const [deletingAttachments, setDeletingAttachments] = useState(false);
   const done = todo.state === "completed";
+  // While the undo window is open the row already reads as done, so the
+  // checkbox and the strike-through follow the pending state too.
+  const shownDone = done || pendingComplete;
 
-  // Marking done always proceeds; the only question is whether to also ask
-  // about attachments. Auto-delete (a user preference) skips the prompt
-  // entirely — the server already removed them as part of completing.
-  async function handleComplete() {
+  // Completing is deferred the same way deleting is: the row strikes through at
+  // once, a 5s toast offers Undo, and un-checking the box does the same thing.
+  // Only when the window closes does the row animate out and the change land.
+  async function commitComplete() {
+    // The only question is whether to also ask about attachments. Auto-delete
+    // (a user preference) skips the prompt entirely — the server already
+    // removed them as part of completing.
     let attachments: Attachment[] = [];
     if (!prefs?.autoDeleteAttachments) {
       attachments = await api
         .get<Attachment[]>(`/todos/${todo.id}/attachments`)
         .catch(() => []);
     }
+    if (!prefersReducedMotion()) {
+      setLeaving(true);
+      await new Promise((r) => setTimeout(r, LEAVE_MS));
+    }
     complete.mutate(todo.id);
     if (attachments.length > 0) {
       setAttachmentPrompt(attachments);
     }
+  }
+
+  function toggleDone() {
+    // Un-checking inside the undo window is an undo, not a re-open: nothing has
+    // been written yet, so there is nothing to reactivate.
+    if (pendingComplete) cancel(completeKey);
+    else if (done) reactivate.mutate(todo.id);
+    else schedule(completeKey, t("todo.completed"), () => void commitComplete());
   }
 
   // Both lists are already cached by React Query, so this costs no extra request.
@@ -142,86 +175,58 @@ export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
     showContext ?? contexts?.find((c) => c.id === todo.contextId)?.name;
   const projectName = projects?.find((p) => p.id === todo.projectId)?.name;
 
+  // Optimistic delete: while pending, the row hides immediately; the toast's
+  // Undo brings it back, and the real delete only runs when the toast expires.
+  if (pendingKey === deleteKey) return null;
+
   return (
-    <li className="rounded-lg border bg-card p-3">
-      <div className="flex items-start gap-3">
+    <SwipeRow
+      lifted={lifted}
+      leaving={leaving}
+      onSwipeLeft={() => schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id))}
+      onSwipeRight={() => update.mutate({ id: todo.id, starred: !todo.starred })}
+      onLongPress={() => setActionsOpen(true)}
+    >
+      {/* items-start, so the handle, the checkbox and the row actions stay on
+          the first line of a title that wraps instead of drifting to its
+          middle. */}
+      <div className="flex items-start gap-2.5">
       {dragHandle && (
         <button
           type="button"
-          className="mt-1 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
-          title={t("todo.dragToReorder")}
+          data-drag-handle
+          aria-label={t("todo.dragToReorder")}
+          className="flex size-6 flex-none cursor-grab items-center justify-center text-check active:cursor-grabbing dark:text-check-dark"
           {...dragHandle}
         >
-          <GripVertical className="size-4" />
+          <GripVertical className="size-3.5" />
         </button>
       )}
-      <IconButton
-        variant="outline"
-        className={cn("mt-0.5 size-6 shrink-0 rounded-full", done && "bg-primary text-primary-foreground")}
-        label={done ? t("todo.reopen") : t("todo.complete")}
-        onClick={() => (done ? reactivate.mutate(todo.id) : void handleComplete())}
+      <button
+        type="button"
+        aria-label={shownDone ? t("todo.reopen") : t("todo.complete")}
+        onClick={toggleDone}
+        className={cn(
+          // mt-0.5 centres the 20px box against the 24px drag handle beside it
+          // and against the first line of the title, which the leading pushes
+          // a couple of pixels down from the top of the row.
+          "mt-0.5 grid size-5 shrink-0 place-items-center rounded-[7px] border-[1.5px] transition-colors",
+          shownDone
+            ? "border-done bg-done text-white"
+            : "border-check bg-card dark:border-check-dark dark:bg-card-dark",
+        )}
       >
-        {done ? <RotateCcw className="size-3" /> : <Check className="size-3" />}
-      </IconButton>
+        {shownDone && <Check className="size-3" strokeWidth={3} />}
+      </button>
 
       <div className="min-w-0 flex-1">
-        {editing ? (
-          <DescriptionEditor
-            todo={todo}
-            busy={update.isPending}
-            onCancel={() => setEditing(false)}
-            onSave={(description) => {
-              // Text only. The context and project are their own controls, so
-              // an "@" or "#" written into a description stays description.
-              update.mutate({ id: todo.id, description });
-              setEditing(false);
-            }}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            title={t("todo.edit")}
-            className="w-full rounded text-left hover:bg-accent/40"
-          >
-            <p className={cn("break-words text-sm", done && "text-muted-foreground line-through")}>
-              {todo.description}
-            </p>
-          </button>
-        )}
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          {contextName && (
-            <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-sky-700 dark:text-sky-300">
-              @{bare(contextName, "@")}
-            </span>
-          )}
-          {projectName && (
-            <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-violet-700 dark:text-violet-300">
-              #{bare(projectName, "#")}
-            </span>
-          )}
-          {todo.due && (
-            <span className={cn("font-medium", dueClass(todo.due))}>{t("todo.due", { date: fmt.day(todo.due) })}</span>
-          )}
-          {todo.showFrom && todo.state === "deferred" && (
-            <span className="flex items-center gap-1">
-              <CalendarClock className="size-3" /> {fmt.day(todo.showFrom)}
-            </span>
-          )}
-          {todo.recurringTodoId && (
-            <span className="flex items-center gap-1" title={t("todo.recurringAction")}>
-              <Repeat className="size-3" />
-            </span>
-          )}
-          {todo.tags.map((tag) => (
-            <span key={tag} className="rounded bg-secondary px-1.5 py-0.5 text-secondary-foreground">
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex shrink-0 gap-0.5">
+        {/* Row actions: attach, star, delete — desktop only. On mobile the same
+            three operations are the swipe and long-press gestures, so showing
+            the icons as well would be a second, redundant affordance.
+            Floated rather than a flex sibling: the title's first line runs
+            beside these, and its later lines run underneath them instead of
+            being squeezed into a permanently narrower column. */}
+        <div className={cn(rowActions, "float-right ml-2.5 hidden md:flex")}>
         <IconButton
           variant="ghost"
           className="size-7"
@@ -234,15 +239,16 @@ export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
           }
           onClick={() => setShowFiles((v) => !v)}
         >
-          {/* Blue says "this action has files", which stays true while the
-              panel is open — so it outranks the open-state tint rather than
-              being replaced by it. */}
+          {/* State lives in the icon: brand tint means this action has files,
+              which stays true while the panel is open. */}
           <Paperclip
             className={cn(
-              "size-4",
+              "size-3.5",
               hasAttachments
-                ? "text-sky-600 dark:text-sky-400"
-                : showFiles && "text-foreground",
+                ? "text-done dark:text-done-dark"
+                : showFiles
+                  ? "text-foreground"
+                  : "text-ink-4",
             )}
           />
         </IconButton>
@@ -252,36 +258,85 @@ export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
           label={todo.starred ? t("todo.removeStar") : t("todo.star")}
           onClick={() => update.mutate({ id: todo.id, starred: !todo.starred })}
         >
-          <Star className={cn("size-4", todo.starred && "fill-yellow-400 text-yellow-500")} />
+          <Star className={cn("size-3.5", todo.starred ? "fill-done text-done" : "text-ink-4")} />
         </IconButton>
         <IconButton
           variant="ghost"
           className="size-7"
           label={t("todo.delete")}
-          onClick={() => setConfirming(true)}
+          onClick={() => schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id))}
         >
-          <Trash2 className="size-4 text-destructive" />
+          <Trash2 className="size-3.5 text-danger" />
         </IconButton>
+        </div>
+        {editing ? (
+          <DescriptionEditor
+            todo={todo}
+            onCancel={() => setEditing(false)}
+            onSave={(description) => {
+              // Text only. The context and project are their own controls, so
+              // an "@" or "#" written into a description stays description.
+              update.mutate({ id: todo.id, description });
+              setEditing(false);
+            }}
+          />
+        ) : (
+          /* Titles wrap — two lines is normal, three allowed; never truncate.
+             A span rather than a <button>: a button is an atomic inline box, so
+             its text cannot split around the floated actions — the whole box
+             drops below them instead. A real inline element breaks mid-line, so
+             the first line stops at the icons and the rest runs under them.
+             The button's keyboard behaviour is restored by hand. */
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={() => setEditing(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setEditing(true);
+              }
+            }}
+            title={t("todo.edit")}
+            className={cn(
+              "cursor-text rounded text-sm leading-[1.3] break-words transition-colors",
+              shownDone
+                ? "font-medium text-ink-4 line-through dark:text-ink-4-dark"
+                : "font-semibold text-ink dark:text-ink-dark",
+            )}
+          >
+            {todo.description}
+          </span>
+        )}
+        {/* Chip order is fixed: @context (unless grouped) → #project → !tags →
+            deferred/recurring meta → due date last. */}
+        {(contextName || projectName || todo.tags.length > 0 || todo.due || todo.showFrom || todo.recurringTodoId) && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 overflow-hidden">
+          {contextName && !hideContext && <Chip tone="brand">@{bare(contextName, "@")}</Chip>}
+          {projectName && <Chip tone="done">#{bare(projectName, "#")}</Chip>}
+          {todo.tags.map((tag) => (
+            <Chip key={tag} tone="neutral">
+              !{tag}
+            </Chip>
+          ))}
+          {todo.showFrom && todo.state === "deferred" && (
+            <span className="mono flex items-center gap-1 text-[10px] text-ink-4">
+              <CalendarClock className="size-3" /> {fmt.day(todo.showFrom)}
+            </span>
+          )}
+          {todo.recurringTodoId && (
+            <span className="flex items-center text-ink-4" title={t("todo.recurringAction")}>
+              <Repeat className="size-3" />
+            </span>
+          )}
+          {todo.due && <DueChip overdue={isOverdue(todo.due, fmt.dayKey)} label={fmt.day(todo.due)} />}
+        </div>
+        )}
       </div>
+
       </div>
 
       {showFiles && <AttachmentPanel todoId={todo.id} />}
-
-      <ConfirmDialog
-        open={confirming}
-        onOpenChange={setConfirming}
-        title={t("todo.deleteTitle")}
-        description={
-          <>
-            <strong>{todo.description}</strong> {t("todo.deleteDescBody")}
-          </>
-        }
-        busy={del.isPending}
-        onConfirm={() => {
-          del.mutate(todo.id);
-          setConfirming(false);
-        }}
-      />
 
       <ConfirmDialog
         open={attachmentPrompt !== null}
@@ -307,6 +362,45 @@ export function TodoItem({ todo, showContext, dragHandle }: TodoItemProps) {
           setAttachmentPrompt(null);
         }}
       />
-    </li>
+
+      {/* Mobile long-press actions — the same operations as the desktop row icons. */}
+      <Sheet open={actionsOpen} onClose={() => setActionsOpen(false)} title={todo.description}>
+        <div className="flex flex-col">
+          <button
+            type="button"
+            onClick={() => {
+              setActionsOpen(false);
+              setShowFiles((v) => !v);
+            }}
+            className="flex items-center gap-3 rounded-control px-2 py-3 text-sm font-medium text-ink hover:bg-surface dark:text-ink-dark dark:hover:bg-card-dark"
+          >
+            <Paperclip className={cn("size-4", hasAttachments ? "text-done dark:text-done-dark" : "text-ink-4")} />
+            {showFiles ? t("todo.hideAttachments") : hasAttachments ? t("todo.showAttachmentsSome") : t("todo.showAttachments")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActionsOpen(false);
+              update.mutate({ id: todo.id, starred: !todo.starred });
+            }}
+            className="flex items-center gap-3 rounded-control px-2 py-3 text-sm font-medium text-ink hover:bg-surface dark:text-ink-dark dark:hover:bg-card-dark"
+          >
+            <Star className={cn("size-4", todo.starred ? "fill-done text-done" : "text-ink-4")} />
+            {todo.starred ? t("todo.removeStar") : t("todo.star")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActionsOpen(false);
+              schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id));
+            }}
+            className="flex items-center gap-3 rounded-control px-2 py-3 text-sm font-medium text-danger hover:bg-danger-soft dark:hover:bg-danger-fill-dark"
+          >
+            <Trash2 className="size-4" />
+            {t("todo.delete")}
+          </button>
+        </div>
+      </Sheet>
+    </SwipeRow>
   );
 }

@@ -9,9 +9,8 @@ import { availableLocales, useLocale, useT } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthLayout } from "@/components/AuthLayout";
 import type { TwoFactorChallenge } from "@/lib/types";
-import { LegalLinks } from "@/pages/LegalPage";
 
 export function LoginPage() {
   const { login, completeTwoFactor, signInWithPasskey } = useAuth();
@@ -122,14 +121,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-xl">
-            {challenge ? t("auth.twoFactorTitle") : t("auth.signInTitle")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+    <AuthLayout title={challenge ? t("auth.twoFactorTitle") : t("auth.signInTitle")}>
           {challenge ? (
             <form onSubmit={onVerify} className="space-y-4">
               <p className="text-sm text-muted-foreground">
@@ -254,9 +246,6 @@ export function LoginPage() {
             </div>
           </form>
           )}
-        </CardContent>
-      </Card>
-      <LegalLinks className="pt-4 text-xs text-muted-foreground" />
-    </div>
+    </AuthLayout>
   );
 }

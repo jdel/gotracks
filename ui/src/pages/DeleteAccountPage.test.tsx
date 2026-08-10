@@ -10,6 +10,7 @@ const { confirmDeletion, logout } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/hooks/useSettings", () => ({
+  useServerConfig: () => ({ data: { legal: false } }),
   useConfirmAccountDeletion: () => ({ mutateAsync: confirmDeletion, isPending: false }),
 }));
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ logout }) }));

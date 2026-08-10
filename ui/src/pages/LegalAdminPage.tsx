@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useLegalEditor, useResetLegalDocument, useSaveLegalDocument } from "@/hooks/useLegal";
-import { PageContainer } from "@/components/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/lib/auth";
+import { initials } from "@/lib/initials";
+import { Screen, HeaderBlock, Panel, Chip } from "@/components/primitives";
+import { inputClass } from "@/components/primitive-styles";
+import { cn } from "@/lib/utils";
 import { apiMessage } from "@/lib/api";
 import { availableLocales, useT } from "@/lib/i18n";
 import type { LegalKind } from "@/lib/types";
@@ -21,47 +25,47 @@ const labelKeys = {
  */
 export function LegalAdminPage() {
   const t = useT();
+  const { user } = useAuth();
   const [locale, setLocale] = useState(availableLocales[0].code);
   const { data: editor } = useLegalEditor();
 
   return (
-    <PageContainer>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("nav.legal")}</h1>
-        <p className="text-sm text-muted-foreground">{t("legal.admin.description")}</p>
-      </div>
+    <Screen
+      header={
+        <HeaderBlock
+          title={t("nav.legal")}
+          avatar={initials(user?.email)}
+        />
+      }
+    >
+      <div className="mt-4 flex flex-col gap-4">
+        <label className="flex max-w-xs flex-col gap-1.5">
+          <span className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">{t("legal.admin.language")}</span>
+          <select
+            id="legal-locale"
+            className={inputClass}
+            value={locale}
+            onChange={(e) => setLocale(e.target.value)}
+          >
+            {availableLocales.map(({ code, label, flag }) => (
+              <option key={code} value={code}>
+                {flag} {label}
+              </option>
+            ))}
+          </select>
+        </label>
 
-      <div className="space-y-2">
-        <Label htmlFor="legal-locale">{t("legal.admin.language")}</Label>
-        <select
-          id="legal-locale"
-          className="h-9 rounded-md border bg-transparent px-2 text-sm"
-          value={locale}
-          onChange={(e) => setLocale(e.target.value)}
-        >
-          {availableLocales.map(({ code, label, flag }) => (
-            <option key={code} value={code}>
-              {flag} {label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* The editors seed their box from the loaded text once, so they must not
-          mount before it arrives — a box seeded from an in-flight query stays
-          empty for good. */}
-      {editor ? (
-        <div className="space-y-6">
-          {kinds.map((kind) => (
-            // Keyed by both, so switching language loads that language's text
-            // rather than leaving the previous one in a stale editor.
+        {/* The editors seed their box from the loaded text once, so they must not
+            mount before it arrives. */}
+        {editor ? (
+          kinds.map((kind) => (
             <DocumentEditor key={`${locale}-${kind}`} locale={locale} kind={kind} />
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">{t("legal.loading")}</p>
-      )}
-    </PageContainer>
+          ))
+        ) : (
+          <p className="text-sm font-medium text-ink-3">{t("legal.loading")}</p>
+        )}
+      </div>
+    </Screen>
   );
 }
 
@@ -90,17 +94,17 @@ function DocumentEditor({ locale, kind }: { locale: string; kind: LegalKind }) {
   }
 
   return (
-    <div className="space-y-2">
+    <Panel>
       <div className="flex items-center justify-between">
-        <Label htmlFor={`legal-${locale}-${kind}`}>{t(labelKeys[kind])}</Label>
-        <span className="text-xs text-muted-foreground">
-          {customised ? t("legal.admin.customised") : t("legal.admin.shipped")}
-        </span>
+        <Label htmlFor={`legal-${locale}-${kind}`} className="text-[17px] font-extrabold tracking-[-0.02em] text-ink dark:text-ink-dark">
+          {t(labelKeys[kind])}
+        </Label>
+        <Chip tone="neutral">{customised ? t("legal.admin.customised") : t("legal.admin.shipped")}</Chip>
       </div>
       <textarea
         id={`legal-${locale}-${kind}`}
         // Markdown, so a monospace box that does not reflow the source.
-        className="min-h-64 w-full rounded-md border bg-transparent p-2 font-mono text-xs"
+        className={cn(inputClass, "h-auto min-h-[220px] py-3 font-mono")}
         spellCheck={false}
         value={body}
         onChange={(e) => setBody(e.target.value)}
@@ -113,9 +117,7 @@ function DocumentEditor({ locale, kind }: { locale: string; kind: LegalKind }) {
         >
           {save.isPending ? t("legal.admin.saving") : t("legal.admin.save")}
         </Button>
-        {status && <span className="text-sm text-muted-foreground">{status}</span>}
-        {/* Pinned right and always present, so it keeps one place in the row.
-            Restores the shipped text on the server and in the box at once. */}
+        {status && <span className="text-sm font-medium text-ink-3">{status}</span>}
         <Button
           size="sm"
           variant="ghost"
@@ -131,6 +133,6 @@ function DocumentEditor({ locale, kind }: { locale: string; kind: LegalKind }) {
           {t("legal.admin.useShipped")}
         </Button>
       </div>
-    </div>
+    </Panel>
   );
 }

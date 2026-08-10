@@ -12,10 +12,12 @@ import { nextTriState, type TriState } from "@/lib/adminFilter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TimezonePicker } from "@/components/TimezonePicker";
-import { PageContainer } from "@/components/PageContainer";
+import { useAuth } from "@/lib/auth";
+import { initials } from "@/lib/initials";
+import { Screen, HeaderBlock, Panel } from "@/components/primitives";
+import { inputClass } from "@/components/primitive-styles";
 import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/SearchInput";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { UsageReport, UsageSnapshot } from "@/lib/types";
@@ -50,18 +52,10 @@ function SortHeader({
 }) {
   const active = sort === column;
   return (
-    <th className="px-2 py-1 text-right font-normal">
-      <button
-        type="button"
-        onClick={() => onSort(column)}
-        className={cn(
-          "inline-flex items-center gap-0.5 hover:text-foreground",
-          active && "text-foreground",
-        )}
-      >
+    <th className={cn("mono-label py-3 text-right", active && "text-brand dark:text-brand-ink-dark")}>
+      <button type="button" onClick={() => onSort(column)} className="inline-flex items-center gap-0.5">
         {label}
-        {active &&
-          (desc ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />)}
+        {active && (desc ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />)}
       </button>
     </th>
   );
@@ -140,7 +134,7 @@ function PercentCell({ percent, raw, limit, t }: { percent: number; raw: string;
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <td className="cursor-default px-2 py-1 text-right text-muted-foreground">—</td>
+          <td className="mono cursor-default py-2.5 text-right text-[13px] text-ink-4">—</td>
         </TooltipTrigger>
         <TooltipContent>{t("reports.noLimit", { raw })}</TooltipContent>
       </Tooltip>
@@ -151,8 +145,8 @@ function PercentCell({ percent, raw, limit, t }: { percent: number; raw: string;
       <TooltipTrigger asChild>
         <td
           className={cn(
-            "cursor-default px-2 py-1 text-right tabular-nums",
-            percent >= 100 ? "font-medium text-destructive" : percent >= 75 ? "text-amber-600" : "",
+            "mono cursor-default py-2.5 text-right text-[13px]",
+            percent >= 90 ? "font-bold text-danger" : "text-ink-2 dark:text-ink-2-dark",
           )}
         >
           {percent}%
@@ -167,6 +161,7 @@ function PercentCell({ percent, raw, limit, t }: { percent: number; raw: string;
 
 export function ReportsPage() {
   const t = useT();
+  const { user } = useAuth();
   const fmt = useDateFmt();
   const [search, setSearch] = useState("");
   const [admin, setAdmin] = useState<TriState>("all");
@@ -200,25 +195,31 @@ export function ReportsPage() {
   }
 
   return (
-    <PageContainer size="wide">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("nav.reports")}</h1>
-<p className="text-sm text-muted-foreground">{t("reports.subtitle")}</p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("reports.usageReport")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <Screen
+      header={
+        <HeaderBlock
+          title={t("nav.reports")}
+          avatar={initials(user?.email)}
+          metrics={[
+            { value: report?.total ?? 0, label: t("admin.metricAccounts") },
+            {
+              label: report?.generatedAt
+                ? t("reports.built", { date: fmt.dateTime(report.generatedAt) })
+                : t("reports.never"),
+            },
+          ]}
+        />
+      }
+    >
+      <Panel className="mt-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-2">
-              <Label htmlFor="report-at">{t("reports.dailyRebuild")}</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="report-at" className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">{t("reports.dailyRebuild")}</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="report-at"
                   type="time"
-                  className="w-32"
+                  className={cn(inputClass, "w-32")}
                   value={minuteToClock(atMinute)}
                   onChange={(e) =>
                     update.mutate({ usageReportAtMinute: clockToMinute(e.target.value) })
@@ -232,12 +233,6 @@ export function ReportsPage() {
               {run.isPending ? t("reports.rebuilding") : t("reports.rebuildNow")}
             </Button>
           </div>
-
-          <p className="text-xs text-muted-foreground">
-            {report?.generatedAt
-              ? t("reports.built", { date: fmt.dateTime(report.generatedAt) })
-              : t("reports.never")}
-          </p>
 
           {/* Same filters as the user list. */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -277,31 +272,22 @@ export function ReportsPage() {
             </div>
           </div>
 
-          {isLoading && !report && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+          {isLoading && !report && <p className="text-sm font-medium text-ink-3">{t("common.loading")}</p>}
 
           {report && report.accounts.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              {report.total === 0 && !search
-                ? t("reports.noData")
-                : t("reports.noMatch")}
+            <p className="text-sm font-medium text-ink-3">
+              {report.total === 0 && !search ? t("reports.noData") : t("reports.noMatch")}
             </p>
           )}
 
           {report && report.accounts.length > 0 && (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-xs text-muted-foreground">
-                    <tr className="border-b">
-                      <th className="px-2 py-1 text-left font-normal">
-                        <button
-                          type="button"
-                          onClick={() => toggleSort("email")}
-                          className={cn(
-                            "inline-flex items-center gap-0.5 hover:text-foreground",
-                            sort === "email" && "text-foreground",
-                          )}
-                        >
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-line dark:border-line-dark">
+                      <th className={cn("mono-label py-3 text-left", sort === "email" && "text-brand dark:text-brand-ink-dark")}>
+                        <button type="button" onClick={() => toggleSort("email")} className="inline-flex items-center gap-0.5">
                           {t("reports.account")}
                           {sort === "email" &&
                             (desc ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />)}
@@ -315,20 +301,16 @@ export function ReportsPage() {
                   </thead>
                   <tbody>
                     {report.accounts.map((a) => (
-                      <tr key={a.userId} className="border-b last:border-0">
-                        <td className="max-w-56 truncate px-2 py-1" title={a.email}>
+                      <tr key={a.userId} className="border-b border-line-3 last:border-0 dark:border-line-dark">
+                        <td className="max-w-56 truncate py-2.5 text-[13px] font-medium text-ink dark:text-ink-dark" title={a.email}>
                           {a.email}
                         </td>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <td
                               className={cn(
-                                "cursor-default px-2 py-1 text-right tabular-nums",
-                                a.worstPercent >= 100
-                                  ? "font-medium text-destructive"
-                                  : a.worstPercent >= 75
-                                    ? "text-amber-600"
-                                    : "text-muted-foreground",
+                                "mono cursor-default py-2.5 text-right text-[13px] font-bold",
+                                a.worstPercent >= 90 ? "text-danger" : "text-ink-4",
                               )}
                             >
                               {a.worstPercent < 0 ? "—" : `${a.worstPercent}%`}
@@ -350,16 +332,10 @@ export function ReportsPage() {
                   </tbody>
                 </table>
               </div>
-              <Pagination
-                page={report.page}
-                pageSize={report.pageSize}
-                total={report.total}
-                onPage={setPage}
-              />
+              <Pagination page={report.page} pageSize={report.pageSize} total={report.total} onPage={setPage} />
             </>
           )}
-        </CardContent>
-      </Card>
-    </PageContainer>
+      </Panel>
+    </Screen>
   );
 }

@@ -40,18 +40,31 @@ export function setOnLogout(fn: () => void) {
   onLogout = fn;
 }
 
-async function refreshTokens(): Promise<boolean> {
-  const refreshToken = tokenStore.refresh;
-  if (!refreshToken) return false;
-  const res = await fetch(`${BASE}/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken }),
+// Single-flight the refresh. Refresh tokens are one-time (they rotate), so if
+// several requests 401 at once — e.g. /me and /preferences at boot — each firing
+// its own refresh would have the first rotate the token and the rest reuse the
+// now-consumed one, get 401, and log the user out. Sharing one in-flight refresh
+// lets every waiter retry with the single new token.
+let refreshInFlight: Promise<boolean> | null = null;
+
+function refreshTokens(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    const refreshToken = tokenStore.refresh;
+    if (!refreshToken) return false;
+    const res = await fetch(`${BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!res.ok) return false;
+    const tokens = (await res.json()) as Tokens;
+    tokenStore.set(tokens);
+    return true;
+  })().finally(() => {
+    refreshInFlight = null;
   });
-  if (!res.ok) return false;
-  const tokens = (await res.json()) as Tokens;
-  tokenStore.set(tokens);
-  return true;
+  return refreshInFlight;
 }
 
 // request is the core fetch wrapper: attaches the bearer token and, on a 401,

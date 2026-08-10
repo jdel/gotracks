@@ -9,10 +9,8 @@ import {
   useTwoFactor,
 } from "@/hooks/useSettings";
 import { ApiError } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, Field, Panel } from "@/components/primitives";
+import { inputClass } from "@/components/primitive-styles";
 import type { TwoFactorEnrolment } from "@/lib/types";
 import { useT, useTn } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
@@ -119,74 +117,65 @@ export function TwoFactorSection() {
   // Shown once, immediately after enrolment or regeneration.
   if (recoveryCodes) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("twofactor.saveTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-<p className="text-sm text-muted-foreground">{t("twofactor.saveIntro")}</p>
-          <ul className="grid grid-cols-2 gap-2 rounded-md border p-3 font-mono text-sm">
+      <Panel title={t("twofactor.saveTitle")}>
+          <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">{t("twofactor.saveIntro")}</p>
+          <ul className="mono grid grid-cols-2 gap-2 rounded-control border border-line-3 p-3 text-sm text-ink dark:border-line-dark dark:text-ink-dark">
             {recoveryCodes.map((c) => (
               <li key={c}>{c}</li>
             ))}
           </ul>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={copyCodes}>
-              <Copy /> {t("twofactor.copy")}
+            <Button type="button" variant="ghost" onClick={copyCodes}>
+              <Copy className="size-4" /> {t("twofactor.copy")}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={downloadCodes}>
-              <Download /> {t("twofactor.download")}
+            <Button type="button" variant="ghost" onClick={downloadCodes}>
+              <Download className="size-4" /> {t("twofactor.download")}
             </Button>
           </div>
           <Button type="button" className="w-full" onClick={() => setRecoveryCodes(null)}>
             {t("twofactor.saved")}
           </Button>
-        </CardContent>
-      </Card>
+      </Panel>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t("twofactor.title")}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+    <Panel title={t("twofactor.title")}>
+        {isLoading && <p className="text-sm font-medium text-ink-3">{t("common.loading")}</p>}
 
         {!isLoading && !status?.enabled && !enrolment && (
           <>
-<p className="text-sm text-muted-foreground">{t("twofactor.intro")}</p>
+            <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">{t("twofactor.intro")}</p>
             <Button type="button" onClick={onBegin} disabled={begin.isPending}>
-              <ShieldCheck /> {begin.isPending ? t("twofactor.preparing") : t("twofactor.setup")}
+              <ShieldCheck className="size-4" /> {begin.isPending ? t("twofactor.preparing") : t("twofactor.setup")}
             </Button>
           </>
         )}
 
         {enrolment && (
           <div className="space-y-4">
-<p className="text-sm text-muted-foreground">{t("twofactor.scan")}</p>
-            <img src={enrolment.qr} alt={t("twofactor.qrAlt")} className="rounded-md border" />
-            <p className="text-xs text-muted-foreground">
+<p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">{t("twofactor.scan")}</p>
+            <img src={enrolment.qr} alt={t("twofactor.qrAlt")} className="rounded-control border border-line-2 dark:border-line-2-dark" />
+            <p className="text-xs font-medium text-ink-4">
               {t("twofactor.cantScan")}{" "}
               <code className="break-all font-mono">{enrolment.secret}</code>
             </p>
-            <div className="space-y-2">
-              <Label htmlFor="totp">{t("twofactor.codeFromApp")}</Label>
-              <Input
+            <Field label={t("twofactor.codeFromApp")}>
+              <input
                 id="totp"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 placeholder="123456"
+                className={inputClass}
               />
-            </div>
+            </Field>
             <div className="flex gap-2">
               <Button type="button" onClick={onFinish} disabled={finish.isPending || !code.trim()}>
                 {finish.isPending ? t("twofactor.verifying") : t("twofactor.turnOn")}
               </Button>
-              <Button type="button" variant="outline" onClick={reset}>
+              <Button type="button" variant="ghost" onClick={reset}>
                 {t("common.cancel")}
               </Button>
             </div>
@@ -195,57 +184,62 @@ export function TwoFactorSection() {
 
         {!isLoading && status?.enabled && !enrolment && (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">
               {t("twofactor.onSince", { date: status.enabledAt ? fmt.date(status.enabledAt) : "—" })}{" "}
               {tn(status.recoveryCodesRemaining, "twofactor.codesLeft")}
             </p>
 
             {showRegenerate ? (
               <div className="space-y-2">
-                <Label htmlFor="regen-password">{t("twofactor.confirmPassword")}</Label>
-                <Input
-                  id="regen-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-<p className="text-xs text-muted-foreground">{t("twofactor.replaceWarn")}</p>
+                <Field label={t("twofactor.confirmPassword")}>
+                  <input
+                    id="regen-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+<p className="text-xs font-medium text-ink-4">{t("twofactor.replaceWarn")}</p>
                 <div className="flex gap-2">
-                  <Button type="button" size="sm" onClick={onRegenerate} disabled={regenerate.isPending}>
+                  <Button type="button" onClick={onRegenerate} disabled={regenerate.isPending}>
                     {regenerate.isPending ? t("common.working") : t("twofactor.generate")}
                   </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={reset}>
+                  <Button type="button" variant="ghost" onClick={reset}>
                     {t("common.cancel")}
                   </Button>
                 </div>
               </div>
             ) : showDisable ? (
               <div className="space-y-2">
-                <Label htmlFor="off-password">{t("twofactor.confirmPassword")}</Label>
-                <Input
-                  id="off-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <Label htmlFor="off-code">{t("twofactor.currentOrRecovery")}</Label>
-                <Input
-                  id="off-code"
-                  value={disableCode}
-                  onChange={(e) => setDisableCode(e.target.value)}
-                  autoComplete="one-time-code"
-                />
+                <Field label={t("twofactor.confirmPassword")}>
+                  <input
+                    id="off-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label={t("twofactor.currentOrRecovery")}>
+                  <input
+                    id="off-code"
+                    value={disableCode}
+                    onChange={(e) => setDisableCode(e.target.value)}
+                    autoComplete="one-time-code"
+                    className={inputClass}
+                  />
+                </Field>
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    size="sm"
-                    variant="destructive"
+                    variant="danger"
                     onClick={onDisable}
                     disabled={disable.isPending || !password || !disableCode.trim()}
                   >
                     {disable.isPending ? t("common.working") : t("twofactor.turnOff")}
                   </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={reset}>
+                  <Button type="button" variant="ghost" onClick={reset}>
                     {t("common.cancel")}
                   </Button>
                 </div>
@@ -254,33 +248,30 @@ export function TwoFactorSection() {
               <div className="flex gap-2">
                 <Button
                   type="button"
-                  size="sm"
-                  variant="outline"
+                  variant="ghost"
                   onClick={() => {
                     reset();
                     setShowRegenerate(true);
                   }}
                 >
-                  <RefreshCw /> {t("twofactor.newCodes")}
+                  <RefreshCw className="size-4" /> {t("twofactor.newCodes")}
                 </Button>
                 <Button
                   type="button"
-                  size="sm"
-                  variant="outline"
+                  variant="ghost"
                   onClick={() => {
                     reset();
                     setShowDisable(true);
                   }}
                 >
-                  <ShieldOff /> {t("twofactor.turnOff")}
+                  <ShieldOff className="size-4" /> {t("twofactor.turnOff")}
                 </Button>
               </div>
             )}
           </div>
         )}
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
-      </CardContent>
-    </Card>
+        {error && <p className="text-sm font-medium text-danger">{error}</p>}
+    </Panel>
   );
 }

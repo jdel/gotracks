@@ -63,6 +63,30 @@ export function formatDay(iso: string, timeZone: string): string {
   }).format(new Date(iso));
 }
 
+/** formatWeekday renders "Mon 3 Aug" — the heading over a day's group of rows. */
+export function formatWeekday(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: usableZone(timeZone),
+  }).format(new Date(iso));
+}
+
+/**
+ * dayKey reduces an instant to the calendar day it falls on *in the account's
+ * zone*, so rows group by the day the user saw, not by the day it was in UTC.
+ * The en-CA locale is chosen only because it yields a sortable YYYY-MM-DD.
+ */
+export function dayKey(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: usableZone(timeZone),
+  }).format(new Date(iso));
+}
+
 /**
  * useDateFmt returns formatters bound to the account's preferences. The zone
  * falls back to the browser's when none is stored, so dates read locally by
@@ -77,5 +101,7 @@ export function useDateFmt() {
     date: useCallback((iso: string) => formatDate(iso, timeZone, layout), [timeZone, layout]),
     day: useCallback((iso: string) => formatDay(iso, timeZone), [timeZone]),
     dateTime: useCallback((iso: string) => formatDateTime(iso, timeZone), [timeZone]),
+    weekday: useCallback((iso: string) => formatWeekday(iso, timeZone), [timeZone]),
+    dayKey: useCallback((iso: string) => dayKey(iso, timeZone), [timeZone]),
   };
 }

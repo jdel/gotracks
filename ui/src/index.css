@@ -2,98 +2,68 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
-  --background: #f8f7fc;
-  --foreground: #211a32;
-  --card: #ffffff;
-  --card-foreground: #211a32;
-  /* Purple is the lead voice; it stays dark enough for white button text. */
-  --primary: #694aae;
-  --primary-foreground: #ffffff;
-  /* Teal is the bright, playful counterpoint. */
-  --secondary: #71bfb3;
-  --secondary-foreground: #153d3a;
-  --muted: #f0edf8;
-  --muted-foreground: #716983;
-  --accent: #e5faf6;
-  --accent-foreground: #245e58;
-  --destructive: #c74262;
-  --destructive-foreground: #ffffff;
-  --border: #e3dff0;
-  --input: #ded8eb;
-  --ring: #71bfb3;
-  --radius: 0.875rem;
-  --brand: #694aae;
-  --brand-secondary: #71bfb3;
-}
+/* gotracks — design system.
+ * The @theme block makes bg-brand, text-ink-2, rounded-card, shadow-card,
+ * font-mono etc. available as utilities. Do not add colours anywhere else. */
+@theme {
+  --font-sans: "Manrope", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-.dark {
-  --background: #171324;
-  --foreground: #f6f2ff;
-  --card: #211b31;
-  --card-foreground: #f6f2ff;
-  --primary: #a98bdd;
-  --primary-foreground: #211632;
-  --secondary: #71bfb3;
-  --secondary-foreground: #103532;
-  --muted: #2c2540;
-  --muted-foreground: #b9b0ca;
-  --accent: #173b3b;
-  --accent-foreground: #bdf2e9;
-  --destructive: #ef7892;
-  --destructive-foreground: #34121d;
-  --border: #3a324e;
-  --input: #413756;
-  --ring: #71bfb3;
-  --brand: #a98bdd;
-  --brand-secondary: #71bfb3;
-}
+  /* brand + semantic */
+  --color-brand: #4338ca;
+  --color-brand-dark: #7c74f0; /* primary in dark theme; use ink text on it */
+  --color-brand-soft: #eef0fa; /* tinted fill, light */
+  --color-brand-header: #1c1b4b; /* header block, dark */
+  --color-brand-ink-dark: #9a93ff;
+  --color-brand-pill-dark: #1e1d3d;
+  --color-done: #14b8a6;
+  --color-done-soft: #e3f6f3;
+  --color-done-text: #0e8577;
+  --color-done-dark: #5eead4;
+  --color-done-fill-dark: #10322e;
+  /* Lightened "done" for the violet header, where #14b8a6 goes muddy. */
+  --color-done-on-brand: #7de7da;
+  --color-danger: #be123c;
+  --color-danger-soft: #fde7ec;
+  --color-danger-dark: #fb7185;
+  --color-danger-fill-dark: #3a1220;
+  /* The third bar tier on Statistics: months older than the recent window. A
+     muted violet so history recedes behind brand without becoming a neutral. */
+  --color-history: #c7c3f0;
+  --color-history-dark: #3b3866;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-brand: var(--brand);
-  --color-brand-secondary: var(--brand-secondary);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-}
+  /* neutrals, light (card is provided theme-aware via the shadcn bridge below) */
+  --color-ink: #14161f;
+  --color-ink-2: #4b5060;
+  --color-ink-3: #6e7280;
+  --color-ink-4: #8a8fa0;
+  --color-surface: #f6f7fb;
+  --color-line: #e5e7ef;
+  --color-line-2: #e1e3ec;
+  --color-line-3: #edeff6;
+  --color-check: #c6cad8;
 
-@layer base {
-  * {
-    border-color: var(--color-border);
-  }
-  body {
-    background-color: var(--color-background);
-    background-image:
-      radial-gradient(circle at 0 0, color-mix(in srgb, var(--brand) 10%, transparent), transparent 27rem),
-      radial-gradient(circle at 100% 12rem, color-mix(in srgb, var(--brand-secondary) 13%, transparent), transparent 30rem);
-    background-attachment: fixed;
-    color: var(--color-foreground);
-    font-family: ui-sans-serif, system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-}
+  /* neutrals, dark */
+  --color-surface-dark: #0f1117;
+  --color-card-dark: #171a22;
+  --color-nav-dark: #131620;
+  --color-line-dark: #22252f;
+  --color-line-2-dark: #262a36;
+  --color-ink-dark: #eceef4;
+  --color-ink-2-dark: #a7adbe;
+  --color-ink-4-dark: #6e7484;
+  --color-check-dark: #3a3f4e;
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    color-scheme: dark;
-  }
+  --radius-card: 14px;
+  --radius-control: 12px;
+  --radius-panel: 18px;
+  --radius-sheet: 22px;
+  --radius-mark: 12px;
+
+  --shadow-card: 0 2px 6px -3px rgb(20 22 31 / 0.15);
+  --shadow-elevated: 0 14px 30px -16px rgb(20 22 31 / 0.28);
+  --shadow-fab: 0 10px 22px -8px rgb(67 56 202 / 0.7);
+  --shadow-sheet: 0 -14px 30px -16px rgb(20 22 31 / 0.28);
 }
 
 /* Self-hosted, subset (latin + latin-ext) — nothing is fetched from a
@@ -134,4 +104,147 @@
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
     U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
     U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* shadcn variable bridge — existing shadcn components (Dialog, Popover, Switch,
+ * Tooltip, DropdownMenu) pick the system up with no edits. Keep the names; only
+ * the values change. */
+:root {
+  color-scheme: light;
+  --background: var(--color-surface);
+  --foreground: var(--color-ink);
+  --card: #ffffff;
+  --card-foreground: var(--color-ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-brand);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-brand-soft);
+  --secondary-foreground: var(--color-brand);
+  --muted: var(--color-surface);
+  --muted-foreground: var(--color-ink-3);
+  --accent: var(--color-brand-soft);
+  --accent-foreground: var(--color-brand);
+  --destructive: var(--color-danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-line);
+  --input: var(--color-line-2);
+  --ring: var(--color-brand);
+  --radius: 0.75rem; /* 12px = --radius-control */
+}
+
+.dark {
+  color-scheme: dark;
+  --background: var(--color-surface-dark);
+  --foreground: var(--color-ink-dark);
+  --card: var(--color-card-dark);
+  --card-foreground: var(--color-ink-dark);
+  --popover: var(--color-card-dark);
+  --popover-foreground: var(--color-ink-dark);
+  --primary: var(--color-brand-dark);
+  --primary-foreground: var(--color-ink); /* dark text on the lighter violet */
+  --secondary: var(--color-brand-pill-dark);
+  --secondary-foreground: var(--color-brand-ink-dark);
+  --muted: var(--color-card-dark);
+  --muted-foreground: var(--color-ink-4-dark);
+  --accent: var(--color-brand-pill-dark);
+  --accent-foreground: var(--color-brand-ink-dark);
+  --destructive: var(--color-danger-dark);
+  --destructive-foreground: var(--color-ink);
+  --border: var(--color-line-dark);
+  --input: var(--color-line-2-dark);
+  --ring: var(--color-brand-dark);
+}
+
+/* Expose the shadcn bridge vars as theme-aware Tailwind colour utilities
+ * (bg-card, bg-primary, border-input, ring-ring …) so reused radix components
+ * follow the light/dark class. the design system's own static tokens live in @theme. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Never remove focus rings. Every interactive element gets this. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* Numerals, IDs, timestamps, audit actions, counts */
+  .mono {
+    font-family: var(--font-mono);
+    font-weight: 400;
+  }
+  .mono-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-ink-4);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+  }
 }

@@ -4,12 +4,22 @@ import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useProjects";
 import { useContexts } from "@/hooks/useContexts";
 import { useAllAttachments } from "@/hooks/useSettings";
+import { useAuth } from "@/lib/auth";
+import { useDateFmt } from "@/lib/datefmt";
+import { initials } from "@/lib/initials";
 import { TodoItem } from "@/components/TodoItem";
 import { SearchInput } from "@/components/SearchInput";
-import { Button } from "@/components/ui/button";
+import {
+  Screen,
+  HeaderBlock,
+  List,
+  GroupHeader,
+  Chip,
+  SkeletonList,
+  EmptyState,
+} from "@/components/primitives";
 import { nextTriState, type TriState } from "@/lib/adminFilter";
 import { cn } from "@/lib/utils";
-import { PageContainer } from "@/components/PageContainer";
 import type { Todo } from "@/lib/types";
 
 /** Whether an action passes a yes/no/all switch on a boolean it has. */
@@ -17,23 +27,29 @@ function passesTri(value: boolean, state: TriState): boolean {
   return state === "all" ? true : state === "on" ? value : !value;
 }
 
+/** Which date a list groups its rows by, if it groups them at all. */
+type GroupBy = "showFrom" | "completedAt";
+
 // TodoList renders a titled list of actions with a search box. `richFilters`
 // adds yes/no/all switches for attachments and stars — used on the Done
 // archive, where narrowing by "had files" or "was starred" is worth the space.
+// `groupBy` puts a date heading over each run of rows.
 function TodoList({
   title,
-  subtitle,
   filter,
   empty,
   richFilters = false,
+  groupBy,
 }: {
   title: string;
-  subtitle: string;
   filter: Parameters<typeof useTodos>[0];
   empty: string;
   richFilters?: boolean;
+  groupBy?: GroupBy;
 }) {
   const t = useT();
+  const { user } = useAuth();
+  const fmt = useDateFmt();
   const { data: todos, isLoading } = useTodos(filter);
   const { data: contexts } = useContexts();
   const { data: attachments } = useAllAttachments();
@@ -43,8 +59,6 @@ function TodoList({
   const [files, setFiles] = useState<TriState>("all");
   const [starred, setStarred] = useState<TriState>("all");
 
-  // Which actions have at least one attachment — one shared query, so this
-  // costs nothing beyond what TodoItem already fetches.
   const withFiles = new Set((attachments ?? []).map((a) => a.todoId));
 
   const needle = query.trim().toLowerCase();
@@ -61,23 +75,41 @@ function TodoList({
     return true;
   });
 
-  return (
-    <PageContainer>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
-      </div>
+  // Runs of rows sharing a calendar day, in whatever order the server returned
+  // them — the tickler reads forwards, the archive backwards, and neither wants
+  // this to re-sort it.
+  const groups: { key: string; label: string; rows: Todo[] }[] = [];
+  if (groupBy) {
+    const today = fmt.dayKey(new Date().toISOString());
+    for (const todo of visible) {
+      const iso = todo[groupBy];
+      const key = iso ? fmt.dayKey(iso) : "";
+      const last = groups.at(-1);
+      if (last?.key === key) {
+        last.rows.push(todo);
+        continue;
+      }
+      const label = !iso
+        ? t("list.groupUndated")
+        : key === today
+          ? `${t("list.groupToday")} · ${fmt.weekday(iso)}`
+          : fmt.weekday(iso);
+      groups.push({ key, label, rows: [todo] });
+    }
+  }
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+  return (
+    <Screen header={<HeaderBlock title={title} avatar={initials(user?.email)} />}>
+      <div className="flex flex-wrap items-center gap-2 pb-4">
         <SearchInput
-          className="sm:flex-1"
+          className="w-full min-w-[180px] sm:w-auto sm:max-w-[300px] sm:flex-1"
           value={query}
           onChange={setQuery}
           placeholder={t("list.searchPlaceholder")}
           ariaLabel={t("list.searchAria")}
         />
         {richFilters && (
-          <div className="flex gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <TriButton
               t={t}
               labelKey="list.filesFilter"
@@ -94,21 +126,39 @@ function TodoList({
         )}
       </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
-      {todos && todos.length === 0 && <p className="text-sm text-muted-foreground">{empty}</p>}
-      {todos && todos.length > 0 && visible.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t("list.noMatch")}</p>
+      {isLoading ? (
+        <SkeletonList />
+      ) : todos && todos.length === 0 ? (
+        <EmptyState message={empty} />
+      ) : visible.length === 0 ? (
+        <EmptyState message={t("list.noMatch")} />
+      ) : groupBy ? (
+        <div className="flex flex-col gap-3">
+          {/* Keyed by position as well as day: an unsorted list can produce two
+              separate runs that fall on the same date. */}
+          {groups.map((group, i) => (
+            <div key={`${group.key}-${i}`} className="flex flex-col gap-2">
+              <GroupHeader label={group.label} count={group.rows.length} />
+              <List>
+                {group.rows.map((todo) => (
+                  <TodoItem key={todo.id} todo={todo} showContext={contextName(todo.contextId)} />
+                ))}
+              </List>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <List>
+          {visible.map((todo) => (
+            <TodoItem key={todo.id} todo={todo} showContext={contextName(todo.contextId)} />
+          ))}
+        </List>
       )}
-      <ul className="space-y-2">
-        {visible.map((todo) => (
-          <TodoItem key={todo.id} todo={todo} showContext={contextName(todo.contextId)} />
-        ))}
-      </ul>
-    </PageContainer>
+    </Screen>
   );
 }
 
-/** A yes/no/all filter button whose label reflects its current state. */
+/** A yes/no/all filter pill whose label reflects its current state. */
 function TriButton({
   t,
   labelKey,
@@ -121,14 +171,19 @@ function TriButton({
   onClick: () => void;
 }) {
   return (
-    <Button
-      variant={state === "all" ? "outline" : "default"}
-      size="sm"
-      className="flex-1 sm:flex-none"
+    <button
+      type="button"
       onClick={onClick}
+      aria-pressed={state !== "all"}
+      className={cn(
+        "rounded-full px-3.5 py-[7px] text-xs",
+        state !== "all"
+          ? "bg-brand font-bold text-white dark:bg-brand-dark dark:text-ink"
+          : "border border-line bg-card font-semibold text-ink-2 dark:border-line-2-dark dark:bg-card-dark dark:text-ink-2-dark",
+      )}
     >
       {t(labelKey, { state: t(`filter.${state}` as Parameters<TFunc>[0]) })}
-    </Button>
+    </button>
   );
 }
 
@@ -137,9 +192,9 @@ export function TicklerPage() {
   return (
     <TodoList
       title={t("tickler.title")}
-      subtitle={t("tickler.subtitle")}
       filter={{ state: "deferred" }}
       empty={t("tickler.empty")}
+      groupBy="showFrom"
     />
   );
 }
@@ -149,7 +204,6 @@ export function StarredPage() {
   return (
     <TodoList
       title={t("starred.title")}
-      subtitle={t("starred.subtitle")}
       filter={{ starred: true, state: "active" }}
       empty={t("starred.empty")}
     />
@@ -161,16 +215,17 @@ export function DonePage() {
   return (
     <TodoList
       title={t("done.title")}
-      subtitle={t("done.subtitle")}
       filter={{ state: "completed" }}
       empty={t("done.empty")}
       richFilters
+      groupBy="completedAt"
     />
   );
 }
 
 export function TagsPage() {
   const t = useT();
+  const { user } = useAuth();
   const { data: tags } = useTags();
   const [selected, setSelected] = useState<string | null>(null);
   const { data: todos } = useTodos(selected ? { tag: selected } : {});
@@ -178,39 +233,29 @@ export function TagsPage() {
   const contextName = (id: number) => contexts?.find((c) => c.id === id)?.name;
 
   return (
-    <PageContainer>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("nav.tags")}</h1>
-        <p className="text-sm text-muted-foreground">{t("tags.subtitle")}</p>
-      </div>
-
-      {tags?.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t("tags.emptyList")}</p>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        {tags?.map((t) => (
-          <Button
-            key={t.id}
-            variant={selected === t.name ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelected(selected === t.name ? null : t.name)}
-          >
-            {t.name}
-          </Button>
-        ))}
-      </div>
-
-      {selected && (
-        <ul className={cn("space-y-2")}>
-          {todos?.map((t) => (
-            <TodoItem key={t.id} todo={t} showContext={contextName(t.contextId)} />
+    <Screen header={<HeaderBlock title={t("nav.tags")} avatar={initials(user?.email)} />}>
+      {tags?.length === 0 ? (
+        <EmptyState message={t("tags.emptyList")} />
+      ) : (
+        <div className="flex flex-wrap gap-1.5 pb-4">
+          {tags?.map((tag) => (
+            <button key={tag.id} type="button" onClick={() => setSelected(selected === tag.name ? null : tag.name)}>
+              <Chip tone={selected === tag.name ? "brand" : "neutral"}>{tag.name}</Chip>
+            </button>
           ))}
-          {todos?.length === 0 && (
-            <p className="text-sm text-muted-foreground">{t("tags.emptyForTag")}</p>
-          )}
-        </ul>
+        </div>
       )}
-    </PageContainer>
+
+      {selected &&
+        (todos && todos.length === 0 ? (
+          <EmptyState message={t("tags.emptyForTag")} />
+        ) : (
+          <List>
+            {todos?.map((todo) => (
+              <TodoItem key={todo.id} todo={todo} showContext={contextName(todo.contextId)} />
+            ))}
+          </List>
+        ))}
+    </Screen>
   );
 }

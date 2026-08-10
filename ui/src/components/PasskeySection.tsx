@@ -2,11 +2,10 @@ import { useState } from "react";
 import { KeyRound, Plus, Trash2 } from "lucide-react";
 import { useDeletePasskey, usePasskeys, useServerConfig, type Passkey } from "@/hooks/useSettings";
 import { enrolPasskey, isPasskeySupported } from "@/lib/passkeys";
-import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, Panel } from "@/components/primitives";
+import { inputClass } from "@/components/primitive-styles";
 import { useQueryClient } from "@tanstack/react-query";
 import { useT } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
@@ -29,18 +28,13 @@ export function PasskeySection() {
 
   if (!enabled) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("passkey.title")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            {t("passkey.notConfigured")}
-            <code className="mx-1">TRACKS_RP_ID</code> {t("passkey.and")}
-            <code className="mx-1">TRACKS_RP_ORIGIN</code>.
-          </p>
-        </CardContent>
-      </Card>
+      <Panel title={t("passkey.title")}>
+        <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">
+          {t("passkey.notConfigured")}
+          <code className="mono mx-1">TRACKS_RP_ID</code> {t("passkey.and")}
+          <code className="mono mx-1">TRACKS_RP_ORIGIN</code>.
+        </p>
+      </Panel>
     );
   }
 
@@ -61,40 +55,38 @@ export function PasskeySection() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t("passkey.title")}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-xs text-muted-foreground">
-{t("passkey.blurb")}
+    <Panel title={t("passkey.title")}>
+        <p className="text-xs font-medium text-ink-3 dark:text-ink-4-dark">
+          {t("passkey.blurb")}
         </p>
 
         {!isPasskeySupported() && (
-          <p className="text-sm text-destructive">{t("passkey.unsupported")}</p>
+          <p className="text-sm font-medium text-danger">{t("passkey.unsupported")}</p>
         )}
 
         <div className="flex gap-2">
-          <Input
+          <input
             placeholder={t("passkey.namePlaceholder")}
+            aria-label={t("passkey.namePlaceholder")}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            className={inputClass}
           />
-          <Button onClick={onEnrol} disabled={busy || !isPasskeySupported()}>
-            <Plus /> {busy ? t("passkey.waiting") : t("common.add")}
+          <Button onClick={onEnrol} disabled={busy || !isPasskeySupported()} className="flex-none">
+            <Plus className="size-4" /> {busy ? t("passkey.waiting") : t("common.add")}
           </Button>
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        {isLoading && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+        {error && <p className="text-sm font-medium text-danger">{error}</p>}
+        {isLoading && <p className="text-sm font-medium text-ink-3">{t("common.loading")}</p>}
 
-        <ul className="space-y-2">
+        <ul className="flex flex-col gap-2">
           {passkeys?.map((k) => (
-            <li key={k.id} className="flex items-center gap-3 rounded-md border p-2">
-              <KeyRound className="size-4 shrink-0 text-muted-foreground" />
+            <li key={k.id} className="flex items-center gap-3 rounded-control border border-line-3 p-2 dark:border-line-dark">
+              <KeyRound className="size-4 shrink-0 text-ink-4" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm">{k.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="truncate text-sm font-semibold text-ink dark:text-ink-dark">{k.name}</p>
+                <p className="text-xs font-medium text-ink-4">
                   {t("passkey.added", { date: fmt.date(k.createdAt) })}
                   {k.lastUsedAt && ` · ${t("passkey.lastUsed", { date: fmt.date(k.lastUsedAt) })}`}
                 </p>
@@ -104,16 +96,15 @@ export function PasskeySection() {
                 label={t("passkey.removeLabel", { name: k.name })}
                 onClick={() => setConfirming(k)}
               >
-                <Trash2 className="size-4 text-destructive" />
+                <Trash2 className="size-4 text-danger" />
               </IconButton>
             </li>
           ))}
         </ul>
 
         {passkeys?.length === 0 && !isLoading && (
-          <p className="text-sm text-muted-foreground">{t("passkey.none")}</p>
+          <p className="text-sm font-medium text-ink-3">{t("passkey.none")}</p>
         )}
-      </CardContent>
       <ConfirmDialog
         open={confirming !== null}
         onOpenChange={(open) => !open && setConfirming(null)}
@@ -130,6 +121,6 @@ export function PasskeySection() {
           setConfirming(null);
         }}
       />
-    </Card>
+    </Panel>
   );
 }

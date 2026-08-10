@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nProvider } from "@/lib/I18nProvider";
 import { LegalAdminPage } from "./LegalAdminPage";
+vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { email: "a@b.co" }, ready: true, logout: vi.fn() }) }));
 import { useLegalEditor, useResetLegalDocument, useSaveLegalDocument } from "@/hooks/useLegal";
 
 vi.mock("@/hooks/useLegal");

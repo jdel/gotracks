@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { CheckSquare, Plus, StickyNote, Trash2, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { CheckSquare, Plus, Trash2, X } from "lucide-react";
 import {
   useCreateNote,
   useDeleteNote,
@@ -16,9 +16,20 @@ import { useT } from "@/lib/i18n";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { Card } from "@/components/ui/card";
 import { SearchInput } from "@/components/SearchInput";
-import { PageWithAdd } from "@/components/PageWithAdd";
+import { useAuth } from "@/lib/auth";
+import { initials } from "@/lib/initials";
+import {
+  Screen,
+  HeaderBlock,
+  Fab,
+  Sheet,
+  SkeletonList,
+  EmptyState,
+} from "@/components/primitives";
+import { rowActions, inlineEdit } from "@/components/primitive-styles";
+import { useUndo } from "@/lib/undo";
+import { cn } from "@/lib/utils";
 import type { Note, Project } from "@/lib/types";
 
 /** The add-note field. Only "#project" is recognised — a note has no context —
@@ -81,6 +92,8 @@ function NoteAddForm({ projects, onAdded }: { projects: Project[]; onAdded: () =
 
 export function NotesPage() {
   const t = useT();
+  const { user } = useAuth();
+  const [adding, setAdding] = useState(false);
   const { data: notes, isLoading } = useNotes();
   const { data: projects } = useProjects();
   const { data: contexts } = useContexts();
@@ -88,7 +101,7 @@ export function NotesPage() {
   const deleteNote = useDeleteNote();
   const createTodo = useCreateTodo();
   const [query, setQuery] = useState("");
-  const [confirming, setConfirming] = useState<number | null>(null);
+  const { pendingKey, schedule } = useUndo();
   const [converting, setConverting] = useState<Note | null>(null);
   /** Surfaces whatever the server refused, quota messages included. */
   const [error, setError] = useState("");
@@ -120,33 +133,53 @@ export function NotesPage() {
   }
 
   const needle = query.trim().toLowerCase();
-  const visibleNotes = (notes ?? []).filter((n) => n.body.toLowerCase().includes(needle));
+  // A note pending deletion is out of the list at once; the toast's Undo puts it
+  // back, and only the toast expiring makes the delete real.
+  const visibleNotes = (notes ?? []).filter(
+    (n) => n.body.toLowerCase().includes(needle) && pendingKey !== `note:${n.id}`,
+  );
 
   return (
-    <PageWithAdd
-      title={t("nav.notes")}
-      subtitle={t("notes.subtitle")}
-      addLabel={t("notes.addTitle")}
-      renderForm={(onAdded) => <NoteAddForm projects={projectList} onAdded={onAdded} />}
+    <Screen
+      header={
+        <HeaderBlock
+          title={t("nav.notes")}
+          avatar={initials(user?.email)}
+          metrics={[{ value: notes?.length ?? 0, label: t("notes.metricLabel") }]}
+        />
+      }
+      fab={<Fab label={t("notes.addTitle")} onClick={() => setAdding(true)} />}
     >
-      <SearchInput
-        value={query}
-        onChange={setQuery}
-        placeholder={t("notes.searchPlaceholder")}
-        ariaLabel={t("notes.searchAria")}
-      />
+      <div className="mt-3.5 hidden rounded-card bg-card p-2.5 shadow-card md:block dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none">
+        <NoteAddForm projects={projectList} onAdded={() => {}} />
+      </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {isLoading && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+      <div className="flex flex-wrap items-center gap-2 pb-4 md:mt-4">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder={t("notes.searchPlaceholder")}
+          ariaLabel={t("notes.searchAria")}
+          className="w-full min-w-[180px] sm:w-auto sm:max-w-[300px] sm:flex-1"
+        />
+      </div>
 
-      <ul className="space-y-2">
+      {error && <p className="pb-3 text-sm font-medium text-danger">{error}</p>}
+
+      {isLoading ? (
+        <SkeletonList />
+      ) : notes?.length === 0 ? (
+        <EmptyState message={t("notes.none")} />
+      ) : visibleNotes.length === 0 ? (
+        <EmptyState message={t("notes.noMatch")} />
+      ) : (
+      <ul className="flex flex-col gap-[9px] md:grid md:grid-cols-3 md:gap-3 md:[align-content:start]">
         {visibleNotes.map((n) => (
           <li key={n.id}>
-            <Card className="space-y-2 p-3">
+            <div className="group relative space-y-2 rounded-card bg-card p-3.5 shadow-card dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none">
               {editingBody === n.id ? (
                 <BodyEditor
                   note={n}
-                  busy={updateNote.isPending}
                   onCancel={() => setEditingBody(null)}
                   onSave={(body) => {
                     // Only the text: the project belongs to the chip, so "#"
@@ -160,9 +193,11 @@ export function NotesPage() {
                   type="button"
                   onClick={() => setEditingBody(n.id)}
                   title={t("notes.editTitle")}
-                  className="w-full rounded text-left hover:bg-accent/40"
+                  className="w-full rounded text-left"
                 >
-                  <p className="whitespace-pre-wrap break-words text-sm">{n.body}</p>
+                  <p className="line-clamp-3 text-sm font-medium break-words whitespace-pre-wrap text-ink dark:text-ink-dark">
+                    {n.body}
+                  </p>
                 </button>
               )}
               {/* Editing takes the whole row: the field needs the width, and
@@ -184,49 +219,37 @@ export function NotesPage() {
                     onEdit={() => setEditingProject(n.id)}
                     onDetach={() => updateNote.mutate({ id: n.id, clearProject: true })}
                   />
-                  <IconButton
-                    variant="ghost"
-                    className="ml-auto size-7"
-                    label={t("notes.turnIntoAction")}
-                    onClick={() => setConverting(n)}
-                  >
-                    <CheckSquare className="size-3.5" />
-                  </IconButton>
-                  <IconButton
-                    variant="ghost"
-                    className="size-7"
-                    label={t("notes.delete")}
-                    onClick={() => setConfirming(n.id)}
-                  >
-                    <Trash2 className="size-3.5 text-destructive" />
-                  </IconButton>
+                  <div className={cn(rowActions, "ml-auto")}>
+                    <IconButton
+                      variant="ghost"
+                      className="size-7"
+                      label={t("notes.turnIntoAction")}
+                      onClick={() => setConverting(n)}
+                    >
+                      <CheckSquare className="size-3.5" />
+                    </IconButton>
+                    <IconButton
+                      variant="ghost"
+                      className="size-7"
+                      label={t("notes.delete")}
+                      onClick={() =>
+                        schedule(`note:${n.id}`, t("notes.deleted"), () => deleteNote.mutate(n.id))
+                      }
+                    >
+                      <Trash2 className="size-3.5 text-danger" />
+                    </IconButton>
+                  </div>
                 </div>
               )}
-            </Card>
+            </div>
           </li>
         ))}
       </ul>
+      )}
 
-      {notes?.length === 0 && !isLoading && (
-        <p className="text-center text-sm text-muted-foreground">
-          <StickyNote className="mr-1 inline size-4" />
-          {t("notes.none")}
-        </p>
-      )}
-      {notes && notes.length > 0 && visibleNotes.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground">{t("notes.noMatch")}</p>
-      )}
-      <ConfirmDialog
-        open={confirming !== null}
-        onOpenChange={(open) => !open && setConfirming(null)}
-        title={t("notes.deleteTitle")}
-        description={t("notes.deleteDesc")}
-        busy={deleteNote.isPending}
-        onConfirm={() => {
-          if (confirming !== null) deleteNote.mutate(confirming);
-          setConfirming(null);
-        }}
-      />
+      <Sheet open={adding} onClose={() => setAdding(false)} title={t("notes.addTitle")}>
+        <NoteAddForm projects={projectList} onAdded={() => setAdding(false)} />
+      </Sheet>
 
       <ConvertDialog
         // Remounts per note so its context selection starts fresh each time,
@@ -239,7 +262,7 @@ export function NotesPage() {
         onCancel={() => setConverting(null)}
         onConvert={onConvert}
       />
-    </PageWithAdd>
+    </Screen>
   );
 }
 
@@ -254,45 +277,44 @@ export function NotesPage() {
  */
 function BodyEditor({
   note,
-  busy,
   onCancel,
   onSave,
 }: {
   note: Note;
-  busy: boolean;
   onCancel: () => void;
   onSave: (body: string) => void;
 }) {
   const t = useT();
   const [text, setText] = useState(note.body);
-  const trimmed = text.trim();
+  // Enter inserts a newline (prose). Clicking away saves; Escape abandons. No
+  // buttons — same inline-edit behaviour as an action, minus Enter-to-save,
+  // which a multi-line field can't use.
+  const finished = useRef(false);
+
+  function finish(save: boolean) {
+    if (finished.current) return;
+    finished.current = true;
+    const trimmed = text.trim();
+    if (save && trimmed && trimmed !== note.body) onSave(trimmed);
+    else onCancel();
+  }
 
   return (
-    <div className="space-y-2">
-      <textarea
-        autoFocus
-        rows={Math.min(8, Math.max(2, text.split("\n").length))}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onCancel();
-          // Enter alone inserts a newline — this is prose. Ctrl/Cmd+Enter
-          // saves, matching the usual convention for a multi-line field.
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && trimmed) onSave(trimmed);
-        }}
-        aria-label={t("notes.noteText")}
-        className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      />
-      <div className="flex items-center gap-2">
-        <Button type="button" size="sm" disabled={!trimmed || busy} onClick={() => onSave(trimmed)}>
-          {t("common.save")}
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onCancel}>
-          {t("common.cancel")}
-        </Button>
-        <span className="text-xs text-muted-foreground">{t("notes.saveHint")}</span>
-      </div>
-    </div>
+    <textarea
+      autoFocus
+      rows={Math.min(8, Math.max(2, text.split("\n").length))}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") finish(false);
+      }}
+      onBlur={() => finish(true)}
+      aria-label={t("notes.noteText")}
+      className={cn(
+        inlineEdit,
+        "resize-none text-sm leading-relaxed font-medium text-ink dark:text-ink-dark",
+      )}
+    />
   );
 }
 
@@ -317,18 +339,18 @@ function ProjectChip({
       <button
         type="button"
         onClick={onEdit}
-        className="inline-flex items-center gap-1 rounded border border-dashed px-1.5 py-0.5 text-xs text-muted-foreground hover:border-solid hover:text-foreground"
+        className="inline-flex items-center gap-1 rounded-full border border-dashed border-line px-2 py-[3px] text-[10px] font-bold text-ink-4 hover:border-solid hover:text-ink-2 dark:border-line-dark"
       >
         <Plus className="size-3" /> {t("notes.projectChip")}
       </button>
     );
   }
   return (
-    <span className="inline-flex items-center rounded bg-violet-500/15 text-xs text-violet-700 dark:text-violet-300">
+    <span className="inline-flex items-center rounded-full bg-done-soft text-[10px] font-bold text-done-text dark:bg-done-fill-dark dark:text-done-dark">
       <button
         type="button"
         onClick={onEdit}
-        className="rounded-l px-1.5 py-0.5 hover:bg-violet-500/20"
+        className="rounded-l-full py-[3px] pr-1 pl-2"
         title={t("notes.changeProject")}
       >
         #{bare(project.name, "#")}
@@ -338,7 +360,7 @@ function ProjectChip({
         onClick={onDetach}
         aria-label={t("notes.detachFrom", { name: project.name })}
         title={t("notes.detach")}
-        className="rounded-r py-0.5 pr-1.5 hover:bg-violet-500/20"
+        className="rounded-r-full py-[3px] pr-2 pl-0.5"
       >
         <X className="size-3" />
       </button>
@@ -437,7 +459,7 @@ function ConvertDialog({
         ) : (
           <>
             {t("notes.convertDesc")}
-            <label className="mt-2 block text-sm font-normal">
+            <label className="mt-2 block text-sm font-medium">
               {t("notes.context")}
               <select
                 className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"

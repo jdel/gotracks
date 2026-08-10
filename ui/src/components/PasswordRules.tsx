@@ -20,10 +20,10 @@ export function PasswordRules({ password, className }: { password: string; class
         <li
           key={rule.id}
           className={cn(
-            "flex items-center gap-1.5 text-xs transition-colors",
-            !touched && "text-muted-foreground",
-            touched && rule.met && "text-emerald-600",
-            touched && !rule.met && "text-muted-foreground",
+            "flex items-center gap-1.5 text-xs font-medium transition-colors",
+            !touched && "text-ink-4",
+            touched && rule.met && "text-done dark:text-done-dark",
+            touched && !rule.met && "text-ink-4",
           )}
         >
           {touched && rule.met ? (

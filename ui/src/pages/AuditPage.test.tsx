@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nProvider } from "@/lib/I18nProvider";
 import { AuditPage } from "./AuditPage";
+vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { email: "a@b.co" }, ready: true, logout: vi.fn() }) }));
 import { useAuditActions, useAuditLog } from "@/hooks/useAudit";
 import type { AuditEvent } from "@/lib/types";
 
@@ -85,9 +86,12 @@ describe("audit page", () => {
   // one who clicked loses the half that matters.
   it("names both sides of an administrator action", () => {
     renderPage();
-    expect(screen.getByText("admin@example.com → bob@example.com")).toBeDefined();
+    // Scoped to the table: the mobile cards render the same people, so an
+    // unscoped query matches twice.
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("admin@example.com → bob@example.com")).toBeDefined();
     // A self-service or anonymous event names one person, without an arrow.
-    expect(screen.getByText("alice@example.com")).toBeDefined();
+    expect(table.getByText("alice@example.com")).toBeDefined();
   });
 
   it("puts the address, browser and note behind the details button", async () => {
@@ -116,9 +120,10 @@ describe("audit page", () => {
   it("marks a failure so it stands out from routine traffic", () => {
     renderPage();
     const table = within(screen.getByRole("table"));
-    expect(table.getByText("Failure").className).toContain("destructive");
+    // Failure carries the danger chip; success does not.
+    expect(table.getByText("Failure").className).toContain("text-danger");
     for (const ok of table.getAllByText("Success")) {
-      expect(ok.className).not.toContain("destructive");
+      expect(ok.className).not.toContain("text-danger");
     }
   });
 });

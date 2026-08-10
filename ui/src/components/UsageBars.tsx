@@ -1,7 +1,7 @@
-import { cn } from "@/lib/utils";
 import type { QuotaUsage } from "@/lib/types";
 import { useT } from "@/lib/i18n";
 import { formatBytes } from "@/lib/usage";
+import { Meter } from "@/components/primitives";
 
 /** One labelled bar with "used of limit". */
 export function UsageRow({
@@ -19,26 +19,16 @@ export function UsageRow({
   const unlimited = limit <= 0;
   const pct = unlimited ? 0 : Math.min(100, Math.round((used / limit) * 100));
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-baseline justify-between text-sm">
-        <span>{label}</span>
-        <span className="tabular-nums text-muted-foreground">
+        <span className="font-medium text-ink dark:text-ink-dark">{label}</span>
+        <span className="mono text-xs text-ink-4">
           {unlimited ? format(used) : t("usage.ofLimit", { used: format(used), limit: format(limit) })}
         </span>
       </div>
-      {!unlimited && (
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-          <div
-            // Amber past 75%, red at the limit: the useful signal is "about to
-            // become a problem", not the exact number.
-            className={cn(
-              "h-full rounded-full transition-all",
-              pct >= 100 ? "bg-destructive" : pct >= 75 ? "bg-amber-500" : "bg-primary",
-            )}
-            style={{ width: `${Math.max(pct, 2)}%` }}
-          />
-        </div>
-      )}
+      {/* Meter fills brand and turns danger at 90% — the useful signal is
+          "about to become a problem", not the exact number. */}
+      {!unlimited && <Meter value={pct} max={100} height={6} />}
     </div>
   );
 }

@@ -40,11 +40,18 @@ export function useStats() {
 }
 
 // Admin
-/** Server-side filters for the admin user list; empty strings mean "no filter". */
+/** Columns the server will order the admin user list by. */
+export type UserSort = "" | "email" | "created" | "verified";
+
+/** Server-side filters for the admin user list; empty strings mean "no filter".
+ *  Sorting is server-side too: the list is paginated, so ordering the rows in
+ *  the browser would only order the page you happen to be looking at. */
 export interface UserFilters {
   q: string;
   admin: string;
   twoFactor: string;
+  sort: UserSort;
+  desc: boolean;
 }
 
 export function useUsers(page: number, pageSize: number, filters: UserFilters) {
@@ -52,8 +59,21 @@ export function useUsers(page: number, pageSize: number, filters: UserFilters) {
   if (filters.q) params.set("q", filters.q);
   if (filters.admin) params.set("admin", filters.admin);
   if (filters.twoFactor) params.set("twoFactor", filters.twoFactor);
+  if (filters.sort) {
+    params.set("sort", filters.sort);
+    params.set("dir", filters.desc ? "desc" : "asc");
+  }
   return useQuery({
-    queryKey: ["admin-users", page, pageSize, filters.q, filters.admin, filters.twoFactor],
+    queryKey: [
+      "admin-users",
+      page,
+      pageSize,
+      filters.q,
+      filters.admin,
+      filters.twoFactor,
+      filters.sort,
+      filters.desc,
+    ],
     queryFn: () => api.get<AdminUserPage>(`/admin/users?${params.toString()}`),
   });
 }

@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nProvider } from "@/lib/I18nProvider";
 import { ServerPage } from "./ServerPage";
+vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { email: "a@b.co" }, ready: true, logout: vi.fn() }) }));
 
 class NoopResizeObserver {
   observe() {}

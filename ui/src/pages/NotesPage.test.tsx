@@ -3,6 +3,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NotesPage } from "./NotesPage";
+import { UndoProvider } from "@/lib/undoable";
+
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
+}));
 
 /** Server state the fake backend keeps between requests. */
 let notes: Record<string, unknown>[];
@@ -52,6 +57,12 @@ function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
     return Promise.resolve(jsonResponse(note, 201));
   }
 
+  if (url.includes("/notes/") && method === "DELETE") {
+    const id = Number(url.split("/notes/")[1]);
+    notes = notes.filter((n) => n.id !== id);
+    return Promise.resolve(jsonResponse({}, 204));
+  }
+
   if (url.includes("/notes/") && method === "PUT") {
     const id = Number(url.split("/notes/")[1]);
     const body = JSON.parse(String(init?.body ?? "{}"));
@@ -75,6 +86,20 @@ function renderPage() {
   return render(
     <QueryClientProvider client={client}>
       <NotesPage />
+    </QueryClientProvider>,
+  );
+}
+
+// Deleting is only deferred inside the provider.
+function renderPageWithUndo() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <UndoProvider>
+        <NotesPage />
+      </UndoProvider>
     </QueryClientProvider>,
   );
 }
@@ -142,7 +167,7 @@ describe("editing a note's text", () => {
     const field = screen.getByRole("textbox", { name: "Note text" });
     await user.clear(field);
     await user.type(field, "wheel sizes: 205/55 R16");
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.tab(); // clicking away commits
 
     await waitFor(() => expect(notes[0].body).toBe("wheel sizes: 205/55 R16"));
   });
@@ -158,21 +183,20 @@ describe("editing a note's text", () => {
     const field = screen.getByRole("textbox", { name: "Note text" });
     await user.clear(field);
     await user.type(field, "see issue #42 before ordering");
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.tab(); // clicking away commits
 
     await waitFor(() => expect(notes[0].body).toBe("see issue #42 before ordering"));
     expect(notes[0].projectId).toBeUndefined();
     expect(projects.map((p) => p.name)).not.toContain("42");
   });
 
-  it("abandons the edit on cancel", async () => {
+  it("abandons the edit on Escape", async () => {
     const user = userEvent.setup();
     notes = [{ id: 5, body: "wheel sizes", createdAt: "", updatedAt: "" }];
     renderPage();
 
     await user.click(await screen.findByText("wheel sizes"));
-    await user.type(screen.getByRole("textbox", { name: "Note text" }), " and pressures");
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.type(screen.getByRole("textbox", { name: "Note text" }), " and pressures{Escape}");
 
     expect(notes[0].body).toBe("wheel sizes");
     await screen.findByText("wheel sizes");
@@ -212,5 +236,32 @@ describe("changing a note's project", () => {
     await user.click(screen.getByRole("button", { name: "Apply" }));
 
     await waitFor(() => expect(notes[0].projectId).toBe(1));
+  });
+});
+
+describe("deleting a note", () => {
+  it("removes the card at once and offers an undo instead of a confirmation", async () => {
+    const user = userEvent.setup();
+    notes = [{ id: 5, body: "boiler serial number", createdAt: "", updatedAt: "" }];
+    renderPageWithUndo();
+
+    await user.click(await screen.findByRole("button", { name: "Delete this note" }));
+
+    expect(screen.queryByText("boiler serial number")).toBeNull();
+    expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
+    // Nothing has left the server yet.
+    expect(notes).toHaveLength(1);
+  });
+
+  it("brings the note back on undo", async () => {
+    const user = userEvent.setup();
+    notes = [{ id: 5, body: "boiler serial number", createdAt: "", updatedAt: "" }];
+    renderPageWithUndo();
+
+    await user.click(await screen.findByRole("button", { name: "Delete this note" }));
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+
+    expect(screen.getByText("boiler serial number")).toBeTruthy();
+    expect(notes).toHaveLength(1);
   });
 });

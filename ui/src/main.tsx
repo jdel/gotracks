@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/lib/AuthProvider";
 import { I18nProvider } from "@/lib/I18nProvider";
+import { UndoProvider } from "@/lib/undoable";
 import { ThemeProvider } from "@/lib/theme";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { App } from "@/App";
@@ -20,9 +21,11 @@ createRoot(document.getElementById("root")!).render(
         <AuthProvider>
           <ThemeProvider>
             <I18nProvider>
-              <TooltipProvider delayDuration={300}>
-                <App />
-              </TooltipProvider>
+              <UndoProvider>
+                <TooltipProvider delayDuration={300}>
+                  <App />
+                </TooltipProvider>
+              </UndoProvider>
             </I18nProvider>
           </ThemeProvider>
         </AuthProvider>

@@ -1,35 +1,29 @@
 import { useState } from "react";
-import { ChevronRight, Plus } from "lucide-react";
 import { useContexts } from "@/hooks/useContexts";
 import { useT } from "@/lib/i18n";
 import { useTodos } from "@/hooks/useTodos";
+import { useAuth } from "@/lib/auth";
+import { useDateFmt } from "@/lib/datefmt";
 import { SortableTodoList } from "@/components/SortableTodoList";
 import { TodoItem } from "@/components/TodoItem";
 import { QuickAdd } from "@/components/QuickAdd";
-import { IconButton } from "@/components/ui/icon-button";
+import { QuickAddSheet } from "@/components/QuickAddSheet";
+import {
+  Screen,
+  HeaderBlock,
+  Segmented,
+  GroupHeader,
+  List,
+  Fab,
+  SkeletonList,
+} from "@/components/primitives";
 import { SearchInput } from "@/components/SearchInput";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FULLSCREEN_DIALOG_CLASS } from "@/components/PageWithAdd";
-import { PageContainer } from "@/components/PageContainer";
+import { bare } from "@/lib/composer";
+import { initials } from "@/lib/initials";
 import type { Todo } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
-const COLLAPSED_KEY = "gt.collapsedContexts";
+type FilterMode = "contexts" | "today" | "starred" | "overdue" | "done";
 
-// loadCollapsed reads the set of collapsed context ids from the device, so the
-// choice survives a reload rather than resetting on every visit.
-function loadCollapsed(): Set<number> {
-  try {
-    const raw = localStorage.getItem(COLLAPSED_KEY);
-    return new Set(raw ? (JSON.parse(raw) as number[]) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-// matchesTodo tests an action against the filter text. Description and tags are
-// searched — the two things written on the action itself — so "@" or "#" typed
-// into the box match nothing special, they are just characters.
 function matchesTodo(todo: Todo, q: string): boolean {
   if (!q) return true;
   const needle = q.toLowerCase();
@@ -39,27 +33,40 @@ function matchesTodo(todo: Todo, q: string): boolean {
   );
 }
 
+/* "Today" and "overdue" are calendar-day questions, so they are answered in the
+ * account's time zone rather than the browser's — otherwise an action shows as
+ * overdue, or drops out of Today, purely because the machine sits in a
+ * different zone from the account. `dayKey` yields a sortable YYYY-MM-DD in
+ * that zone, so comparing the strings compares the days. */
+type DayKey = (iso: string) => string;
+
+function isDueToday(todo: Todo, dayKey: DayKey, today: string): boolean {
+  return !!todo.due && dayKey(todo.due) <= today;
+}
+
+function isOverdue(todo: Todo, dayKey: DayKey, today: string): boolean {
+  return !!todo.due && dayKey(todo.due) < today;
+}
+
+function completedToday(todos: Todo[] | undefined, dayKey: DayKey, today: string): number {
+  if (!todos) return 0;
+  return todos.filter((t) => t.completedAt && dayKey(t.completedAt) === today).length;
+}
+
 // HomePage is the GTD context view: every active context with its next actions.
 export function HomePage() {
   const t = useT();
+  const { user } = useAuth();
+  const fmt = useDateFmt();
+  // The account's today, as a sortable YYYY-MM-DD.
+  const today = fmt.dayKey(new Date().toISOString());
   const { data: contexts, isLoading: loadingContexts } = useContexts();
   const { data: todos, isLoading: loadingTodos } = useTodos({ state: "active" });
+  const { data: completed } = useTodos({ state: "completed" });
 
   const [query, setQuery] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<number>>(loadCollapsed);
-  // The mobile quick-add lives behind a + in the header; on desktop the form is
-  // always on screen, so this only ever opens the sheet on small viewports.
+  const [filter, setFilter] = useState<FilterMode>("contexts");
   const [adding, setAdding] = useState(false);
-
-  function toggleCollapsed(id: number) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
-      return next;
-    });
-  }
 
   const activeContexts = contexts?.filter((c) => c.state === "active") ?? [];
   const byContext = new Map<number, Todo[]>();
@@ -71,102 +78,133 @@ export function HomePage() {
   });
 
   const filtering = query.trim() !== "";
-  // While filtering, only contexts that have a match are worth showing, and
-  // collapse is ignored so results are never hidden behind a folded header.
   const visibleContexts = filtering
     ? activeContexts.filter((c) => (byContext.get(c.id)?.length ?? 0) > 0)
     : activeContexts;
 
-  return (
-    <PageContainer>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("actions.title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("actions.subtitle")}</p>
-        </div>
-        {/* Quick add is a permanent form on desktop; on a phone it would take a
-            row that could hold an action, so it hides behind this +. */}
-        <IconButton
-          variant="outline"
-          className="shrink-0 md:hidden"
-          label={t("home.addAction")}
-          onClick={() => setAdding(true)}
-        >
-          <Plus />
-        </IconButton>
-      </div>
+  // Today / Starred / Overdue read the active list; Done reads the completed
+  // list. All are flat views where chips show @context, since no group header
+  // names it.
+  const source = filter === "done" ? completed ?? [] : todos ?? [];
+  const flat = source
+    .filter((todo) => matchesTodo(todo, query))
+    .filter((todo) => {
+      switch (filter) {
+        case "today":
+          return isDueToday(todo, fmt.dayKey, today);
+        case "starred":
+          return todo.starred;
+        case "overdue":
+          return isOverdue(todo, fmt.dayKey, today);
+        default:
+          return true;
+      }
+    });
 
-      <div className="hidden md:block">
+  const openCount = todos?.length ?? 0;
+  const doneToday = completedToday(completed, fmt.dayKey, today);
+  const overdueCount = (todos ?? []).filter((todo) => isOverdue(todo, fmt.dayKey, today)).length;
+
+  const loading = loadingContexts || loadingTodos;
+  const emptyMessage =
+    filter === "overdue"
+      ? t("home.emptyOverdue")
+      : filter === "done"
+        ? t("home.emptyDone")
+        : filter === "today"
+          ? t("home.emptyToday")
+          : t("home.emptyStarred");
+
+  const header = (
+    <HeaderBlock
+      title={t("actions.title")}
+      avatar={initials(user?.email)}
+      metrics={[
+        { value: openCount, label: t("home.openLabel") },
+        { value: doneToday, label: t("home.doneTodayLabel"), tone: "done" },
+        { label: `${activeContexts.length} ${t("home.contextsLabel")}` },
+        { value: overdueCount, label: t("home.overdueLabel") },
+      ]}
+    />
+  );
+
+  return (
+    <Screen
+      header={header}
+      fab={<Fab label={t("home.addAction")} onClick={() => setAdding(true)} />}
+    >
+      {/* Desktop create lives here, directly under the banner; mobile uses the FAB. */}
+      <div className="mt-3.5 hidden rounded-card bg-card p-2.5 shadow-card md:block dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none">
         <QuickAdd />
       </div>
 
-      <SearchInput
-        value={query}
-        onChange={setQuery}
-        placeholder={t("home.searchPlaceholder")}
-        ariaLabel={t("home.searchAria")}
-      />
-
-      {(loadingContexts || loadingTodos) && (
-        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-      )}
-
-      {filtering && visibleContexts.length === 0 && !loadingTodos && (
-        <p className="text-sm text-muted-foreground">{t("home.noMatch")}</p>
-      )}
-
-      <div className="space-y-6">
-        {visibleContexts.map((c) => {
-          const list = byContext.get(c.id) ?? [];
-          const isCollapsed = collapsed.has(c.id) && !filtering;
-          return (
-            <section key={c.id}>
-              <button
-                type="button"
-                onClick={() => toggleCollapsed(c.id)}
-                aria-expanded={!isCollapsed}
-                className="mb-2 flex w-full items-baseline gap-2 text-left text-sm font-semibold"
-              >
-                <ChevronRight
-                  className={cn(
-                    "size-4 shrink-0 self-center text-muted-foreground transition-transform",
-                    !isCollapsed && "rotate-90",
-                  )}
-                />
-                {c.name}
-                <span className="text-xs font-normal text-muted-foreground">{list.length}</span>
-              </button>
-              {!isCollapsed &&
-                (list.length === 0 ? (
-                  <p className="pl-6 text-sm text-muted-foreground">{t("home.noActionsHere")}</p>
-                ) : filtering ? (
-                  // Reordering is disabled on a filtered view: the list is a
-                  // subset, so dropping one action carries no meaningful position.
-                  <ul className="space-y-2">
-                    {list.map((todo) => (
-                      <TodoItem key={todo.id} todo={todo} />
-                    ))}
-                  </ul>
-                ) : (
-                  <SortableTodoList todos={list} />
-                ))}
-            </section>
-          );
-        })}
+      {/* Filter box first, the pills pushed to the right of the row. */}
+      <div className="flex flex-wrap items-center gap-2 pb-4 md:mt-4">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder={t("home.searchPlaceholder")}
+          ariaLabel={t("home.searchAria")}
+          className="w-full min-w-[180px] sm:w-auto sm:max-w-[300px] sm:flex-1"
+        />
+        <Segmented
+          className="ml-auto"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: "contexts", label: t("nav.contexts") },
+            { value: "today", label: t("home.filterToday") },
+            { value: "starred", label: t("nav.starred") },
+            { value: "overdue", label: t("home.filterOverdue") },
+            { value: "done", label: t("nav.done") },
+          ]}
+        />
       </div>
 
-      <Dialog open={adding} onOpenChange={setAdding}>
-        {/* Full screen on a phone — an action-entry form with dates and tags
-            wants the room; a centred card back on larger viewports. */}
-        <DialogContent className={FULLSCREEN_DIALOG_CLASS}>
-          <DialogHeader>
-            <DialogTitle>{t("home.addAction")}</DialogTitle>
-          </DialogHeader>
-          {/* Expanded by default here: the phone flow is a deliberate visit to
-              add one action, so the extra fields are worth showing up front. */}
-          <QuickAdd defaultExpanded onAdded={() => setAdding(false)} />
-        </DialogContent>
-      </Dialog>
-    </PageContainer>
+      {loading ? (
+        <SkeletonList />
+      ) : filter === "contexts" ? (
+        <>
+          {filtering && visibleContexts.length === 0 && (
+            <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">{t("home.noMatch")}</p>
+          )}
+          <div className="flex flex-col gap-[15px] md:grid md:grid-cols-2 md:gap-5">
+            {visibleContexts.map((c) => {
+              const list = byContext.get(c.id) ?? [];
+              return (
+                <section key={c.id} className="flex flex-col gap-[9px]">
+                  <GroupHeader label={`@${bare(c.name, "@")}`} count={list.length} />
+                  {list.length === 0 ? (
+                    <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">
+                      {t("home.noActionsHere")}
+                    </p>
+                  ) : filtering ? (
+                    // Reordering is disabled on a filtered subset — a drop
+                    // carries no meaningful position.
+                    <List>
+                      {list.map((todo) => (
+                        <TodoItem key={todo.id} todo={todo} hideContext />
+                      ))}
+                    </List>
+                  ) : (
+                    <SortableTodoList todos={list} hideContext />
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        </>
+      ) : flat.length === 0 ? (
+        <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">{emptyMessage}</p>
+      ) : (
+        <List>
+          {flat.map((todo) => (
+            <TodoItem key={todo.id} todo={todo} />
+          ))}
+        </List>
+      )}
+
+      <QuickAddSheet open={adding} onClose={() => setAdding(false)} />
+    </Screen>
   );
 }

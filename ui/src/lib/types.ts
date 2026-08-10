@@ -11,6 +11,10 @@ export interface User {
 /** A user as the admin list returns it: the base user plus admin-only flags. */
 export interface AdminUser extends User {
   twoFactorEnabled: boolean;
+  /** A mailed account-deletion link is still live for this account. */
+  deletionRequested: boolean;
+  /** The last usage report put the account at or past one of its limits. */
+  overQuota: boolean;
 }
 
 /** One filtered page of the admin user list. */
@@ -159,6 +163,9 @@ export interface Project {
   completedAt?: string;
   lastReviewed?: string;
   openCount: number;
+  doneCount: number;
+  /** Every action filed under the project, whatever its state. */
+  totalCount: number;
   createdAt: string;
   updatedAt: string;
 }

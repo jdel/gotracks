@@ -3,10 +3,8 @@ import { KeyRound, Fingerprint } from "lucide-react";
 import { useChangePassword, usePasskeys, useServerConfig } from "@/hooks/useSettings";
 import { isPasskeySupported, reauthWithPasskey } from "@/lib/passkeys";
 import { ApiError } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, Field, Panel } from "@/components/primitives";
+import { inputClass } from "@/components/primitive-styles";
 import { PasswordRules } from "@/components/PasswordRules";
 import { isPasswordValid } from "@/lib/password";
 import { useT } from "@/lib/i18n";
@@ -99,70 +97,67 @@ export function PasswordSection() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t("password.title")}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Panel title={t("password.title")}>
         <form onSubmit={onSubmit} className="space-y-4">
-<p className="text-sm text-muted-foreground">{t("password.signsOut")}</p>
-          <div className="space-y-2">
-            <Label htmlFor="current-password">
-              {canUsePasskey ? t("password.currentOrPasskey") : t("password.current")}
-            </Label>
-            <Input
+          <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">{t("password.signsOut")}</p>
+          <Field label={canUsePasskey ? t("password.currentOrPasskey") : t("password.current")}>
+            <input
               id="current-password"
               type="password"
               autoComplete="current-password"
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
+              className={inputClass}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-password">{t("password.new")}</Label>
-            <Input
-              id="new-password"
-              type="password"
-              autoComplete="new-password"
-              value={next}
-              onChange={(e) => setNext(e.target.value)}
-            />
+          </Field>
+          <div className="flex flex-col gap-1.5">
+            <Field label={t("password.new")}>
+              <input
+                id="new-password"
+                type="password"
+                autoComplete="new-password"
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
             <PasswordRules password={next} className="pt-1" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">{t("password.confirm")}</Label>
-            <Input
+          <Field label={t("password.confirm")}>
+            <input
               id="confirm-password"
               type="password"
               autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
+              className={inputClass}
             />
-          </div>
+          </Field>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {done && <p className="text-sm text-emerald-600">{t("password.changed")}</p>}
+          {error && <p className="text-sm font-medium text-danger">{error}</p>}
+          {done && <p className="text-sm font-medium text-done-text dark:text-done-dark">{t("password.changed")}</p>}
 
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               type="submit"
               disabled={change.isPending || busyPasskey || !current || !next || !confirm}
             >
-              <KeyRound /> {change.isPending && !busyPasskey ? t("password.changing") : t("password.change")}
+              <KeyRound className="size-4" />{" "}
+              {change.isPending && !busyPasskey ? t("password.changing") : t("password.change")}
             </Button>
             {canUsePasskey && (
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 disabled={change.isPending || busyPasskey || !next || !confirm}
                 onClick={onPasskey}
               >
-                <Fingerprint /> {busyPasskey ? t("password.waitingPasskey") : t("password.confirmPasskey")}
+                <Fingerprint className="size-4" />{" "}
+                {busyPasskey ? t("password.waitingPasskey") : t("password.confirmPasskey")}
               </Button>
             )}
           </div>
         </form>
-      </CardContent>
-    </Card>
+    </Panel>
   );
 }

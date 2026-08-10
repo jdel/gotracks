@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { SearchInput } from "@/components/SearchInput";
-import { PageWithAdd } from "@/components/PageWithAdd";
+import { useAuth } from "@/lib/auth";
+import { initials } from "@/lib/initials";
+import { Screen, HeaderBlock, Fab, Sheet, SkeletonList, EmptyState } from "@/components/primitives";
+import { rowActions, inlineEdit } from "@/components/primitive-styles";
 import { ApiError, apiMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useT, useTn } from "@/lib/i18n";
@@ -62,6 +64,8 @@ function ContextAddForm({ onAdded }: { onAdded: () => void }) {
 export function ContextsPage() {
   const t = useT();
   const tn = useTn();
+  const { user } = useAuth();
+  const [adding, setAdding] = useState(false);
   const { data: contexts, isLoading, error: loadError } = useContexts();
   const del = useDeleteContext();
   const update = useUpdateContext();
@@ -128,27 +132,40 @@ export function ContextsPage() {
   const visible = (contexts ?? []).filter((c) => c.name.toLowerCase().includes(needle));
 
   return (
-    <PageWithAdd
-      title={t("nav.contexts")}
-      subtitle={t("contexts.subtitle")}
-      addLabel={t("contexts.addTitle")}
-      renderForm={(onAdded) => <ContextAddForm onAdded={onAdded} />}
+    <Screen
+      header={<HeaderBlock title={t("nav.contexts")} avatar={initials(user?.email)} />}
+      fab={<Fab label={t("contexts.addTitle")} onClick={() => setAdding(true)} />}
     >
-      <SearchInput
-        value={query}
-        onChange={setQuery}
-        placeholder={t("contexts.searchPlaceholder")}
-        ariaLabel={t("contexts.searchAria")}
-      />
+      <div className="mt-3.5 hidden rounded-card bg-card p-2.5 shadow-card md:block dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none">
+        <ContextAddForm onAdded={() => {}} />
+      </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
-      {loadError && <p className="text-sm text-destructive">{t("contexts.loadError")}</p>}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      <div className="flex flex-wrap items-center gap-2 pb-4 md:mt-4">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder={t("contexts.searchPlaceholder")}
+          ariaLabel={t("contexts.searchAria")}
+          className="w-full min-w-[180px] sm:w-auto sm:max-w-[300px] sm:flex-1"
+        />
+      </div>
 
-      <ul className="space-y-2">
+      {loadError && <p className="pb-3 text-sm font-medium text-danger">{t("contexts.loadError")}</p>}
+      {error && <p className="pb-3 text-sm font-medium text-danger">{error}</p>}
+
+      {isLoading ? (
+        <SkeletonList />
+      ) : contexts?.length === 0 ? (
+        <EmptyState message={t("contexts.none")} />
+      ) : visible.length === 0 ? (
+        <EmptyState message={t("contexts.noMatch")} />
+      ) : (
+      <ul className="flex flex-col gap-[9px]">
         {visible.map((c) => (
-          <li key={c.id}>
-            <Card className="flex items-center justify-between p-3">
+          <li
+            key={c.id}
+            className="group relative flex items-start justify-between gap-2.5 rounded-card bg-card p-3 shadow-card dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none"
+          >
               {editingId === c.id ? (
                 <Input
                   autoFocus
@@ -160,7 +177,7 @@ export function ContextsPage() {
                   }}
                   onBlur={() => saveRename(c.id, c.name)}
                   aria-label={t("contexts.renameLabel")}
-                  className="h-8 max-w-xs"
+                  className={cn(inlineEdit, "min-w-0 flex-1 text-sm font-semibold text-ink dark:text-ink-dark")}
                 />
               ) : (
                 // Single click starts an inline rename.
@@ -172,14 +189,14 @@ export function ContextsPage() {
                   }}
                   title={t("contexts.renameLabel")}
                   className={cn(
-                    "rounded px-1 text-left hover:bg-accent/40",
-                    c.state === "hidden" && "text-muted-foreground line-through",
+                    "min-w-0 flex-1 truncate rounded px-1 text-left text-sm font-semibold text-ink dark:text-ink-dark",
+                    c.state === "hidden" && "text-ink-4 line-through dark:text-ink-4-dark",
                   )}
                 >
                   {c.name}
                 </button>
               )}
-              <div className="flex shrink-0 items-center gap-0.5">
+              <div className={rowActions}>
                 <IconButton
                   variant="ghost"
                   className="size-7"
@@ -188,7 +205,7 @@ export function ContextsPage() {
                     update.mutate({ id: c.id, state: c.state === "hidden" ? "active" : "hidden" })
                   }
                 >
-                  {c.state === "hidden" ? <Eye /> : <EyeOff />}
+                  {c.state === "hidden" ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
                 </IconButton>
                 <IconButton
                   variant="ghost"
@@ -196,20 +213,17 @@ export function ContextsPage() {
                   label={t("contexts.deleteLabel", { name: c.name })}
                   onClick={() => onDelete(c.id, c.name)}
                 >
-                  <Trash2 className="text-destructive" />
+                  <Trash2 className="size-3.5 text-danger" />
                 </IconButton>
               </div>
-            </Card>
           </li>
         ))}
       </ul>
+      )}
 
-      {contexts?.length === 0 && !isLoading && (
-        <p className="text-center text-sm text-muted-foreground">{t("contexts.none")}</p>
-      )}
-      {contexts && contexts.length > 0 && visible.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground">{t("contexts.noMatch")}</p>
-      )}
+      <Sheet open={adding} onClose={() => setAdding(false)} title={t("contexts.addTitle")}>
+        <ContextAddForm onAdded={() => setAdding(false)} />
+      </Sheet>
 
       <ConfirmDialog
         open={confirming !== null}
@@ -232,6 +246,6 @@ export function ContextsPage() {
         busy={del.isPending}
         onConfirm={onConfirmDelete}
       />
-    </PageWithAdd>
+    </Screen>
   );
 }

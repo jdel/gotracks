@@ -4,8 +4,16 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HomePage } from "./HomePage";
 
+// The header block reads the account for its avatar; a stub keeps the page out
+// of the AuthProvider so these tests stay focused on the actions list.
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
+}));
+
 let contexts: { id: number; name: string; state: string; position: number }[];
 let todos: Record<string, unknown>[];
+/** Account preferences; null serves a 401, as an unauthenticated test would. */
+let prefs: Record<string, unknown> | null;
 
 function jsonResponse(body: unknown, status = 200) {
   return { ok: status < 400, status, json: async () => body, blob: async () => new Blob() } as Response;
@@ -18,7 +26,11 @@ function fakeFetch(input: RequestInfo | URL): Promise<Response> {
   if (url.includes("/projects")) return Promise.resolve(jsonResponse([]));
   if (url.includes("/tags")) return Promise.resolve(jsonResponse([]));
   if (url.includes("/attachments")) return Promise.resolve(jsonResponse([]));
-  if (url.includes("/preferences")) return Promise.resolve(jsonResponse({}, 401));
+  if (url.includes("/preferences")) {
+    return prefs
+      ? Promise.resolve(jsonResponse(prefs))
+      : Promise.resolve(jsonResponse({}, 401));
+  }
   return Promise.resolve(jsonResponse({}, 404));
 }
 
@@ -49,6 +61,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  prefs = null;
   contexts = [
     { id: 1, name: "@home", state: "active", position: 1 },
     { id: 2, name: "@work", state: "active", position: 2 },
@@ -106,21 +119,6 @@ describe("actions view", () => {
     await waitFor(() => expect(screen.queryByText("call the plumber")).toBeNull());
   });
 
-  it("collapses a context and remembers it", async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    await screen.findByText("paint the fence");
-    // The header button carries the context name; collapsing hides its actions.
-    await user.click(screen.getByRole("button", { name: /@home/ }));
-
-    await waitFor(() => expect(screen.queryByText("paint the fence")).toBeNull());
-    // Other contexts are unaffected.
-    expect(screen.getByText("write the report")).toBeDefined();
-    // Persisted for next visit.
-    expect(JSON.parse(localStorage.getItem("gt.collapsedContexts")!)).toContain(1);
-  });
-
   it("opens the quick-add sheet from the header button", async () => {
     const user = userEvent.setup();
     renderPage();
@@ -133,8 +131,57 @@ describe("actions view", () => {
     // The dates/tags panel is open up front in the mobile flow.
     expect(within(dialog).getByLabelText("Due")).toBeDefined();
 
-    // The X closes it.
-    await user.click(within(dialog).getByLabelText("Close"));
+    // Escape closes the sheet.
+    await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+});
+
+// "Today" and "overdue" are calendar-day questions, and the answer has to come
+// from the account's time zone. The same action, at the same instant, is due
+// today in Honolulu (UTC-10) and overdue in UTC — so asserting both pins the
+// behaviour to the preference rather than to whatever zone the test machine is
+// in, which is the bug this replaced.
+describe("overdue in the account's time zone", () => {
+  const DUE = "2026-08-10T15:00:00Z";
+  const NOW = "2026-08-11T05:00:00Z";
+
+  function renderWithZone(timeZone: string) {
+    prefs = { timeZone, dateFormat: "2006-01-02", locale: "en" };
+    todos = [{ ...todo(1, 1, "pay the invoice"), due: DUE }];
+    return render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <HomePage />
+      </QueryClientProvider>,
+    );
+  }
+
+  async function overdueMetric() {
+    const metric = await screen.findByText(/overdue/);
+    return metric.textContent?.trim();
+  }
+
+  it("counts nothing overdue while it is still today for the account", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.setSystemTime(new Date(NOW));
+      renderWithZone("Pacific/Honolulu");
+      expect(await overdueMetric()).toBe("0 overdue");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("counts it overdue once the account's day has moved on", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.setSystemTime(new Date(NOW));
+      renderWithZone("UTC");
+      expect(await overdueMetric()).toBe("1 overdue");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

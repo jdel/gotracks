@@ -13,10 +13,12 @@ import { availableLocales, useLocale, useT } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { TimezonePicker } from "@/components/TimezonePicker";
-import { PageContainer } from "@/components/PageContainer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/lib/auth";
+import { initials } from "@/lib/initials";
+import { Screen, HeaderBlock, Panel, Toggle } from "@/components/primitives";
+import { inputClass } from "@/components/primitive-styles";
+import { cn } from "@/lib/utils";
 import { PasswordSection } from "@/components/PasswordSection";
 import { PasskeySection } from "@/components/PasskeySection";
 import { TwoFactorSection } from "@/components/TwoFactorSection";
@@ -32,8 +34,11 @@ const DATE_FORMATS = [
   { value: "02 Jan 2006", label: "18 Jul 2026" },
 ];
 
+const fieldLabel = "text-[11px] font-bold text-ink-3 dark:text-ink-4-dark";
+
 export function SettingsPage() {
   const t = useT();
+  const { user } = useAuth();
   const { setLocale } = useLocale();
   const { data: prefs, isLoading } = usePreferences();
   const { data: usage, isLoading: usageLoading, error: usageError } = useMyUsage();
@@ -82,185 +87,171 @@ export function SettingsPage() {
   }
 
   if (isLoading || !prefs) {
-    return <p className="text-sm text-muted-foreground">{t("actions.loading")}</p>;
+    return <p className="p-6 text-sm font-medium text-ink-3">{t("actions.loading")}</p>;
   }
 
   return (
-    <PageContainer>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("settings.title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
-      </div>
-
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">{t("settings.title")}</CardTitle>
-          {saved && (
-            <span className="flex items-center gap-1 text-xs text-emerald-600">
-              <Check className="size-3" /> {t("settings.saved")}
-            </span>
-          )}
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <label className="text-xs text-muted-foreground">
-            {t("settings.theme")}
-            <select
-              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-              value={prefs.theme}
-              onChange={(e) => set({ theme: e.target.value as Preference["theme"] })}
-            >
-              <option value="system">{t("settings.themeSystem")}</option>
-              <option value="light">{t("settings.themeLight")}</option>
-              <option value="dark">{t("settings.themeDark")}</option>
-            </select>
-          </label>
-
-          <label className="text-xs text-muted-foreground">
-            {t("settings.language")}
-            <select
-              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-              value={prefs.locale}
-              onChange={(e) => {
-                // Saved on the account and remembered on this device, so the
-                // next sign-in page renders in the same language.
-                set({ locale: e.target.value });
-                setLocale(e.target.value);
-              }}
-            >
-              {availableLocales.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.flag} {l.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-xs text-muted-foreground">
-            {t("settings.timeZone")}
-            <TimezonePicker value={prefs.timeZone} onChange={(zone) => set({ timeZone: zone })} ariaLabel={t("settings.timeZone")} />
-          </label>
-
-          <label className="text-xs text-muted-foreground">
-            {t("settings.dateFormat")}
-            <select
-              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-              value={prefs.dateFormat}
-              onChange={(e) => set({ dateFormat: e.target.value })}
-            >
-              {DATE_FORMATS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-xs text-muted-foreground">
-            {t("settings.weekStart")}
-            <select
-              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-              value={prefs.weekStart}
-              onChange={(e) => set({ weekStart: Number(e.target.value) })}
-            >
-              <option value={0}>{t("weekday.long.0")}</option>
-              <option value={1}>{t("weekday.long.1")}</option>
-            </select>
-          </label>
-
-          <label className="text-xs text-muted-foreground">
-            {t("settings.reviewPeriod")}
-            <Input
-              type="number"
-              min={1}
-              className="mt-1"
-              value={prefs.reviewPeriod}
-              onChange={(e) => set({ reviewPeriod: Math.max(1, Number(e.target.value)) })}
-            />
-          </label>
-        </CardContent>
-        <CardContent className="flex items-center justify-between gap-4 border-t pt-4">
-          <div>
-            <Label htmlFor="auto-delete-attachments" className="cursor-pointer text-sm font-normal">
-              {t("settings.autoDeleteAttachments")}
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {t("settings.autoDeleteAttachmentsHelp")}
-            </p>
+    <Screen
+      header={
+        <HeaderBlock
+          title={t("settings.title")}
+          avatar={initials(user?.email)}
+          metrics={user?.email ? [{ label: user.email }] : []}
+        />
+      }
+    >
+      <div className="mt-4 flex flex-col gap-4 md:grid md:grid-cols-2 md:gap-4 md:[align-content:start]">
+        <Panel className="md:col-span-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[17px] font-extrabold tracking-[-0.02em] text-ink dark:text-ink-dark">
+              {t("settings.title")}
+            </h2>
+            {saved && (
+              <span className="flex items-center gap-1 text-xs font-bold text-done-text dark:text-done-dark">
+                <Check className="size-3" /> {t("settings.saved")}
+              </span>
+            )}
           </div>
-          <Switch
-            id="auto-delete-attachments"
-            checked={prefs.autoDeleteAttachments ?? false}
-            disabled={update.isPending}
-            onCheckedChange={(checked) => set({ autoDeleteAttachments: checked })}
-            aria-label={t("settings.autoDeleteAttachments")}
-          />
-        </CardContent>
-      </Card>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className={fieldLabel}>
+              {t("settings.theme")}
+              <select
+                className={cn("mt-1", inputClass)}
+                value={prefs.theme}
+                onChange={(e) => set({ theme: e.target.value as Preference["theme"] })}
+              >
+                <option value="system">{t("settings.themeSystem")}</option>
+                <option value="light">{t("settings.themeLight")}</option>
+                <option value="dark">{t("settings.themeDark")}</option>
+              </select>
+            </label>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("emailChange.settingsTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={(e) => void changeEmail(e)}>
-            <p className="text-sm text-muted-foreground">{t("emailChange.settingsDescription")}</p>
-            <div className="space-y-2">
-              <Label htmlFor="new-email">{t("emailChange.newEmail")}</Label>
+            <label className={fieldLabel}>
+              {t("settings.language")}
+              <select
+                className={cn("mt-1", inputClass)}
+                value={prefs.locale}
+                onChange={(e) => {
+                  set({ locale: e.target.value });
+                  setLocale(e.target.value);
+                }}
+              >
+                {availableLocales.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.flag} {l.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className={fieldLabel}>
+              {t("settings.timeZone")}
+              <TimezonePicker value={prefs.timeZone} onChange={(zone) => set({ timeZone: zone })} ariaLabel={t("settings.timeZone")} />
+            </label>
+
+            <label className={fieldLabel}>
+              {t("settings.dateFormat")}
+              <select
+                className={cn("mt-1", inputClass)}
+                value={prefs.dateFormat}
+                onChange={(e) => set({ dateFormat: e.target.value })}
+              >
+                {DATE_FORMATS.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className={fieldLabel}>
+              {t("settings.weekStart")}
+              <select
+                className={cn("mt-1", inputClass)}
+                value={prefs.weekStart}
+                onChange={(e) => set({ weekStart: Number(e.target.value) })}
+              >
+                <option value={0}>{t("weekday.long.0")}</option>
+                <option value={1}>{t("weekday.long.1")}</option>
+              </select>
+            </label>
+
+            <label className={fieldLabel}>
+              {t("settings.reviewPeriod")}
+              <Input
+                type="number"
+                min={1}
+                className={cn("mt-1", inputClass)}
+                value={prefs.reviewPeriod}
+                onChange={(e) => set({ reviewPeriod: Math.max(1, Number(e.target.value)) })}
+              />
+            </label>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t border-line-3 pt-4 dark:border-line-dark">
+            <div>
+              <Label htmlFor="auto-delete-attachments" className="cursor-pointer text-sm font-medium text-ink dark:text-ink-dark">
+                {t("settings.autoDeleteAttachments")}
+              </Label>
+              <p className="text-xs font-medium text-ink-3 dark:text-ink-4-dark">
+                {t("settings.autoDeleteAttachmentsHelp")}
+              </p>
+            </div>
+            <Toggle
+              id="auto-delete-attachments"
+              checked={prefs.autoDeleteAttachments ?? false}
+              disabled={update.isPending}
+              onChange={(checked) => set({ autoDeleteAttachments: checked })}
+              label={t("settings.autoDeleteAttachments")}
+            />
+          </div>
+        </Panel>
+
+        <Panel title={t("emailChange.settingsTitle")}>
+          <form className="flex flex-col gap-4" onSubmit={(e) => void changeEmail(e)}>
+            <p className="text-xs font-medium text-ink-3 dark:text-ink-4-dark">{t("emailChange.settingsDescription")}</p>
+            <label className={fieldLabel}>
+              {t("emailChange.newEmail")}
               <Input
                 id="new-email"
                 type="email"
                 autoComplete="email"
+                className={cn("mt-1", inputClass)}
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
               />
-            </div>
-            {emailChangeSent && <p className="text-sm text-emerald-600">{t("emailChange.sent")}</p>}
-            {emailChangeError && <p className="text-sm text-destructive">{emailChangeError}</p>}
+            </label>
+            {emailChangeSent && <p className="text-sm font-medium text-done-text dark:text-done-dark">{t("emailChange.sent")}</p>}
+            {emailChangeError && <p className="text-sm font-medium text-danger">{emailChangeError}</p>}
             <Button type="submit" variant="outline" disabled={!newEmail || requestEmailChange.isPending}>
               {requestEmailChange.isPending ? t("common.working") : t("emailChange.send")}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <PasswordSection />
+        <PasswordSection />
 
-      <PasskeySection />
+        <PasskeySection />
 
-      <TwoFactorSection />
+        <TwoFactorSection />
 
-      <SessionSection />
+        <SessionSection />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("usage.title")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {usageLoading && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
-          {usageError && <p className="text-sm text-destructive">{t("usage.loadError")}</p>}
+        <Panel title={t("usage.title")}>
+          {usageLoading && <p className="text-sm font-medium text-ink-3">{t("common.loading")}</p>}
+          {usageError && <p className="text-sm font-medium text-danger">{t("usage.loadError")}</p>}
           {usage && <UsageBars usage={usage} />}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("settings.export")}</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <Panel title={t("settings.export")}>
           <Button variant="outline" size="sm" onClick={() => void downloadExport()}>
             <Download /> JSON
           </Button>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Card className="border-destructive/60">
-        <CardHeader>
-          <CardTitle className="text-base text-destructive">{t("accountDeletion.settingsTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">{t("accountDeletion.settingsDescription")}</p>
-          {deletionSent && <p className="text-sm text-emerald-600">{t("accountDeletion.emailSent")}</p>}
-          {deletionError && <p className="text-sm text-destructive">{deletionError}</p>}
+        <Panel tone="danger" title={t("accountDeletion.dangerZone")}>
+          <p className="text-xs font-medium text-ink-3 dark:text-ink-4-dark">{t("accountDeletion.settingsDescription")}</p>
+          {deletionSent && <p className="text-sm font-medium text-done-text dark:text-done-dark">{t("accountDeletion.emailSent")}</p>}
+          {deletionError && <p className="text-sm font-medium text-danger">{deletionError}</p>}
           <Button
             variant="destructive"
             size="lg"
@@ -272,8 +263,8 @@ export function SettingsPage() {
           >
             <Trash2 /> {t("accountDeletion.settingsButton")}
           </Button>
-        </CardContent>
-      </Card>
+        </Panel>
+      </div>
 
       <ConfirmDialog
         open={deletionOpen}
@@ -289,7 +280,6 @@ export function SettingsPage() {
         busy={requestDeletion.isPending}
         onConfirm={() => void requestAccountDeletion()}
       />
-
-    </PageContainer>
+    </Screen>
   );
 }

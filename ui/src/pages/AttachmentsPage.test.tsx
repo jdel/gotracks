@@ -5,6 +5,10 @@ import userEvent from "@testing-library/user-event";
 import { AttachmentsPage } from "./AttachmentsPage";
 import { useAllAttachments } from "@/hooks/useSettings";
 
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
+}));
+
 vi.mock("@/hooks/useSettings", () => ({
   useAllAttachments: vi.fn(),
   useDeleteAttachment: () => ({ mutate: vi.fn(), isPending: false }),

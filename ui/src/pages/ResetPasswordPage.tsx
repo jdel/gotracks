@@ -8,10 +8,9 @@ import { isPasswordValid } from "@/lib/password";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useT } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
-import { LegalLinks } from "@/pages/LegalPage";
+import { AuthLayout } from "@/components/AuthLayout";
 import { LegalConsent } from "@/components/LegalConsent";
 import { useServerConfig } from "@/hooks/useSettings";
 
@@ -72,12 +71,7 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-xl">{t(invitation ? "invite.title" : "reset.title")}</CardTitle>
-        </CardHeader>
-        <CardContent>
+    <AuthLayout title={t(invitation ? "invite.title" : "reset.title")}>
           {!token ? (
             <p className="text-sm text-destructive">
               {t(invitation ? "invite.incomplete" : "reset.incomplete")}
@@ -140,9 +134,6 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
               </p>
             </form>
           )}
-        </CardContent>
-      </Card>
-      <LegalLinks className="pt-4 text-xs text-muted-foreground" />
-    </div>
+    </AuthLayout>
   );
 }

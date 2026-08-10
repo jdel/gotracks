@@ -21,16 +21,30 @@ import { api } from "@/lib/api";
 import { TodoItem } from "@/components/TodoItem";
 import type { Todo } from "@/lib/types";
 
-function SortableRow({ todo, showContext }: { todo: Todo; showContext?: string }) {
+function SortableRow({
+  todo,
+  showContext,
+  hideContext,
+}: {
+  todo: Todo;
+  showContext?: string;
+  hideContext?: boolean;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: todo.id,
   });
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
+      style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 1 : undefined }}
     >
-      <TodoItem todo={todo} showContext={showContext} dragHandle={{ ...attributes, ...listeners }} />
+      <TodoItem
+        todo={todo}
+        showContext={showContext}
+        hideContext={hideContext}
+        lifted={isDragging}
+        dragHandle={{ ...attributes, ...listeners }}
+      />
     </div>
   );
 }
@@ -40,9 +54,11 @@ function SortableRow({ todo, showContext }: { todo: Todo; showContext?: string }
 export function SortableTodoList({
   todos,
   showContext,
+  hideContext,
 }: {
   todos: Todo[];
   showContext?: (t: Todo) => string | undefined;
+  hideContext?: boolean;
 }) {
   const qc = useQueryClient();
   const [items, setItems] = useState(todos);
@@ -83,9 +99,14 @@ export function SortableTodoList({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <SortableContext items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        <ul className="space-y-2">
+        <ul className="space-y-[9px]">
           {items.map((t) => (
-            <SortableRow key={t.id} todo={t} showContext={showContext?.(t)} />
+            <SortableRow
+              key={t.id}
+              todo={t}
+              showContext={showContext?.(t)}
+              hideContext={hideContext}
+            />
           ))}
         </ul>
       </SortableContext>

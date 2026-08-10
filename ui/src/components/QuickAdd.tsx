@@ -163,8 +163,10 @@ export function QuickAdd({
         {contextLabel && (
           <span
             className={cn(
-              "rounded px-1.5 py-0.5 text-sky-700 dark:text-sky-300",
-              parsed.contextIsNew ? "border border-dashed border-sky-500" : "bg-sky-500/15"
+              "rounded-full px-2 py-[3px] text-[10px] font-bold text-brand dark:text-brand-ink-dark",
+              parsed.contextIsNew
+                ? "border border-dashed border-brand dark:border-brand-ink-dark"
+                : "bg-brand-soft dark:bg-brand-pill-dark"
             )}
           >
             @{bare(contextLabel, "@")}
@@ -174,8 +176,10 @@ export function QuickAdd({
         {projectLabel && (
           <span
             className={cn(
-              "rounded px-1.5 py-0.5 text-violet-700 dark:text-violet-300",
-              parsed.projectIsNew ? "border border-dashed border-violet-500" : "bg-violet-500/15"
+              "rounded-full px-2 py-[3px] text-[10px] font-bold text-done-text dark:text-done-dark",
+              parsed.projectIsNew
+                ? "border border-dashed border-done dark:border-done-dark"
+                : "bg-done-soft dark:bg-done-fill-dark"
             )}
           >
             #{bare(projectLabel, "#")}
@@ -185,7 +189,7 @@ export function QuickAdd({
         {allTags.map((tag) => (
           <span
             key={tag}
-            className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-700 dark:text-amber-300"
+            className="rounded-full border border-line bg-surface px-2 py-[3px] text-[10px] font-bold text-ink-2 dark:border-line-dark dark:bg-card-dark dark:text-ink-2-dark"
           >
             !{tag}
           </span>

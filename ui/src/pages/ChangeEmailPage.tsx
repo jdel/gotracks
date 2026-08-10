@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthLayout } from "@/components/AuthLayout";
 
 /** Landing page that proves ownership of a requested new email address. */
 export function ChangeEmailPage() {
@@ -31,21 +31,14 @@ export function ChangeEmailPage() {
   }, [confirm, logout, t, token]);
 
   return (
-    <div className="flex min-h-dvh items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-xl">{t("emailChange.confirmTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!token && <p className="text-sm text-destructive">{t("emailChange.incomplete")}</p>}
-          {token && !done && !error && <p className="text-sm text-muted-foreground">{t("emailChange.confirming")}</p>}
-          {done && <p className="text-sm">{t("emailChange.done")}</p>}
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button asChild className="w-full">
-            <Link to="/login">{t("auth.signIn")}</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthLayout title={t("emailChange.confirmTitle")}>
+      {!token && <p className="text-sm font-medium text-danger">{t("emailChange.incomplete")}</p>}
+      {token && !done && !error && <p className="text-sm font-medium text-ink-3">{t("emailChange.confirming")}</p>}
+      {done && <p className="text-sm font-medium text-ink dark:text-ink-dark">{t("emailChange.done")}</p>}
+      {error && <p className="text-sm font-medium text-danger">{error}</p>}
+      <Button asChild className="w-full">
+        <Link to="/login">{t("auth.signIn")}</Link>
+      </Button>
+    </AuthLayout>
   );
 }

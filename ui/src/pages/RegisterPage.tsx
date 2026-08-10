@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLocale, useT } from "@/lib/i18n";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LegalLinks } from "@/pages/LegalPage";
+import { AuthLayout } from "@/components/AuthLayout";
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -35,12 +34,7 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-xl">{t("auth.createAccount")}</CardTitle>
-        </CardHeader>
-        <CardContent>
+    <AuthLayout title={t("auth.createAccount")}>
           {sent ? (
             <div className="space-y-4">
               <p className="text-sm">{t("auth.enrollmentSent")}</p>
@@ -70,9 +64,6 @@ export function RegisterPage() {
               </p>
             </form>
           )}
-        </CardContent>
-      </Card>
-      <LegalLinks className="pt-4 text-xs text-muted-foreground" />
-    </div>
+    </AuthLayout>
   );
 }

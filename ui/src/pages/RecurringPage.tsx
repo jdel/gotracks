@@ -11,18 +11,20 @@ import { useProjects } from "@/hooks/useProjects";
 import { ActionInput } from "@/components/ActionInput";
 import { bare, parseAction, type Sigil } from "@/lib/composer";
 import { apiMessage } from "@/lib/api";
+import { useUndo } from "@/lib/undo";
 import { useT, useTn, type TFunc, type TnFunc } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
 import { lastUsed } from "@/lib/lastUsed";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import type { Context, Project, RecurrencePeriod, RecurringTodo } from "@/lib/types";
 import { SearchInput } from "@/components/SearchInput";
-import { PageWithAdd } from "@/components/PageWithAdd";
+import { useAuth } from "@/lib/auth";
+import { initials } from "@/lib/initials";
+import { Screen, HeaderBlock, Fab, Sheet, SkeletonList, EmptyState } from "@/components/primitives";
+import { rowActions } from "@/components/primitive-styles";
 import { cn } from "@/lib/utils";
 
 
@@ -165,8 +167,10 @@ function RecurringAddForm({
         {contextLabel && (
           <span
             className={cn(
-              "rounded px-1.5 py-0.5 text-sky-700 dark:text-sky-300",
-              parsed.contextIsNew ? "border border-dashed border-sky-500" : "bg-sky-500/15",
+              "rounded-full px-2 py-[3px] text-[10px] font-bold text-brand dark:text-brand-ink-dark",
+              parsed.contextIsNew
+                ? "border border-dashed border-brand dark:border-brand-ink-dark"
+                : "bg-brand-soft dark:bg-brand-pill-dark",
             )}
           >
             @{bare(contextLabel, "@")}
@@ -176,8 +180,10 @@ function RecurringAddForm({
         {projectLabel && (
           <span
             className={cn(
-              "rounded px-1.5 py-0.5 text-violet-700 dark:text-violet-300",
-              parsed.projectIsNew ? "border border-dashed border-violet-500" : "bg-violet-500/15",
+              "rounded-full px-2 py-[3px] text-[10px] font-bold text-done-text dark:text-done-dark",
+              parsed.projectIsNew
+                ? "border border-dashed border-done dark:border-done-dark"
+                : "bg-done-soft dark:bg-done-fill-dark",
             )}
           >
             #{bare(projectLabel, "#")}
@@ -456,61 +462,86 @@ function RecurringEditDialog({
 
 export function RecurringPage() {
   const t = useT();
+  const { user } = useAuth();
   const fmt = useDateFmt();
   const tn = useTn();
-  const [confirming, setConfirming] = useState<{ id: number; description: string } | null>(null);
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<RecurringTodo | null>(null);
   const { data: patterns, isLoading } = useRecurring();
   const { data: contexts } = useContexts();
   const { data: projects } = useProjects("active");
   const update = useUpdateRecurring();
   const del = useDeleteRecurring();
+  const { pendingKey, schedule } = useUndo();
   const [query, setQuery] = useState("");
 
   const needle = query.trim().toLowerCase();
-  const visible = (patterns ?? []).filter((p) => p.description.toLowerCase().includes(needle));
+  // A pattern pending deletion leaves the list at once; the toast's Undo puts it
+  // back, and only the toast expiring makes the delete real.
+  const visible = (patterns ?? []).filter(
+    (p) => p.description.toLowerCase().includes(needle) && pendingKey !== `recurring:${p.id}`,
+  );
 
   return (
-    <PageWithAdd
-      title={t("nav.recurring")}
-      subtitle={t("recurring.subtitle")}
-      addLabel={t("recurring.addTitle")}
-      renderForm={(onAdded) => (
-        <RecurringAddForm contexts={contexts ?? []} projects={projects ?? []} onAdded={onAdded} />
-      )}
+    <Screen
+      header={<HeaderBlock title={t("nav.recurring")} avatar={initials(user?.email)} />}
+      fab={<Fab label={t("recurring.addTitle")} onClick={() => setAdding(true)} />}
     >
-      <SearchInput
-        value={query}
-        onChange={setQuery}
-        placeholder={t("recurring.searchPlaceholder")}
-        ariaLabel={t("recurring.searchAria")}
-      />
+      <div className="mt-3.5 hidden md:block">
+        <RecurringAddForm contexts={contexts ?? []} projects={projects ?? []} onAdded={() => {}} />
+      </div>
 
-      {isLoading && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+      <div className="flex flex-wrap items-center gap-2 pb-4 md:mt-4">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder={t("recurring.searchPlaceholder")}
+          ariaLabel={t("recurring.searchAria")}
+          className="w-full min-w-[180px] sm:w-auto sm:max-w-[300px] sm:flex-1"
+        />
+      </div>
 
-      <ul className="space-y-2">
+      {isLoading ? (
+        <SkeletonList />
+      ) : patterns?.length === 0 ? (
+        <EmptyState message={t("recurring.none")} />
+      ) : visible.length === 0 ? (
+        <EmptyState message={t("recurring.noMatch")} />
+      ) : (
+      <ul className="flex flex-col gap-[9px]">
         {visible.map((p) => (
-          <li key={p.id}>
-            <Card className="flex items-start gap-3 p-3">
-              <Repeat className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <li
+            key={p.id}
+            className="group relative flex items-start gap-2.5 rounded-card bg-card p-3 shadow-card dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none"
+          >
+              <Repeat className="mt-0.5 size-4 shrink-0 text-ink-4" />
               <div className="min-w-0 flex-1">
-                <p className={cn("text-sm", p.state === "completed" && "text-muted-foreground line-through")}>
+                <p
+                  className={cn(
+                    "text-sm font-semibold text-ink dark:text-ink-dark",
+                    p.state === "completed" && "text-ink-4 line-through dark:text-ink-4-dark",
+                  )}
+                >
                   {p.description}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs font-medium text-ink-3 dark:text-ink-4-dark">
                   {describe(t, tn, p)}
-                  {p.lastSpawnedAt &&
-                    ` · ${t("recurring.last", { date: fmt.date(p.lastSpawnedAt) })}`}
+                  {p.lastSpawnedAt && (
+                    <>
+                      {" · "}
+                      <span className="mono">{t("recurring.last", { date: fmt.date(p.lastSpawnedAt) })}</span>
+                    </>
+                  )}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-0.5">
+              <div className={rowActions}>
                 <IconButton
                   variant="ghost"
                   className="size-7"
                   label={t("recurring.editLabel")}
                   onClick={() => setEditing(p)}
                 >
-                  <Pencil className="size-4" />
+                  <Pencil className="size-3.5" />
                 </IconButton>
                 <IconButton
                   variant="ghost"
@@ -520,46 +551,33 @@ export function RecurringPage() {
                     update.mutate({ id: p.id, state: p.state === "completed" ? "active" : "completed" })
                   }
                 >
-                  {p.state === "completed" ? <Play className="size-4" /> : <Pause className="size-4" />}
+                  {p.state === "completed" ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
                 </IconButton>
                 <IconButton
                   variant="ghost"
                   className="size-7"
                   label={t("recurring.deleteLabel", { description: p.description })}
-                  onClick={() => setConfirming(p)}
+                  onClick={() =>
+                    schedule(`recurring:${p.id}`, t("recurring.deleted"), () => del.mutate(p.id))
+                  }
                 >
-                  <Trash2 className="size-4 text-destructive" />
+                  <Trash2 className="size-3.5 text-danger" />
                 </IconButton>
               </div>
-            </Card>
           </li>
         ))}
       </ul>
+      )}
 
-      {patterns?.length === 0 && !isLoading && (
-        <p className="text-center text-sm text-muted-foreground">{t("recurring.none")}</p>
-      )}
-      {patterns && patterns.length > 0 && visible.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground">{t("recurring.noMatch")}</p>
-      )}
+      <Sheet open={adding} onClose={() => setAdding(false)} title={t("recurring.addTitle")}>
+        <RecurringAddForm
+          contexts={contexts ?? []}
+          projects={projects ?? []}
+          onAdded={() => setAdding(false)}
+        />
+      </Sheet>
 
       <RecurringEditDialog pattern={editing} onOpenChange={(open) => !open && setEditing(null)} />
-
-      <ConfirmDialog
-        open={confirming !== null}
-        onOpenChange={(open) => !open && setConfirming(null)}
-        title={t("recurring.deleteTitle")}
-        description={
-          <>
-            <strong>{confirming?.description}</strong> {t("recurring.deleteDescBody")}
-          </>
-        }
-        busy={del.isPending}
-        onConfirm={() => {
-          if (confirming) del.mutate(confirming.id);
-          setConfirming(null);
-        }}
-      />
-    </PageWithAdd>
+    </Screen>
   );
 }

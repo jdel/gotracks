@@ -59,7 +59,11 @@ export function AttachmentPanel({ todoId }: { todoId: number }) {
       <ul className="space-y-1">
         {attachments?.map((a) => (
           <li key={a.id} className="flex items-center gap-2 text-xs">
-            <span className="min-w-0 flex-1 truncate">{a.fileName}</span>
+            {/* Truncated to keep the row one line; the whole name is on hover,
+                as on the attachments screen. */}
+            <span className="min-w-0 flex-1 truncate" title={a.fileName}>
+              {a.fileName}
+            </span>
             <span className="shrink-0 text-muted-foreground">{humanSize(a.size)}</span>
             <IconButton
               variant="ghost"

@@ -5,6 +5,11 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProjectsPage } from "./ProjectsPage";
 
+// The header avatar reads the account; a stub keeps the page out of AuthProvider.
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
+}));
+
 let projects: Record<string, unknown>[];
 let created: string[];
 

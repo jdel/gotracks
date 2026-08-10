@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useInstanceSettings, useUpdateInstanceSettings, useLogLevel, useSetLogLevel } from "@/hooks/useSettings";
 import { useT } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
-import { PageContainer } from "@/components/PageContainer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/lib/auth";
+import { initials } from "@/lib/initials";
+import { Screen, HeaderBlock, Panel, Toggle } from "@/components/primitives";
+import { inputClass } from "@/components/primitive-styles";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,7 @@ const LEVELS = ["trace", "debug", "info", "warn", "error"];
 // about the deployment rather than any one account.
 export function ServerPage() {
   const t = useT();
+  const { user } = useAuth();
   const { dateTime } = useDateFmt();
   const { data: settings } = useInstanceSettings();
   const updateSettings = useUpdateInstanceSettings();
@@ -27,60 +30,62 @@ export function ServerPage() {
   const overridden = Boolean(logState?.overrideUntil);
 
   return (
-    <PageContainer>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("server.title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("server.subtitle")}</p>
-      </div>
+    <Screen
+      header={
+        <HeaderBlock
+          title={t("server.title")}
+          avatar={initials(user?.email)}
+        />
+      }
+    >
+      <div className="mt-4 flex flex-col gap-4">
+        {/* Public enrollment: whether strangers can create their own accounts. */}
+        <Panel>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-ink dark:text-ink-dark">{t("admin.allowRegister")}</p>
+              <p className="text-xs font-medium text-ink-3 dark:text-ink-4-dark">{t("admin.allowRegisterHelp")}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 text-sm">
+              <Toggle
+                id="allow-register"
+                checked={settings?.allowRegister ?? false}
+                disabled={!settings || updateSettings.isPending}
+                onChange={(checked) => updateSettings.mutate({ allowRegister: checked })}
+                label={t("admin.allowRegister")}
+              />
+              <Label htmlFor="allow-register" className="cursor-pointer text-ink dark:text-ink-dark">
+                {settings?.allowRegister ? t("common.on") : t("common.off")}
+              </Label>
+            </div>
+          </div>
+        </Panel>
 
-      {/* Public enrollment: whether strangers can create their own accounts. */}
-      <Card className="flex items-start justify-between gap-4 p-4">
-        <div>
-          <p className="text-sm font-medium">{t("admin.allowRegister")}</p>
-          <p className="text-xs text-muted-foreground">{t("admin.allowRegisterHelp")}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2 text-sm">
-          <Switch
-            id="allow-register"
-            checked={settings?.allowRegister ?? false}
-            disabled={!settings || updateSettings.isPending}
-            onCheckedChange={(checked) => updateSettings.mutate({ allowRegister: checked })}
-            aria-label={t("admin.allowRegister")}
-          />
-          <Label htmlFor="allow-register" className="cursor-pointer">
-            {settings?.allowRegister ? t("common.on") : t("common.off")}
-          </Label>
-        </div>
-      </Card>
+        {/* Runtime log level: raise it to troubleshoot, reverts automatically. */}
+        <Panel title={t("server.logLevel")}>
+          <p className="text-xs font-medium text-ink-3 dark:text-ink-4-dark">{t("server.logLevelHelp")}</p>
 
-      {/* Runtime log level: raise it to troubleshoot, reverts automatically. */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("server.logLevel")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">{t("server.logLevelHelp")}</p>
-
-          <p className="text-sm">
-            {t("server.logLevelCurrent")}{" "}
-            <span className="font-mono font-medium">{logState?.level ?? "—"}</span>
+          <p className="text-sm font-medium text-ink dark:text-ink-dark">
+            {t("server.logLevelCurrent")} <span className="mono">{logState?.level ?? "—"}</span>
             {overridden && logState?.overrideUntil && (
-              <span className="text-muted-foreground">
+              <span className="text-ink-4">
                 {" "}
                 — {t("server.logLevelUntil", { time: dateTime(logState.overrideUntil) })}
               </span>
             )}
             {!overridden && logState && (
-              <span className="text-muted-foreground"> — {t("server.logLevelBaseline")}</span>
+              <span className="text-ink-4"> — {t("server.logLevelBaseline")}</span>
             )}
           </p>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="log-level">{t("server.logLevelSelect")}</Label>
+              <Label htmlFor="log-level" className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">
+                {t("server.logLevelSelect")}
+              </Label>
               <select
                 id="log-level"
-                className="block h-9 rounded-md border border-input bg-background px-3 text-sm"
+                className={cn(inputClass, "sm:w-40")}
                 value={level}
                 onChange={(e) => setLevel(e.target.value)}
               >
@@ -92,13 +97,15 @@ export function ServerPage() {
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="log-duration">{t("server.logLevelDuration")}</Label>
+              <Label htmlFor="log-duration" className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">
+                {t("server.logLevelDuration")}
+              </Label>
               <Input
                 id="log-duration"
                 type="number"
                 min={1}
                 max={1440}
-                className="w-28"
+                className={cn(inputClass, "sm:w-28")}
                 value={minutes}
                 onChange={(e) => setMinutes(Math.max(1, Number(e.target.value) || 1))}
               />
@@ -121,8 +128,8 @@ export function ServerPage() {
               </Button>
             )}
           </div>
-        </CardContent>
-      </Card>
-    </PageContainer>
+        </Panel>
+      </div>
+    </Screen>
   );
 }

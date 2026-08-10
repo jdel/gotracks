@@ -9,6 +9,7 @@ const { confirmEmailChange, logout } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/hooks/useSettings", () => ({
+  useServerConfig: () => ({ data: { legal: false } }),
   useConfirmEmailChange: () => ({ mutateAsync: confirmEmailChange }),
 }));
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ logout }) }));

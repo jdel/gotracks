@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { SettingsPage } from "./SettingsPage";
+
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
+}));
 
 const { requestEmailChange } = vi.hoisted(() => ({
   requestEmailChange: vi.fn().mockResolvedValue(undefined),
@@ -54,11 +59,11 @@ vi.mock("@/hooks/useSettings", () => ({
 
 describe("SettingsPage usage pane", () => {
   it("puts export immediately before account deletion", () => {
-    render(<SettingsPage />);
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
 
     const exportTitle = screen.getByText("Export your data");
     const usageTitle = screen.getByText("Usage");
-    const deleteTitle = screen.getByText("Delete your account");
+    const deleteTitle = screen.getByText("Danger zone");
     expect(usageTitle.compareDocumentPosition(exportTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(exportTitle.compareDocumentPosition(deleteTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText("3 of 10")).toBeTruthy();
@@ -66,10 +71,10 @@ describe("SettingsPage usage pane", () => {
 
   it("puts irreversible account deletion last and confirms before emailing", async () => {
 	const user = userEvent.setup();
-	render(<SettingsPage />);
+	render(<MemoryRouter><SettingsPage /></MemoryRouter>);
 
 	const usageTitle = screen.getByText("Usage");
-	const deleteTitle = screen.getByText("Delete your account");
+	const deleteTitle = screen.getByText("Danger zone");
 	expect(usageTitle.compareDocumentPosition(deleteTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
 	await user.click(screen.getByRole("button", { name: "Delete my account" }));
@@ -80,7 +85,7 @@ describe("SettingsPage usage pane", () => {
 
   it("keeps the current email until a new address is verified", async () => {
     const user = userEvent.setup();
-    render(<SettingsPage />);
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
 
     await user.type(screen.getByLabelText("New email address"), "new@example.com");
     await user.click(screen.getByRole("button", { name: "Send verification email" }));

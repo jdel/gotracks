@@ -8,6 +8,8 @@ function user(over: Partial<AdminUser>): AdminUser {
     email: "alice@example.com",
     isAdmin: false,
     twoFactorEnabled: false,
+    deletionRequested: false,
+    overQuota: false,
     createdAt: "",
     updatedAt: "",
     ...over,

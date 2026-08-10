@@ -3,7 +3,19 @@ import { useLegalDocuments } from "@/hooks/useLegal";
 import { useServerConfig } from "@/hooks/useSettings";
 import { renderMarkdown } from "@/lib/markdown";
 import { useT } from "@/lib/i18n";
+import { Mark } from "@/components/primitives";
 import type { LegalKind } from "@/lib/types";
+
+// Typographic rules for the rendered markdown body — a single measure, mono for
+// {{PLACEHOLDERS}}, brand links, pretty-wrapped body.
+const PROSE =
+  "flex flex-col gap-4 " +
+  "[&_h1]:text-[28px] md:[&_h1]:text-[34px] [&_h1]:font-extrabold [&_h1]:tracking-[-0.04em] [&_h1]:text-ink dark:[&_h1]:text-ink-dark " +
+  "[&_h2]:mt-6 [&_h2]:text-[17px] [&_h2]:font-extrabold [&_h2]:tracking-[-0.02em] [&_h2]:text-ink dark:[&_h2]:text-ink-dark " +
+  "[&_p]:text-sm [&_p]:font-medium [&_p]:leading-[1.65] [&_p]:text-ink-2 dark:[&_p]:text-ink-2-dark [&_p]:[text-wrap:pretty] " +
+  "[&_ul]:flex [&_ul]:flex-col [&_ul]:gap-2 [&_li]:text-sm [&_li]:font-medium [&_li]:text-ink-2 dark:[&_li]:text-ink-2-dark " +
+  "[&_a]:text-brand [&_a]:underline [&_a]:underline-offset-2 dark:[&_a]:text-brand-ink-dark " +
+  "[&_code]:font-mono [&_code]:text-ink dark:[&_code]:text-ink-dark";
 
 function LegalPage({ kind }: { kind: LegalKind }) {
   const t = useT();
@@ -11,21 +23,27 @@ function LegalPage({ kind }: { kind: LegalKind }) {
   const body = data?.find((doc) => doc.kind === kind)?.body ?? "";
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-2xl px-4 py-10">
-      {/* The title is the document's own first heading, so there is nothing to
-          keep in sync between the text and the page around it. */}
-      <article className="space-y-4 text-sm leading-relaxed">
-        {isPending ? (
-          <p className="text-muted-foreground">{t("legal.loading")}</p>
-        ) : (
-          renderMarkdown(body)
-        )}
-      </article>
-      <p className="pt-8 text-sm">
-        <Link to="/" className="underline underline-offset-4">
+    <div className="min-h-dvh bg-surface dark:bg-surface-dark">
+      <div className="flex items-center justify-between border-b border-line px-5 py-3.5 dark:border-line-dark">
+        <div className="flex items-center gap-1.5">
+          <Mark size={20} className="bg-brand text-white dark:bg-brand-dark dark:text-ink" />
+          <span className="text-base font-extrabold tracking-[-0.045em] text-ink dark:text-ink-dark">
+            gotracks
+          </span>
+        </div>
+        <Link to="/" className="text-xs font-bold text-brand dark:text-brand-ink-dark">
           {t("legal.back")}
         </Link>
-      </p>
+      </div>
+      <div className="mx-auto w-full max-w-[680px] px-5 py-8">
+        <article className={PROSE}>
+          {isPending ? (
+            <p className="text-sm font-medium text-ink-3">{t("legal.loading")}</p>
+          ) : (
+            renderMarkdown(body)
+          )}
+        </article>
+      </div>
     </div>
   );
 }

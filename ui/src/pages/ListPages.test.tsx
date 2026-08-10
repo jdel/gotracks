@@ -3,6 +3,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DonePage } from "./ListPages";
+import { browserTimeZone, formatWeekday } from "@/lib/datefmt";
+
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
+}));
 
 let todos: Record<string, unknown>[];
 let attachments: Record<string, unknown>[];
@@ -21,7 +26,7 @@ function fakeFetch(input: RequestInfo | URL): Promise<Response> {
   return Promise.resolve(jsonResponse({}, 404));
 }
 
-function todo(id: number, description: string, starred = false) {
+function todo(id: number, description: string, starred = false, completedAt?: string) {
   return {
     id,
     contextId: 1,
@@ -30,6 +35,7 @@ function todo(id: number, description: string, starred = false) {
     notes: "",
     state: "completed",
     starred,
+    completedAt,
     position: id,
     createdAt: "2026-07-20T00:00:00Z",
     updatedAt: "2026-07-20T00:00:00Z",
@@ -93,5 +99,31 @@ describe("done archive filters", () => {
 
     expect(screen.getByText("shipped the release")).toBeDefined();
     await waitFor(() => expect(screen.queryByText("wrote the notes")).toBeNull());
+  });
+});
+
+// The archive is read by "when did I finish this", so the rows carry a heading
+// per completion day rather than running together.
+describe("done archive grouping", () => {
+  it("puts a dated heading over each day's actions", async () => {
+    const zone = browserTimeZone();
+    todos = [
+      todo(1, "file taxes", false, "2026-08-05T12:00:00Z"),
+      todo(2, "call plumber", false, "2026-08-03T12:00:00Z"),
+      todo(3, "book train", false, "2026-08-03T12:00:00Z"),
+    ];
+    renderPage();
+
+    await screen.findByText("file taxes");
+    expect(screen.getByText(formatWeekday("2026-08-05T12:00:00Z", zone))).toBeTruthy();
+    expect(screen.getByText(formatWeekday("2026-08-03T12:00:00Z", zone))).toBeTruthy();
+  });
+
+  it("groups an action with no completion date on its own", async () => {
+    todos = [todo(1, "file taxes", false, "2026-08-05T12:00:00Z"), todo(2, "lost record")];
+    renderPage();
+
+    await screen.findByText("lost record");
+    expect(screen.getByText("No date")).toBeTruthy();
   });
 });

@@ -1,13 +1,22 @@
 import { useState } from "react";
 import { Download, Info, Paperclip, Search } from "lucide-react";
 import { useAuditActions, useAuditLog, downloadAuditExport } from "@/hooks/useAudit";
-import { PageContainer } from "@/components/PageContainer";
 import { Pagination } from "@/components/Pagination";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { IconButton } from "@/components/ui/icon-button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAuth } from "@/lib/auth";
+import { initials } from "@/lib/initials";
+import {
+  Screen,
+  HeaderBlock,
+  Panel,
+  Chip,
+  Sheet,
+  Button,
+  DataTable,
+  SkeletonList,
+} from "@/components/primitives";
+import { inputClass } from "@/components/primitive-styles";
 import { apiMessage } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
@@ -46,6 +55,7 @@ function dayEnd(value: string): string {
  */
 export function AuditPage() {
   const t = useT();
+  const { user } = useAuth();
   const { dateTime } = useDateFmt();
   const { data: actions } = useAuditActions();
 
@@ -62,6 +72,8 @@ export function AuditPage() {
   const [page, setPage] = useState(1);
   const [showing, setShowing] = useState<AuditEvent | null>(null);
   const [error, setError] = useState("");
+  // On mobile the filters live in a sheet behind a "Filters" header action.
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const { data, isPending } = useAuditLog(applied, page, PAGE_SIZE);
 
@@ -75,6 +87,7 @@ export function AuditPage() {
     // narrower result would show an empty table for no reason.
     setApplied(draft);
     setPage(1);
+    setFiltersOpen(false);
   }
 
   async function exportAs(format: "json" | "csv") {
@@ -86,50 +99,41 @@ export function AuditPage() {
     }
   }
 
-  return (
-    <PageContainer size="wide">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("nav.audit")}</h1>
-        <p className="text-sm text-muted-foreground">{t("audit.subtitle")}</p>
-      </div>
+  const detailsButton = (event: AuditEvent) => (
+    <IconButton
+      variant="ghost"
+      className="size-7"
+      label={t("audit.details")}
+      onClick={() => setShowing(event)}
+    >
+      <Info className="size-3.5 text-ink-4" />
+    </IconButton>
+  );
 
+  const filterControls = (
+    <div className="flex flex-col gap-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="space-y-1">
-          <Label htmlFor="audit-from">{t("audit.from")}</Label>
-          <Input
-            id="audit-from"
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="audit-to">{t("audit.to")}</Label>
-          <Input
-            id="audit-to"
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="audit-actor">{t("audit.person")}</Label>
-          <Input
-            id="audit-actor"
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">{t("audit.from")}</span>
+          <input id="audit-from" type="date" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">{t("audit.to")}</span>
+          <input id="audit-to" type="date" className={inputClass} value={to} onChange={(e) => setTo(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">{t("audit.person")}</span>
+          <input
+            className={inputClass}
             placeholder={t("audit.personPlaceholder")}
             value={actor}
             onChange={(e) => setActor(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && apply()}
           />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="audit-action">{t("audit.action")}</Label>
-          <select
-            id="audit-action"
-            className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
-            value={action}
-            onChange={(e) => setAction(e.target.value)}
-          >
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">{t("audit.action")}</span>
+          <select className={inputClass} value={action} onChange={(e) => setAction(e.target.value)}>
             <option value="">{t("audit.anyAction")}</option>
             {(actions ?? []).map((name) => (
               <option key={name} value={name}>
@@ -137,92 +141,142 @@ export function AuditPage() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="audit-outcome">{t("audit.outcome")}</Label>
-          <select
-            id="audit-outcome"
-            className="h-9 w-full rounded-md border bg-transparent px-2 text-sm"
-            value={outcome}
-            onChange={(e) => setOutcome(e.target.value)}
-          >
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">{t("audit.outcome")}</span>
+          <select className={inputClass} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
             <option value="">{t("audit.anyOutcome")}</option>
             <option value="success">{t("audit.success")}</option>
             <option value="failure">{t("audit.failure")}</option>
           </select>
-        </div>
+        </label>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={apply} disabled={!dirty}>
-          <Search /> {t("audit.apply")}
+        <Button onClick={apply} disabled={!dirty}>
+          <Search className="size-4" /> {t("audit.apply")}
         </Button>
-        <Button size="sm" variant="outline" onClick={() => exportAs("csv")}>
-          <Download /> {t("audit.exportCsv")}
+        <Button variant="ghost" onClick={() => exportAs("csv")}>
+          <Download className="size-4" /> {t("audit.exportCsv")}
         </Button>
-        <Button size="sm" variant="outline" onClick={() => exportAs("json")}>
-          <Download /> {t("audit.exportJson")}
+        <Button variant="ghost" onClick={() => exportAs("json")}>
+          <Download className="size-4" /> {t("audit.exportJson")}
         </Button>
-        <span className="text-sm text-muted-foreground">
-          {t("audit.matchCount", { count: String(data?.total ?? 0) })}
-        </span>
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
+  );
 
-      {/* Wide content carries its own horizontal scroll rather than pushing the
-          page sideways, but four columns should not need it. */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase text-muted-foreground">
-            <tr className="border-b">
-              <th className="py-2 pr-3 font-medium">{t("audit.when")}</th>
-              <th className="py-2 pr-3 font-medium">{t("audit.action")}</th>
-              <th className="py-2 pr-3 font-medium">{t("audit.person")}</th>
-              <th className="py-2 pr-3 font-medium">{t("audit.outcome")}</th>
-              <th className="w-10 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {(data?.items ?? []).map((event) => (
-              <tr key={event.id} className="border-b last:border-0">
-                <td className="py-2 pr-3 whitespace-nowrap">{dateTime(event.occurredAt)}</td>
-                <td className="py-2 pr-3 font-mono text-xs">{event.action}</td>
-                <td className="py-2 pr-3">{describePeople(event)}</td>
-                <td className="py-2 pr-3">
-                  <span
-                    className={
-                      event.outcome === "failure"
-                        ? "text-destructive"
-                        : "text-muted-foreground"
-                    }
-                  >
-                    {t(event.outcome === "failure" ? "audit.failure" : "audit.success")}
+  return (
+    <Screen
+      header={
+        <HeaderBlock
+          title={t("nav.audit")}
+          avatar={initials(user?.email)}
+          metrics={[{ value: data?.total ?? 0, label: t("audit.matchingLabel") }]}
+          action={
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(true)}
+              className="rounded-control bg-white/15 px-3 py-2 text-xs font-bold text-white hover:bg-white/25 md:hidden"
+            >
+              {t("audit.filters")}
+            </button>
+          }
+        />
+      }
+    >
+      <Panel className="mt-4">
+        {/* Desktop shows the filters inline; mobile puts them in a sheet. */}
+        <div className="hidden md:block">{filterControls}</div>
+        {error && <p className="text-sm font-medium text-danger">{error}</p>}
+
+        {isPending ? (
+          <SkeletonList />
+        ) : (data?.total ?? 0) === 0 ? (
+          <p className="text-sm font-medium text-ink-3">{t("audit.none")}</p>
+        ) : (
+          <DataTable
+            rows={data?.items ?? []}
+            rowKey={(event) => event.id}
+            columns={[
+              {
+                key: "when",
+                label: t("audit.when"),
+                mono: true,
+                render: (event) => (
+                  <span className="whitespace-nowrap text-[11px] text-ink-4">
+                    {dateTime(event.occurredAt)}
                   </span>
-                </td>
-                <td className="py-2">
-                  <IconButton
-                    variant="ghost"
-                    label={t("audit.details")}
-                    onClick={() => setShowing(event)}
-                  >
-                    <Info />
-                  </IconButton>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                ),
+              },
+              {
+                key: "action",
+                label: t("audit.action"),
+                mono: true,
+                render: (event) => <span className="text-[11px]">{event.action}</span>,
+              },
+              {
+                key: "person",
+                label: t("audit.person"),
+                render: (event) => (
+                  <span className="block max-w-56 truncate text-ink-2 dark:text-ink-2-dark">
+                    {describePeople(event)}
+                  </span>
+                ),
+              },
+              {
+                key: "outcome",
+                label: t("audit.outcome"),
+                render: (event) => (
+                  <Chip tone={event.outcome === "failure" ? "danger" : "done"}>
+                    {t(event.outcome === "failure" ? "audit.failure" : "audit.success")}
+                  </Chip>
+                ),
+              },
+              {
+                key: "details",
+                label: "",
+                align: "right",
+                render: (event) => detailsButton(event),
+              },
+            ]}
+            renderCard={(event) => (
+              <div
+                key={event.id}
+                className="flex items-start gap-2.5 rounded-card bg-card p-3 shadow-card dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none"
+              >
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="mono min-w-0 truncate text-[11px] text-ink dark:text-ink-dark">
+                      {event.action}
+                    </span>
+                    <Chip tone={event.outcome === "failure" ? "danger" : "done"}>
+                      {t(event.outcome === "failure" ? "audit.failure" : "audit.success")}
+                    </Chip>
+                  </div>
+                  <span className="truncate text-xs font-medium text-ink-2 dark:text-ink-2-dark">
+                    {describePeople(event)}
+                  </span>
+                  <span className="mono text-[10px] text-ink-4">
+                    {dateTime(event.occurredAt)}
+                    {event.ip && ` · ${event.ip}`}
+                  </span>
+                </div>
+                {detailsButton(event)}
+              </div>
+            )}
+          />
+        )}
 
-      {isPending && <p className="text-sm text-muted-foreground">{t("actions.loading")}</p>}
-      {!isPending && (data?.total ?? 0) === 0 && (
-        <p className="text-sm text-muted-foreground">{t("audit.none")}</p>
-      )}
+        <Pagination page={page} pageSize={PAGE_SIZE} total={data?.total ?? 0} onPage={setPage} />
+      </Panel>
 
-      <Pagination page={page} pageSize={PAGE_SIZE} total={data?.total ?? 0} onPage={setPage} />
+      <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title={t("audit.filters")}>
+        {filterControls}
+      </Sheet>
 
       <AuditDetails event={showing} onClose={() => setShowing(null)} />
-    </PageContainer>
+    </Screen>
   );
 }
 

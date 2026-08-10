@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TodoItem } from "./TodoItem";
+import { UndoProvider } from "@/lib/undoable";
+import { LEAVE_MS } from "@/lib/motion";
 import type { Todo } from "@/lib/types";
 
 let todos: Record<string, unknown>[];
@@ -67,6 +69,29 @@ function renderItem(todo: Todo = baseTodo) {
   );
 }
 
+// Completing is only deferred inside the provider; on its own the item falls
+// back to committing straight away.
+function renderItemWithUndo(todo: Todo = baseTodo) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <UndoProvider>
+        <ul>
+          <TodoItem todo={todo} />
+        </ul>
+      </UndoProvider>
+    </QueryClientProvider>,
+  );
+}
+
+function completeCalls() {
+  return (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter((c) =>
+    String(c[0]).includes("/complete"),
+  );
+}
+
 beforeEach(() => {
   todos = [{ ...baseTodo }];
   attachments = [];
@@ -106,13 +131,12 @@ describe("editing an action inline", () => {
     expect(todos[0].projectName).toBeUndefined();
   });
 
-  it("abandons the edit on cancel", async () => {
+  it("abandons the edit on Escape", async () => {
     const user = userEvent.setup();
     renderItem();
 
     await user.click(screen.getByText("buy paint"));
-    await user.type(screen.getByRole("textbox", { name: "Action description" }), " now");
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.type(screen.getByRole("textbox", { name: "Action description" }), " now{Escape}");
 
     expect(todos[0].description).toBe("buy paint");
     await screen.findByText("buy paint");
@@ -128,21 +152,105 @@ describe("the attachment indicator", () => {
     renderItem();
 
     const clip = () => document.querySelector(".lucide-paperclip");
-    await waitFor(() => expect(clip()?.classList.contains("text-sky-600")).toBe(true));
+    await waitFor(() => expect(clip()?.classList.contains("text-done")).toBe(true));
 
     await user.click(screen.getByRole("button", { name: /Show attachments/ }));
-    expect(clip()?.classList.contains("text-sky-600")).toBe(true);
+    expect(clip()?.classList.contains("text-done")).toBe(true);
 
     await user.click(screen.getByRole("button", { name: /Hide attachments/ }));
-    expect(clip()?.classList.contains("text-sky-600")).toBe(true);
+    expect(clip()?.classList.contains("text-done")).toBe(true);
   });
 
   it("is not coloured for an action with no files", async () => {
     renderItem();
     await waitFor(() =>
-      expect(document.querySelector(".lucide-paperclip")?.classList.contains("text-sky-600")).toBe(
+      expect(document.querySelector(".lucide-paperclip")?.classList.contains("text-done")).toBe(
         false,
       ),
     );
+  });
+});
+
+describe("completing an action", () => {
+  it("offers an undo window instead of saving straight away", async () => {
+    const user = userEvent.setup();
+    renderItemWithUndo();
+
+    await user.click(screen.getByRole("button", { name: "Mark this action complete" }));
+
+    // The row already reads as done, but nothing has been written yet.
+    expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reopen this action" })).toBeTruthy();
+    expect(completeCalls()).toHaveLength(0);
+  });
+
+  it("un-checking the action cancels the completion", async () => {
+    const user = userEvent.setup();
+    renderItemWithUndo();
+
+    await user.click(screen.getByRole("button", { name: "Mark this action complete" }));
+    await user.click(screen.getByRole("button", { name: "Reopen this action" }));
+
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Mark this action complete" })).toBeTruthy();
+    expect(completeCalls()).toHaveLength(0);
+  });
+
+  it("commits once the undo window closes", async () => {
+    // fireEvent rather than userEvent: userEvent's own delay does not interleave
+    // with fake timers here, and the click itself needs no typing behaviour.
+    vi.useFakeTimers();
+    try {
+      renderItemWithUndo();
+
+      fireEvent.click(screen.getByRole("button", { name: "Mark this action complete" }));
+      // The 5s undo window, then the leave animation the commit waits out.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+        await vi.advanceTimersByTimeAsync(LEAVE_MS + 50);
+      });
+
+      expect(completeCalls()).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// The row actions float so a long title's first line stops at them and the rest
+// runs underneath. That only works while the title is a real inline element: a
+// <button> is an atomic inline box, so its text cannot split around a float and
+// the whole box drops below the icons instead.
+describe("a long title flowing around the row actions", () => {
+  it("keeps the title inline rather than an atomic button box", async () => {
+    renderItem();
+    const title = await screen.findByText("buy paint");
+
+    expect(title.tagName).toBe("SPAN");
+    expect(title.closest("button")).toBeNull();
+    // Still operable: it opens the inline editor by click and by keyboard.
+    expect(title.getAttribute("role")).toBe("button");
+    expect(title.getAttribute("tabindex")).toBe("0");
+  });
+
+  it("floats the actions inside the text column", async () => {
+    renderItem();
+    const title = await screen.findByText("buy paint");
+    const column = title.parentElement as HTMLElement;
+
+    const actions = column.querySelector(".float-right");
+    expect(actions, "row actions are not floated inside the text column").not.toBeNull();
+    expect(actions?.querySelector(".lucide-trash-2")).not.toBeNull();
+  });
+
+  it("still opens the editor from the keyboard", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    const title = await screen.findByText("buy paint");
+    title.focus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("textbox", { name: "Action description" })).toBeTruthy();
   });
 });
