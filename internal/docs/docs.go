@@ -17,6 +17,11 @@ const docTemplate = `{
     "paths": {
         "/api/v1/2fa": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "twofactor"
                 ],
@@ -31,16 +36,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/2fa/disable": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "twofactor"
                 ],
@@ -66,16 +71,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/2fa/enrol/begin": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "twofactor"
                 ],
@@ -88,16 +93,16 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/2fa/enrol/finish": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "twofactor"
                 ],
@@ -127,16 +132,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/2fa/recovery/regenerate": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "twofactor"
                 ],
@@ -166,16 +171,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/audit": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -237,16 +242,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/audit/actions": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -261,16 +266,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/audit/export": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -296,16 +301,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/legal": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -317,16 +322,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.legalEditorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/legal/{locale}/{kind}": {
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -366,14 +371,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "delete": {
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -404,16 +409,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/log-level": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -425,14 +430,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/service.LogLevelState"
                         }
                     }
-                },
+                }
+            },
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "put": {
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -461,16 +466,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/reports/usage": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -502,16 +507,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/service.Report"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/reports/usage/run": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -526,16 +531,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/settings": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -553,14 +558,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "put": {
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -589,16 +594,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/users": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -620,6 +625,18 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Filter 2FA: on|off",
                         "name": "twoFactor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort column: email|created|verified",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort direction: asc|desc",
+                        "name": "dir",
                         "in": "query"
                     },
                     {
@@ -648,14 +665,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "post": {
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -684,16 +701,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/users/{id}": {
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -729,14 +746,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "delete": {
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -760,16 +777,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/users/{id}/2fa/reset": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -793,16 +810,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/users/{id}/invitation": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -826,16 +843,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/admin/users/{id}/usage": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "admin"
                 ],
@@ -862,16 +879,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/attachments": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "attachments"
                 ],
@@ -886,16 +903,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/attachments/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -925,14 +942,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "delete": {
+                ],
                 "tags": [
                     "attachments"
                 ],
@@ -956,12 +973,7 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/auth/2fa/verify": {
@@ -1423,6 +1435,11 @@ const docTemplate = `{
         },
         "/api/v1/contexts": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "contexts"
                 ],
@@ -1437,14 +1454,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
+                }
+            },
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "post": {
+                ],
                 "tags": [
                     "contexts"
                 ],
@@ -1473,16 +1490,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/contexts/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "contexts"
                 ],
@@ -1509,14 +1526,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "put": {
+                ],
                 "tags": [
                     "contexts"
                 ],
@@ -1552,14 +1569,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "delete": {
+                ],
                 "tags": [
                     "contexts"
                 ],
@@ -1589,16 +1606,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.contextInUseBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/export": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "produces": [
                     "application/zip"
                 ],
@@ -1619,12 +1636,7 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/legal": {
@@ -1656,6 +1668,11 @@ const docTemplate = `{
         },
         "/api/v1/me": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "account"
                 ],
@@ -1673,16 +1690,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/me/deletion": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "account"
                 ],
@@ -1697,16 +1714,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/me/email-change": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "account"
                 ],
@@ -1738,16 +1755,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/me/password": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "account"
                 ],
@@ -1776,16 +1793,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/me/reauth/passkey/begin": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "account"
                 ],
@@ -1798,16 +1815,16 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/me/sessions": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "account"
                 ],
@@ -1822,14 +1839,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "delete": {
+                ],
                 "tags": [
                     "account"
                 ],
@@ -1838,16 +1855,16 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/me/sessions/{id}": {
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "account"
                 ],
@@ -1865,16 +1882,16 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/notes": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "notes"
                 ],
@@ -1897,14 +1914,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
+                }
+            },
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "post": {
+                ],
                 "tags": [
                     "notes"
                 ],
@@ -1933,16 +1950,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/notes/{id}": {
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "notes"
                 ],
@@ -1978,14 +1995,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "delete": {
+                ],
                 "tags": [
                     "notes"
                 ],
@@ -2009,16 +2026,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/passkeys": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "passkeys"
                 ],
@@ -2033,16 +2050,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/passkeys/register/begin": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "passkeys"
                 ],
@@ -2055,16 +2072,16 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/passkeys/register/finish": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "passkeys"
                 ],
@@ -2093,16 +2110,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/passkeys/{id}": {
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "passkeys"
                 ],
@@ -2126,16 +2143,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/preferences": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "preferences"
                 ],
@@ -2147,14 +2164,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/domain.Preference"
                         }
                     }
-                },
+                }
+            },
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "put": {
+                ],
                 "tags": [
                     "preferences"
                 ],
@@ -2183,16 +2200,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/projects": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "projects"
                 ],
@@ -2203,18 +2220,18 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.Project"
+                                "$ref": "#/definitions/service.ProjectWithCount"
                             }
                         }
                     }
-                },
+                }
+            },
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "post": {
+                ],
                 "tags": [
                     "projects"
                 ],
@@ -2243,16 +2260,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/projects/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "projects"
                 ],
@@ -2279,14 +2296,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "put": {
+                ],
                 "tags": [
                     "projects"
                 ],
@@ -2322,14 +2339,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "delete": {
+                ],
                 "tags": [
                     "projects"
                 ],
@@ -2353,16 +2370,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/projects/{id}/review": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "projects"
                 ],
@@ -2389,16 +2406,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/recurring": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "recurring"
                 ],
@@ -2413,14 +2430,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
+                }
+            },
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "post": {
+                ],
                 "tags": [
                     "recurring"
                 ],
@@ -2449,16 +2466,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/recurring/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "recurring"
                 ],
@@ -2485,14 +2502,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "put": {
+                ],
                 "tags": [
                     "recurring"
                 ],
@@ -2528,14 +2545,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "delete": {
+                ],
                 "tags": [
                     "recurring"
                 ],
@@ -2559,16 +2576,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/stats": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "stats"
                 ],
@@ -2580,16 +2597,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/service.Stats"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/tags": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "tags"
                 ],
@@ -2604,16 +2621,16 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/todos": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "todos"
                 ],
@@ -2648,14 +2665,14 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
+                }
+            },
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "post": {
+                ],
                 "tags": [
                     "todos"
                 ],
@@ -2684,16 +2701,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/todos/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "todos"
                 ],
@@ -2720,14 +2737,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "put": {
+                ],
                 "tags": [
                     "todos"
                 ],
@@ -2763,14 +2780,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "delete": {
+                ],
                 "tags": [
                     "todos"
                 ],
@@ -2794,16 +2811,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/todos/{id}/attachments": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "attachments"
                 ],
@@ -2833,14 +2850,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
+                }
+            },
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ]
-            },
-            "post": {
+                ],
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -2877,16 +2894,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/todos/{id}/complete": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "todos"
                 ],
@@ -2913,16 +2930,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/todos/{id}/reactivate": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "todos"
                 ],
@@ -2949,16 +2966,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/todos/{id}/reorder": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "todos"
                 ],
@@ -2991,16 +3008,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/usage": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "account"
                 ],
@@ -3018,16 +3035,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.errorBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/api/v1/version": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "meta"
                 ],
@@ -3039,12 +3056,7 @@ const docTemplate = `{
                             "$ref": "#/definitions/api.versionBody"
                         }
                     }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
+                }
             }
         },
         "/healthz": {
@@ -3088,6 +3100,10 @@ const docTemplate = `{
                 "createdAt": {
                     "type": "string"
                 },
+                "deletionRequested": {
+                    "description": "DeletionRequested is live state (a mailed link that has not expired);\nOverQuota is as fresh as the last usage report.",
+                    "type": "boolean"
+                },
                 "email": {
                     "description": "Email is the account identity: unique, required, and stored lower-cased.\nThere is no separate username — one fewer thing to choose, to remember,\nand to have to police for impersonation.",
                     "type": "string"
@@ -3100,6 +3116,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "isAdmin": {
+                    "type": "boolean"
+                },
+                "overQuota": {
                     "type": "boolean"
                 },
                 "twoFactorEnabled": {
@@ -4154,6 +4173,50 @@ const docTemplate = `{
                 },
                 "month": {
                     "description": "YYYY-MM",
+                    "type": "string"
+                }
+            }
+        },
+        "service.ProjectWithCount": {
+            "type": "object",
+            "properties": {
+                "completedAt": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "defaultContextId": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "doneCount": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "lastReviewed": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "openCount": {
+                    "type": "integer"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "totalCount": {
+                    "type": "integer"
+                },
+                "updatedAt": {
                     "type": "string"
                 }
             }
