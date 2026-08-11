@@ -27,6 +27,12 @@
   --color-danger-soft: #fde7ec;
   --color-danger-dark: #fb7185;
   --color-danger-fill-dark: #3a1220;
+  /* Deferring — the left swipe, and anything else that pushes an action into
+     the future. A true blue, deliberately not brand indigo: it backs a gesture
+     that must not read as the primary action, and it replaced danger red on a
+     swipe that no longer deletes anything. */
+  --color-defer: #2563eb;
+  --color-defer-dark: #60a5fa;
   /* The third bar tier on Statistics: months older than the recent window. A
      muted violet so history recedes behind brand without becoming a neutral. */
   --color-history: #c7c3f0;

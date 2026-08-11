@@ -4,12 +4,15 @@ import {
   Star,
   Trash2,
   CalendarClock,
+  Pencil,
   Repeat,
   Paperclip,
   GripVertical,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AttachmentPanel } from "@/components/AttachmentPanel";
+import { ActionEditor } from "@/components/ActionEditor";
+import { DeferPanel } from "@/components/DeferPanel";
 import { useContexts } from "@/hooks/useContexts";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllAttachments, usePreferences } from "@/hooks/useSettings";
@@ -126,8 +129,11 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
   const [leaving, setLeaving] = useState(false);
   const [showFiles, setShowFiles] = useState(false);
   const [editing, setEditing] = useState(false);
-  // The mobile long-press action sheet.
-  const [actionsOpen, setActionsOpen] = useState(false);
+  // The full editor: expanded in the card on the web, a full-screen sheet from
+  // a long press on a phone. Same component either way.
+  const [editorOpen, setEditorOpen] = useState(false);
+  // The quick-defer surface: swipe left on a phone, the Defer button on the web.
+  const [deferOpen, setDeferOpen] = useState(false);
   // Set right after marking an action done, when it had attachments and
   // auto-delete is off — offers to clean them up instead of doing it silently.
   const [attachmentPrompt, setAttachmentPrompt] = useState<Attachment[] | null>(null);
@@ -183,9 +189,12 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
     <SwipeRow
       lifted={lifted}
       leaving={leaving}
-      onSwipeLeft={() => schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id))}
+      // Swipe left defers rather than deletes: deleting an action with one
+      // horizontal drag on a list scrolled by thumb is too easy to do by
+      // accident. Delete lives in the editor, behind a long press and a tap.
+      onSwipeLeft={() => setDeferOpen(true)}
       onSwipeRight={() => update.mutate({ id: todo.id, starred: !todo.starred })}
-      onLongPress={() => setActionsOpen(true)}
+      onLongPress={() => setEditorOpen(true)}
     >
       {/* items-start, so the handle, the checkbox and the row actions stay on
           the first line of a title that wraps instead of drifting to its
@@ -220,13 +229,14 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
       </button>
 
       <div className="min-w-0 flex-1">
-        {/* Row actions: attach, star, delete — desktop only. On mobile the same
-            three operations are the swipe and long-press gestures, so showing
-            the icons as well would be a second, redundant affordance.
+        {/* Row actions. Defer, edit, star and delete are desktop-only: on a
+            phone they are the swipe and long-press gestures, so the icons would
+            be a second, redundant affordance. The paperclip is the exception —
+            no gesture reaches attachments, so it shows on both.
             Floated rather than a flex sibling: the title's first line runs
             beside these, and its later lines run underneath them instead of
             being squeezed into a permanently narrower column. */}
-        <div className={cn(rowActions, "float-right ml-2.5 hidden md:flex")}>
+        <div className={cn(rowActions, "float-right ml-2.5 flex")}>
         <IconButton
           variant="ghost"
           className="size-7"
@@ -254,7 +264,25 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
         </IconButton>
         <IconButton
           variant="ghost"
-          className="size-7"
+          className="hidden size-7 md:inline-flex"
+          label={t("todo.defer")}
+          onClick={() => setDeferOpen((v) => !v)}
+        >
+          <CalendarClock
+            className={cn("size-3.5", deferOpen ? "text-foreground" : "text-ink-4")}
+          />
+        </IconButton>
+        <IconButton
+          variant="ghost"
+          className="hidden size-7 md:inline-flex"
+          label={t("todo.editAction")}
+          onClick={() => setEditorOpen((v) => !v)}
+        >
+          <Pencil className={cn("size-3.5", editorOpen ? "text-foreground" : "text-ink-4")} />
+        </IconButton>
+        <IconButton
+          variant="ghost"
+          className="hidden size-7 md:inline-flex"
           label={todo.starred ? t("todo.removeStar") : t("todo.star")}
           onClick={() => update.mutate({ id: todo.id, starred: !todo.starred })}
         >
@@ -262,7 +290,7 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
         </IconButton>
         <IconButton
           variant="ghost"
-          className="size-7"
+          className="hidden size-7 md:inline-flex"
           label={t("todo.delete")}
           onClick={() => schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id))}
         >
@@ -363,44 +391,36 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
         }}
       />
 
-      {/* Mobile long-press actions — the same operations as the desktop row icons. */}
-      <Sheet open={actionsOpen} onClose={() => setActionsOpen(false)} title={todo.description}>
-        <div className="flex flex-col">
-          <button
-            type="button"
-            onClick={() => {
-              setActionsOpen(false);
-              setShowFiles((v) => !v);
-            }}
-            className="flex items-center gap-3 rounded-control px-2 py-3 text-sm font-medium text-ink hover:bg-surface dark:text-ink-dark dark:hover:bg-card-dark"
-          >
-            <Paperclip className={cn("size-4", hasAttachments ? "text-done dark:text-done-dark" : "text-ink-4")} />
-            {showFiles ? t("todo.hideAttachments") : hasAttachments ? t("todo.showAttachmentsSome") : t("todo.showAttachments")}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActionsOpen(false);
-              update.mutate({ id: todo.id, starred: !todo.starred });
-            }}
-            className="flex items-center gap-3 rounded-control px-2 py-3 text-sm font-medium text-ink hover:bg-surface dark:text-ink-dark dark:hover:bg-card-dark"
-          >
-            <Star className={cn("size-4", todo.starred ? "fill-done text-done" : "text-ink-4")} />
-            {todo.starred ? t("todo.removeStar") : t("todo.star")}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActionsOpen(false);
-              schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id));
-            }}
-            className="flex items-center gap-3 rounded-control px-2 py-3 text-sm font-medium text-danger hover:bg-danger-soft dark:hover:bg-danger-fill-dark"
-          >
-            <Trash2 className="size-4" />
-            {t("todo.delete")}
-          </button>
-        </div>
-      </Sheet>
+      {/* One editor, two presentations. On the web it expands inside the card so
+          the list around it stays readable; on a phone a long press opens it as
+          a sheet, which is the only way to reach it there. */}
+      <div className="hidden md:block">
+        {editorOpen && (
+          <ActionEditor
+            todo={todo}
+            onClose={() => setEditorOpen(false)}
+            onDelete={() => schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id))}
+          />
+        )}
+        {deferOpen && (
+          <div className="mt-3 border-t border-line-3 pt-3 dark:border-line-dark">
+            <DeferPanel todo={todo} />
+          </div>
+        )}
+      </div>
+
+      <div className="md:hidden">
+        <Sheet open={editorOpen} onClose={() => setEditorOpen(false)} title={todo.description}>
+          <ActionEditor
+            todo={todo}
+            onClose={() => setEditorOpen(false)}
+            onDelete={() => schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id))}
+          />
+        </Sheet>
+        <Sheet open={deferOpen} onClose={() => setDeferOpen(false)} title={t("todo.defer")}>
+          <DeferPanel todo={todo} />
+        </Sheet>
+      </div>
     </SwipeRow>
   );
 }

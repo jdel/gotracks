@@ -295,3 +295,72 @@ describe("the long-press sheet escapes the row", () => {
     expect(card.style.transform).toBe("");
   });
 });
+
+// Deleting used to be a left swipe: one horizontal drag on a list scrolled by
+// thumb, and the action was gone. It defers now, and delete moved into the
+// editor behind a long press and a deliberate tap.
+describe("the mobile gestures", () => {
+  function swipeLeft(row: Element) {
+    fireEvent.pointerDown(row, { pointerType: "touch", clientX: 200, clientY: 10 });
+    fireEvent.pointerMove(row, { pointerType: "touch", clientX: 180, clientY: 10 });
+    fireEvent.pointerMove(row, { pointerType: "touch", clientX: 60, clientY: 10 });
+    fireEvent.pointerUp(row, { pointerType: "touch", clientX: 60, clientY: 10 });
+  }
+
+  it("opens the defer sheet on a left swipe, and deletes nothing", async () => {
+    const { container } = renderItemWithUndo();
+    const row = container.querySelector("li")!;
+
+    swipeLeft(row);
+
+    // The sheet, not the web row's Defer button — both carry the same name.
+    expect(await screen.findByRole("dialog", { name: "Defer" })).toBeTruthy();
+    const deletes = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (c) => String(c[1]?.method) === "DELETE",
+    );
+    expect(deletes).toHaveLength(0);
+  });
+
+  it("opens the editor on a long press", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderItem();
+      const row = container.querySelector("li")!;
+
+      fireEvent.pointerDown(row, { pointerType: "touch", clientX: 10, clientY: 10 });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+
+      // The editor, not the old three-button menu: it carries the fields.
+      expect(screen.getAllByLabelText("Show from").length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("button", { name: "Delete this action" }).length).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// The tickler renders the same rows as the actions view, so an action is
+// edited identically from either — there are no tickler-specific controls.
+describe("editing an action's dates", () => {
+  it("sends both dates together, with the show-from carried along", async () => {
+    const user = userEvent.setup();
+    renderItem({ ...baseTodo, due: "2026-09-10T00:00:00Z", showFrom: "2026-09-03T00:00:00Z" });
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    fireEvent.change(screen.getAllByLabelText("Due")[0], { target: { value: "2026-09-24" } });
+
+    await waitFor(() => {
+      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c) => String(c[1]?.method) === "PUT",
+      );
+      expect(put).toBeTruthy();
+      // Two weeks later, and the show-from moved by the same fortnight.
+      expect(JSON.parse(String(put![1].body))).toMatchObject({
+        due: "2026-09-24",
+        showFrom: "2026-09-17",
+      });
+    });
+  });
+});

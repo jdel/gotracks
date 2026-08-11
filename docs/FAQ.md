@@ -165,9 +165,9 @@ has uploaded across all their actions, each showing which action it's attached
 to, sortable by name, action, size or upload date. Files can be downloaded or
 deleted from there directly. On phones the table becomes touch-friendly cards,
 with the same sorting controls and no horizontal page scrolling. In an action
-list on a desktop, the paperclip is tinted when that action has files — whether
-or not its panel is open. On phones the row icons give way to gestures, and the
-same tinted paperclip appears in the long-press action sheet.
+list, the paperclip is tinted when that action has files — whether or not its
+panel is open. It is the one row icon phones keep: the others are gestures
+there, but no gesture reaches attachments.
 
 Completing an action with attachments normally prompts to delete them, with a
 note that this can be automated in Settings. Turning on "auto-delete
@@ -228,6 +228,40 @@ Two rules keep this predictable:
 
 An action with no due date can still be parked: give it a show-from on its own
 and nothing constrains how far ahead it goes.
+
+## Editing an action
+
+Every detail of an action is editable in place — description, context, project,
+tags, notes, both dates, starred — from the same editor wherever the action is
+shown, including the tickler. On a desktop the card expands; on a phone a long
+press opens it full screen. Each field saves as you leave it rather than behind
+a Save button.
+
+Both dates have quick-sets. **Due** offers tomorrow, next week and next month,
+counted from today. **Show from** offers 1 day, 1 week and 1 month *before the
+due date*, so it needs one to exist and is disabled without it — the date field
+itself still works, which is how an undated action gets parked.
+
+Two rules apply as you edit, matching what the server stores:
+
+- **Moving Due carries Show from with it, keeping the gap.** Due on the 1st
+  showing from the 1st of the month before, moved to the 15th, shows from the
+  15th of the month before. An action with no show-from does not gain one.
+- **Show from is never later than Due**, whichever end you moved.
+
+There is no separate "defer" operation: deferring an action — including one
+already past its due date — is pushing its due date, which carries the
+show-from along and drops the action back into the tickler. A quick-defer
+surface offers just those two fields, one gesture away: the Defer button on a
+desktop row, a left swipe on a phone.
+
+## Gestures on a phone
+
+- **Swipe right** — star.
+- **Swipe left** — defer. This used to delete; deleting an action with one
+  horizontal drag on a list scrolled by thumb was too easy to do by accident.
+- **Long press** — the editor, which is where delete now lives.
+- **Tap the paperclip** — attachments.
 
 ## Language
 

@@ -1,13 +1,13 @@
 import { useRef, useState, type PointerEvent, type MouseEvent, type ReactNode } from "react";
-import { Star, Trash2 } from "lucide-react";
+import { CalendarClock, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Past this many px on release, a swipe fires; below it, the card springs back.
 const THRESHOLD = 96;
 
 /**
- * A list row with touch gestures: swipe left to delete, swipe right to star,
- * long-press to open an action sheet. Touch only — a mouse pointer is ignored so
+ * A list row with touch gestures: swipe left to defer, swipe right to star,
+ * long-press to open the editor. Touch only — a mouse pointer is ignored so
  * the desktop drag-and-drop and hover actions keep working. The drag handle is
  * excluded (marked `data-drag-handle`) so reordering isn't hijacked.
  */
@@ -124,18 +124,19 @@ export function SwipeRow({
       onClickCapture={onClickCapture}
     >
       {/* One full-width layer behind the card; its colour follows the swipe
-          direction (teal = star, red = delete) and the sliding card reveals it
-          up to exactly where the finger has dragged. */}
+          direction (teal = star, blue = defer) and the sliding card reveals it
+          up to exactly where the finger has dragged. Left used to be danger red
+          with a bin: it defers now, and nothing there destroys anything. */}
       <div
         aria-hidden
         className={cn(
           "absolute inset-0 flex items-center px-5 text-white",
           dx > 0 && "justify-start bg-done",
-          dx < 0 && "justify-end bg-danger",
+          dx < 0 && "justify-end bg-defer",
         )}
       >
         {dx > 10 && <Star className="size-5" />}
-        {dx < -10 && <Trash2 className="size-5" />}
+        {dx < -10 && <CalendarClock className="size-5" />}
       </div>
       <div
         className={cn(

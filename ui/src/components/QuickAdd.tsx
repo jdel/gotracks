@@ -5,6 +5,7 @@ import { useCreateTodo } from "@/hooks/useTodos";
 import { useProjects, useTags } from "@/hooks/useProjects";
 import { useContexts } from "@/hooks/useContexts";
 import { ActionInput } from "@/components/ActionInput";
+import { DateFields } from "@/components/DateFields";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
@@ -206,21 +207,20 @@ export function QuickAdd({
       </div>
 
       {expanded && (
-        <div className="grid gap-2 rounded-lg border p-3 sm:grid-cols-2">
-          <label className="text-xs text-muted-foreground">
-            {t("quickadd.due")}
-            <Input type="date" className="mt-1" value={due} onChange={(e) => setDue(e.target.value)} />
-          </label>
-          <label className="text-xs text-muted-foreground">
-            {t("quickadd.showFrom")}
-            <Input
-              type="date"
-              className="mt-1"
-              value={showFrom}
-              onChange={(e) => setShowFrom(e.target.value)}
-            />
-          </label>
-          <label className="text-xs text-muted-foreground sm:col-span-2">
+        <div className="grid gap-3 rounded-lg border p-3">
+          {/* The same date pair as the editor and the defer sheet, quick-sets
+              included, so the two dates behave identically wherever they are
+              set. Leaving Show from blank here is what lets the server apply
+              the user's default. */}
+          <DateFields
+            value={{ due, showFrom }}
+            onChange={(next) => {
+              setDue(next.due);
+              setShowFrom(next.showFrom);
+            }}
+            idPrefix="quickadd"
+          />
+          <label className="text-xs font-bold text-ink-2 dark:text-ink-2-dark">
             {t("quickadd.tags")}
             <Input
               className="mt-1"
