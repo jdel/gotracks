@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { DateFields, type ActionDates } from "@/components/DateFields";
 import { useUpdateTodo } from "@/hooks/useTodos";
-import { dayValue } from "@/lib/actionDates";
+import { changedDates, dayValue } from "@/lib/actionDates";
 import { useDateFmt } from "@/lib/datefmt";
 import type { Todo } from "@/lib/types";
 
@@ -30,8 +30,10 @@ export function DeferPanel({ todo }: { todo: Todo }) {
     <DateFields
       value={dates}
       onChange={(next) => {
+        // Only what moved: an empty string clears a date, so sending both
+        // would wipe whichever one the user did not touch.
+        update.mutate({ id: todo.id, ...changedDates(dates, next) });
         setDates(next);
-        update.mutate({ id: todo.id, due: next.due, showFrom: next.showFrom });
       }}
       idPrefix={`defer-${todo.id}`}
     />

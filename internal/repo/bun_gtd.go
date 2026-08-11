@@ -172,10 +172,14 @@ func (r *todoRepo) DeleteForUser(ctx context.Context, userID int64) error {
 }
 
 func (r *todoRepo) ActivateDue(ctx context.Context, userID int64, now time.Time) error {
+	// A deferred action with no show_from at all is also activated. Deferred
+	// means "waiting for a date"; with no date there is nothing to wait for,
+	// and such a row would otherwise be stuck in the tickler forever, listed
+	// under "No date" with nothing able to promote it.
 	_, err := r.db.NewUpdate().Model((*domain.Todo)(nil)).
 		Set("state = ?", domain.StateActive).
 		Set("updated_at = ?", now).
-		Where("user_id = ? AND state = ? AND show_from IS NOT NULL AND show_from <= ?",
+		Where("user_id = ? AND state = ? AND (show_from IS NULL OR show_from <= ?)",
 			userID, domain.StateDeferred, now).
 		Exec(ctx)
 	return err

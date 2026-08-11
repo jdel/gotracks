@@ -7,7 +7,7 @@ import { useContexts } from "@/hooks/useContexts";
 import { useProjects } from "@/hooks/useProjects";
 import { useUpdateTodo } from "@/hooks/useTodos";
 import { bare } from "@/lib/composer";
-import { dayValue } from "@/lib/actionDates";
+import { changedDates, dayValue } from "@/lib/actionDates";
 import { useDateFmt } from "@/lib/datefmt";
 import { useT } from "@/lib/i18n";
 import type { Todo } from "@/lib/types";
@@ -56,9 +56,7 @@ export function ActionEditor({
 
   function saveDates(next: ActionDates) {
     setDates(next);
-    // An empty string is how the API is told to clear a date; leaving the field
-    // out would mean "unchanged" instead.
-    update.mutate({ id: todo.id, due: next.due, showFrom: next.showFrom });
+    update.mutate({ id: todo.id, ...changedDates(dates, next) });
   }
 
   return (

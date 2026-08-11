@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jdel/gotracks/internal/domain"
+	"github.com/jdel/gotracks/internal/repo"
 	"github.com/jdel/gotracks/internal/service"
 )
 
@@ -267,5 +268,31 @@ func TestPreferenceRejectsNegativeShowFromDays(t *testing.T) {
 	days := -1
 	if _, err := prefs.Update(context.Background(), 1, service.PreferenceInput{ShowFromDays: &days}); err == nil {
 		t.Fatal("want validation error, got nil")
+	}
+}
+
+// A deferred action with no show-from at all is stuck: the tickler lists it
+// under "No date" and the sweep, which only looks at rows that have a date,
+// can never promote it. Such rows exist in older data. Deferred means waiting
+// for a date, so with no date there is nothing to wait for.
+func TestListActivatesDeferredWithNoShowFrom(t *testing.T) {
+	svc, store, ctxID := newTodoService(t)
+	ctx := context.Background()
+
+	stuck := &domain.Todo{
+		UserID: 1, ContextID: ctxID, Description: "orphaned",
+		State: domain.StateDeferred, Position: 1,
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+	if err := store.Todos.Create(ctx, stuck); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	active, err := svc.List(ctx, 1, repo.TodoFilter{State: domain.StateActive})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(active) != 1 || active[0].ID != stuck.ID {
+		t.Fatalf("want the dateless action activated, got %d active", len(active))
 	}
 }

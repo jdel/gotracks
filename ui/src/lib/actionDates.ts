@@ -72,3 +72,21 @@ export function clampShowFrom(due: string, showFrom: string): string {
   if (!due || !showFrom) return showFrom;
   return showFrom > due ? due : showFrom;
 }
+
+/**
+ * changedDates reduces an edit to the fields that actually moved.
+ *
+ * An empty string is how the API is told to *clear* a date, so sending both
+ * fields on every edit clears the one the user never touched — which is how
+ * setting a due date used to wipe an action's show-from. Only what changed is
+ * sent; anything omitted means "leave it alone".
+ */
+export function changedDates(
+  before: { due: string; showFrom: string },
+  after: { due: string; showFrom: string },
+): { due?: string; showFrom?: string } {
+  const out: { due?: string; showFrom?: string } = {};
+  if (after.due !== before.due) out.due = after.due;
+  if (after.showFrom !== before.showFrom) out.showFrom = after.showFrom;
+  return out;
+}

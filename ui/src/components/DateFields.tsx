@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { IconButton } from "@/components/ui/icon-button";
@@ -73,14 +74,24 @@ export function DateFields({
 }) {
   const t = useT();
   const fmt = useDateFmt();
+  // What the two inputs are showing while they are being typed into. A date
+  // input fires a change per component as it is filled — "2026" then
+  // "2026-09" — and the year alone is a complete, wildly wrong date. Committing
+  // those would save "2026-01-01" and, worse, could move the action out of the
+  // list being looked at before the day had even been picked. So the inputs
+  // keep their own value and only commit when they are left.
+  const [draft, setDraft] = useState<ActionDates | null>(null);
+  const shown = draft ?? value;
 
   function setDue(due: string) {
+    setDraft(null);
     // The show-from travels with the due date, then the clamp has the last word.
     const moved = shiftShowFrom(value.due, due, value.showFrom);
     onChange({ due, showFrom: clampShowFrom(due, moved) });
   }
 
   function setShowFrom(showFrom: string) {
+    setDraft(null);
     onChange({ due: value.due, showFrom: clampShowFrom(value.due, showFrom) });
   }
 
@@ -97,11 +108,15 @@ export function DateFields({
               id={dueId}
               type="date"
               className="mt-1"
-              value={value.due}
-              onChange={(e) => setDue(e.target.value)}
+              value={shown.due}
+              onChange={(e) => setDraft({ ...shown, due: e.target.value })}
+              onBlur={(e) => setDue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") setDue((e.target as HTMLInputElement).value);
+              }}
             />
           </label>
-          {value.due && (
+          {shown.due && (
             <IconButton
               variant="ghost"
               className="mb-0.5 size-8"
@@ -134,12 +149,16 @@ export function DateFields({
               id={showFromId}
               type="date"
               className="mt-1"
-              max={value.due || undefined}
-              value={value.showFrom}
-              onChange={(e) => setShowFrom(e.target.value)}
+              max={shown.due || undefined}
+              value={shown.showFrom}
+              onChange={(e) => setDraft({ ...shown, showFrom: e.target.value })}
+              onBlur={(e) => setShowFrom(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") setShowFrom((e.target as HTMLInputElement).value);
+              }}
             />
           </label>
-          {value.showFrom && (
+          {shown.showFrom && (
             <IconButton
               variant="ghost"
               className="mb-0.5 size-8"
@@ -155,11 +174,11 @@ export function DateFields({
             <Preset
               key={p.key}
               label={t(`dates.${p.key}`)}
-              disabled={!value.due}
-              onClick={() => setShowFrom(addDays(value.due, -p.days))}
+              disabled={!shown.due}
+              onClick={() => setShowFrom(addDays(shown.due, -p.days))}
             />
           ))}
-          {!value.due && (
+          {!shown.due && (
             <span className="text-xs font-medium text-ink-4 dark:text-ink-4-dark">
               {t("dates.needsDue")}
             </span>

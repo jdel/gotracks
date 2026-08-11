@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, clampShowFrom, daysBetween, shiftShowFrom } from "./actionDates";
+import { addDays, changedDates, clampShowFrom, daysBetween, shiftShowFrom } from "./actionDates";
 
 describe("addDays", () => {
   it("crosses a month boundary", () => {
@@ -70,5 +70,29 @@ describe("clampShowFrom", () => {
   // action arbitrarily far ahead is legitimate.
   it("does not constrain an action with no due date", () => {
     expect(clampShowFrom("", "2027-01-01")).toBe("2027-01-01");
+  });
+});
+
+// An empty string tells the API to clear a date, so an edit that sends both
+// fields clears the one nobody touched. Setting a due date used to wipe the
+// action's show-from that way.
+describe("changedDates", () => {
+  it("sends only the field that moved", () => {
+    expect(changedDates({ due: "", showFrom: "2026-01-01" }, { due: "2026-02-01", showFrom: "2026-01-01" }))
+      .toEqual({ due: "2026-02-01" });
+  });
+
+  it("sends both when both moved, as the gap rule makes them", () => {
+    expect(changedDates({ due: "2026-02-01", showFrom: "2026-01-01" }, { due: "2026-02-15", showFrom: "2026-01-15" }))
+      .toEqual({ due: "2026-02-15", showFrom: "2026-01-15" });
+  });
+
+  it("sends an empty string when a date really is being cleared", () => {
+    expect(changedDates({ due: "2026-02-01", showFrom: "" }, { due: "", showFrom: "" }))
+      .toEqual({ due: "" });
+  });
+
+  it("sends nothing at all when nothing moved", () => {
+    expect(changedDates({ due: "2026-02-01", showFrom: "" }, { due: "2026-02-01", showFrom: "" })).toEqual({});
   });
 });

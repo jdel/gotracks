@@ -229,6 +229,11 @@ Two rules keep this predictable:
 An action with no due date can still be parked: give it a show-from on its own
 and nothing constrains how far ahead it goes.
 
+A deferred action always has a show-from — that is what it is waiting for. One
+with no date at all cannot be promoted by the sweep and would sit in the tickler
+forever, so any that exist in older data are activated the next time their lists
+are read.
+
 ## Editing an action
 
 Every detail of an action is editable in place — description, context, project,
