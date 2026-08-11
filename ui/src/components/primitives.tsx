@@ -1,4 +1,11 @@
-import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -484,6 +491,9 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
   );
 }
 
+// How far a sheet must be pulled down before letting go dismisses it.
+const SHEET_DISMISS = 96;
+
 /* Bottom sheet used for quick add and row actions. Escape closes and returns
  * focus to the trigger; focus is trapped while open; the backdrop is not a link.
  *
@@ -506,8 +516,17 @@ export function Sheet({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // How far the sheet has been pulled down, and whether a pull is in progress.
+  const [dy, setDy] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startY = useRef(0);
+  const pulling = useRef(false);
+
   useEffect(() => {
     if (!open) return;
+    // A sheet that was dragged part-way and then reopened must not come back
+    // still displaced.
+    setDy(0);
     const prev = document.activeElement as HTMLElement | null;
     ref.current?.querySelector<HTMLElement>("input,button,select,textarea")?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -522,6 +541,45 @@ export function Sheet({
       prev?.focus?.();
     };
   }, [open, onClose]);
+  // The grabber promises the sheet can be pulled down, so it can be. The pull
+  // only starts when the content is scrolled to the top: lower down, a downward
+  // drag is someone scrolling back up through a long sheet, and stealing that
+  // would make the content unreadable.
+  // Every pointer event stops here. A portal still propagates through the React
+  // tree, not the DOM one, so without this a drag on a sheet opened from a
+  // swipeable row would also reach that row's gesture handlers — pulling the
+  // sheet down would fire a swipe on the card behind it.
+  function onPointerDown(e: PointerEvent) {
+    e.stopPropagation();
+    if (e.pointerType !== "touch") return;
+    if ((ref.current?.scrollTop ?? 0) > 0) return;
+    startY.current = e.clientY;
+    pulling.current = true;
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    e.stopPropagation();
+    if (!pulling.current || e.pointerType !== "touch") return;
+    const moved = e.clientY - startY.current;
+    // Downward only. Dragging up is the scroll the content expects.
+    if (moved <= 0) {
+      setDy(0);
+      return;
+    }
+    if (!dragging && moved > 8) setDragging(true);
+    setDy(moved);
+  }
+
+  function endPull(e: PointerEvent) {
+    e.stopPropagation();
+    pulling.current = false;
+    setDragging(false);
+    // Past the threshold it closes; short of it, it springs back rather than
+    // sitting half-open.
+    if (dy > SHEET_DISMISS) onClose();
+    else setDy(0);
+  }
+
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
@@ -534,7 +592,17 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative max-h-[85dvh] overflow-auto rounded-t-sheet bg-card px-4 pt-3.5 pb-5 shadow-sheet motion-safe:animate-[sheetUp_240ms_cubic-bezier(0.32,0.72,0,1)] dark:bg-card-dark"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endPull}
+        onPointerCancel={endPull}
+        className="relative max-h-[85dvh] touch-pan-y overflow-auto rounded-t-sheet bg-card px-4 pt-3.5 pb-5 shadow-sheet motion-safe:animate-[sheetUp_240ms_cubic-bezier(0.32,0.72,0,1)] dark:bg-card-dark"
+        style={{
+          // Unset at rest, like the swipe rows: an identity transform would
+          // make this the containing block for anything fixed inside it.
+          transform: dy === 0 ? undefined : `translateY(${dy}px)`,
+          transition: dragging ? "none" : "transform 200ms",
+        }}
       >
         <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line-2 dark:bg-line-2-dark" />
         <h2 className="mb-2 text-[17px] font-extrabold tracking-[-0.02em] text-ink dark:text-ink-dark">

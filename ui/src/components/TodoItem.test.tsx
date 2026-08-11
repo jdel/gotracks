@@ -427,3 +427,59 @@ describe("attachments on a phone", () => {
     expect(within(sheet).getByLabelText(/Delete invoice.pdf/)).toBeTruthy();
   });
 });
+
+// The grabber at the top of a sheet promises it can be pulled down. It can:
+// dragging past a threshold dismisses, and anything shorter springs back
+// rather than leaving the sheet sitting half-open.
+describe("pulling a sheet down", () => {
+  function openSheet() {
+    const { container } = renderItem();
+    const row = container.querySelector("li")!;
+    fireEvent.pointerDown(row, { pointerType: "touch", clientX: 120, clientY: 10 });
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    return screen.getByRole("dialog");
+  }
+
+  function drag(sheet: Element, distance: number) {
+    fireEvent.pointerDown(sheet, { pointerType: "touch", clientY: 100 });
+    fireEvent.pointerMove(sheet, { pointerType: "touch", clientY: 100 + distance });
+    fireEvent.pointerUp(sheet, { pointerType: "touch", clientY: 100 + distance });
+  }
+
+  it("dismisses when pulled past the threshold", () => {
+    vi.useFakeTimers();
+    try {
+      drag(openSheet(), 200);
+      expect(screen.queryByRole("dialog")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("springs back after a short pull", () => {
+    vi.useFakeTimers();
+    try {
+      const sheet = openSheet();
+      drag(sheet, 20);
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      expect((sheet as HTMLElement).style.transform).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Lower down a long sheet, a downward drag is someone scrolling back up.
+  it("leaves the gesture to the content when it is scrolled down", () => {
+    vi.useFakeTimers();
+    try {
+      const sheet = openSheet();
+      Object.defineProperty(sheet, "scrollTop", { value: 120, configurable: true });
+      drag(sheet, 200);
+      expect(screen.getByRole("dialog")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
