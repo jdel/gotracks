@@ -213,7 +213,8 @@ export interface Preference {
   theme: "light" | "dark" | "system";
   weekStart: number;
   reviewPeriod: number;
-  autoDeleteAttachments: boolean | null;
+  showFromDays: number;
+  autoDeleteAttachments: boolean;
   updatedAt: string;
 }
 

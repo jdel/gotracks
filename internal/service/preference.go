@@ -78,6 +78,7 @@ type PreferenceInput struct {
 	Theme                 *string
 	WeekStart             *int
 	ReviewPeriod          *int
+	ShowFromDays          *int
 	AutoDeleteAttachments *bool
 }
 
@@ -126,8 +127,17 @@ func (s *PreferenceService) Update(ctx context.Context, userID int64, in Prefere
 		}
 		p.ReviewPeriod = *in.ReviewPeriod
 	}
+	if in.ShowFromDays != nil {
+		// Negative would put show-from after the due date, which the todo
+		// service clamps away anyway — refuse it here rather than store a value
+		// that silently does nothing.
+		if *in.ShowFromDays < 0 {
+			return nil, ErrValidation
+		}
+		p.ShowFromDays = *in.ShowFromDays
+	}
 	if in.AutoDeleteAttachments != nil {
-		p.AutoDeleteAttachments = in.AutoDeleteAttachments
+		p.AutoDeleteAttachments = *in.AutoDeleteAttachments
 	}
 	p.UpdatedAt = time.Now()
 	if err := s.prefs.Upsert(ctx, p); err != nil {

@@ -88,6 +88,21 @@ type TodoInput struct {
 	HasTags       bool
 }
 
+// clampShowFrom keeps show-from at or before the due date. An action is not
+// allowed to hide past the day it is due, whichever end the user moved: a
+// hand-picked show-from after the due date, or a due date dragged backwards
+// past an existing show-from. Without a due date there is nothing to clamp
+// against — parking an undated action arbitrarily far ahead is legitimate.
+func clampShowFrom(t *domain.Todo) {
+	if t.Due == nil || t.ShowFrom == nil {
+		return
+	}
+	if t.ShowFrom.After(*t.Due) {
+		due := *t.Due
+		t.ShowFrom = &due
+	}
+}
+
 // List returns todos matching the filter, with tags populated.
 // Deferred todos whose show_from has passed are activated first (tickler).
 func (s *TodoService) List(ctx context.Context, userID int64, f repo.TodoFilter) ([]*domain.Todo, error) {
@@ -187,9 +202,25 @@ func (s *TodoService) create(ctx context.Context, userID int64, in TodoInput) (*
 	}
 	if in.ShowFrom != nil {
 		t.ShowFrom = in.ShowFrom
-		if in.ShowFrom.After(now) {
-			t.State = domain.StateDeferred
+	} else if t.Due != nil {
+		// A due date with no show-from of its own gets one from the user's
+		// setting. Creation only: editing a due date later must never re-defer
+		// an action someone is working on.
+		lead := 0
+		if s.prefs != nil {
+			if pref, err := s.prefs.Get(ctx, userID); err == nil {
+				lead = pref.ShowFromDays
+			}
 		}
+		showFrom := t.Due.AddDate(0, 0, -lead)
+		t.ShowFrom = &showFrom
+	}
+	clampShowFrom(t)
+	// Compared by day, not by instant: these are dates, and an action whose
+	// show-from is today belongs in the active list however many hours into the
+	// day the request arrives.
+	if t.ShowFrom != nil && startOfDay(now).Before(startOfDay(*t.ShowFrom)) {
+		t.State = domain.StateDeferred
 	}
 	if in.Starred != nil {
 		t.Starred = *in.Starred
@@ -267,20 +298,25 @@ func (s *TodoService) update(ctx context.Context, userID, id int64, in TodoInput
 	} else if in.Due != nil {
 		t.Due = in.Due
 	}
-	if in.ClearShowFrom {
+	// Dropping the due date drops the show-from with it: a show-from derived
+	// from a due date means nothing once that date is gone.
+	if in.ClearShowFrom || (in.ClearDue && t.ShowFrom != nil) {
 		t.ShowFrom = nil
 		if t.State == domain.StateDeferred {
 			t.State = domain.StateActive
 		}
 	} else if in.ShowFrom != nil {
 		t.ShowFrom = in.ShowFrom
-		// Only a not-yet-completed todo can be deferred.
-		if t.State != domain.StateCompleted {
-			if in.ShowFrom.After(time.Now()) {
-				t.State = domain.StateDeferred
-			} else {
-				t.State = domain.StateActive
-			}
+	}
+	// Runs whether or not show-from was touched: pulling the due date backwards
+	// past an untouched show-from has to bring it along.
+	clampShowFrom(t)
+	// Only a not-yet-completed todo can be deferred.
+	if t.ShowFrom != nil && t.State != domain.StateCompleted {
+		if startOfDay(time.Now()).Before(startOfDay(*t.ShowFrom)) {
+			t.State = domain.StateDeferred
+		} else {
+			t.State = domain.StateActive
 		}
 	}
 	if in.Starred != nil {
@@ -328,7 +364,7 @@ func (s *TodoService) Complete(ctx context.Context, userID, id int64) (*domain.T
 	// user instead, which is why this only acts and never reports what it
 	// found — a client that wants to prompt reads the attachments itself.
 	if s.attachments != nil && s.prefs != nil {
-		if pref, err := s.prefs.Get(ctx, userID); err == nil && pref.AutoDelete() {
+		if pref, err := s.prefs.Get(ctx, userID); err == nil && pref.AutoDeleteAttachments {
 			if err := s.attachments.DeleteForTodo(ctx, userID, t.ID); err != nil {
 				return nil, err
 			}

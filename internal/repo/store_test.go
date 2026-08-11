@@ -66,19 +66,17 @@ func TestPreferenceUpdatePersistsAutoDeleteAttachments(t *testing.T) {
 			t.Fatalf("create user: %v", err)
 		}
 
-		off := false
 		p := &domain.Preference{
 			UserID: u.ID, DateFormat: "YYYY-MM-DD", TimeZone: "UTC",
 			Locale: "en", Theme: "system", WeekStart: 0, ReviewPeriod: 7,
-			AutoDeleteAttachments: &off, UpdatedAt: time.Now(),
+			AutoDeleteAttachments: false, UpdatedAt: time.Now(),
 		}
 		if err := store.Preferences.Upsert(ctx, p); err != nil {
 			t.Fatalf("insert preference: %v", err)
 		}
 
 		// Second Upsert hits the update branch, which is what regressed.
-		on := true
-		p.AutoDeleteAttachments = &on
+		p.AutoDeleteAttachments = true
 		p.UpdatedAt = time.Now()
 		if err := store.Preferences.Upsert(ctx, p); err != nil {
 			t.Fatalf("update preference: %v", err)
@@ -88,7 +86,7 @@ func TestPreferenceUpdatePersistsAutoDeleteAttachments(t *testing.T) {
 		if err != nil {
 			t.Fatalf("reload preference: %v", err)
 		}
-		if got.AutoDeleteAttachments == nil || !*got.AutoDeleteAttachments {
+		if !got.AutoDeleteAttachments {
 			t.Fatalf("auto_delete_attachments did not persist: %v", got.AutoDeleteAttachments)
 		}
 	})

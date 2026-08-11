@@ -101,7 +101,7 @@ func TestMigrateAdoptsCurrentUntrackedSchema(t *testing.T) {
 	}
 	// The baseline is adopted rather than run; everything after it is applied
 	// normally, so each new migration belongs in this list.
-	want := []string{"202607230001", "202607230002", "202607240001", "202607240002", "202607240003", "202607240004", "202607270001"}
+	want := []string{"202607230001", "202607230002", "202607240001", "202607240002", "202607240003", "202607240004", "202607270001", "202608120001"}
 	if len(migrationNames) != len(want) {
 		t.Fatalf("unexpected applied migrations: %v", migrationNames)
 	}

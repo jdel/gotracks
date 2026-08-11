@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { QuickAdd } from "./QuickAdd";
 import { useContexts } from "@/hooks/useContexts";
@@ -75,11 +76,16 @@ function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
       contexts = [...contexts, created];
       contextId = created.id;
     }
+    // The server fills in a show-from for an action that has a due date, and
+    // defers it — which is what the "waiting in the tickler" notice reacts to.
+    const deferred = Boolean(body.due);
     const todo = {
       id: nextId++,
       contextId,
       description: body.description,
-      state: "active",
+      due: body.due,
+      showFrom: deferred ? body.due : undefined,
+      state: deferred ? "deferred" : "active",
       starred: false,
       notes: "",
       position: 1,
@@ -100,7 +106,10 @@ function renderApp() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MiniHome />
+      {/* A router, because the deferred notice links to the tickler. */}
+      <MemoryRouter>
+        <MiniHome />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
@@ -226,5 +235,38 @@ describe("QuickAdd error reporting", () => {
     await user.keyboard("nope{Enter}");
 
     await screen.findByText("Could not add action.");
+  });
+});
+
+describe("QuickAdd deferred notice", () => {
+  // An action created with a due date can be parked in the tickler on the
+  // spot, which means it is not in the list the user is looking at. Saying so
+  // is the whole reason there is no separate "deferred" filter.
+  it("says where the action went when the server defers it", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByText("context:@home");
+    await user.click(screen.getByLabelText(/Add an action/));
+    await user.keyboard("renew passport");
+    await user.click(screen.getByLabelText(/Add a due date/));
+    await user.type(screen.getByLabelText("Due"), "2027-03-01");
+    await user.keyboard("{Enter}");
+
+    await screen.findByText(/waiting in the tickler/);
+    expect(screen.getByRole("link", { name: "View tickler" }).getAttribute("href")).toBe("/tickler");
+  });
+
+  // No due date, no deferral, no notice — the action is in the list already.
+  it("stays quiet for an action that is active straight away", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByText("context:@home");
+    await user.click(screen.getByLabelText(/Add an action/));
+    await user.keyboard("buy milk{Enter}");
+
+    await waitFor(() => expect(screen.getByText("todo:buy milk")).toBeDefined());
+    expect(screen.queryByText(/waiting in the tickler/)).toBeNull();
   });
 });

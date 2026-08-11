@@ -345,15 +345,14 @@ type Preference struct {
 	Theme        string `bun:"theme,notnull" json:"theme"`          // light | dark | system
 	WeekStart    int    `bun:"week_start,notnull" json:"weekStart"` // 0 = Sunday
 	ReviewPeriod int    `bun:"review_period,notnull" json:"reviewPeriod"`
-	// AutoDeleteAttachments is a pointer because older databases can contain
-	// NULL in this column. Nil reads as off, same as false.
-	AutoDeleteAttachments *bool     `bun:"auto_delete_attachments" json:"autoDeleteAttachments"`
+	// ShowFromDays fills in the show-from date of a newly created action that
+	// has a due date but no show-from of its own: the action appears this many
+	// days before it is due. Positive means earlier, the same direction as
+	// RecurringTodo.ShowFromDays. Zero — the default — shows it on its due date.
+	// Only ever applied at creation; editing a due date never recomputes it.
+	ShowFromDays          int       `bun:"show_from_days,notnull" json:"showFromDays"`
+	AutoDeleteAttachments bool      `bun:"auto_delete_attachments,notnull" json:"autoDeleteAttachments"`
 	UpdatedAt             time.Time `bun:"updated_at,notnull" json:"updatedAt"`
-}
-
-// AutoDelete reports the effective auto-delete-attachments setting.
-func (p *Preference) AutoDelete() bool {
-	return p.AutoDeleteAttachments != nil && *p.AutoDeleteAttachments
 }
 
 // Attachment is a file attached to a todo. Bytes live on disk; this is metadata.

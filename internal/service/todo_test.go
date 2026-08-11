@@ -90,7 +90,9 @@ func TestPastShowFromStaysActive(t *testing.T) {
 func TestTicklerActivatesWhenShowFromPasses(t *testing.T) {
 	svc, store, ctxID := newTodoService(t)
 	ctx := context.Background()
-	future := time.Now().Add(time.Hour)
+	// Tomorrow, not an hour from now: show-from is a date, so deferral is
+	// decided by calendar day. Later today is still today, and today is active.
+	future := time.Now().AddDate(0, 0, 1)
 
 	todo, err := svc.Create(ctx, 1, service.TodoInput{
 		ContextID:   &ctxID,

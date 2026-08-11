@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import { Plus, ChevronDown } from "lucide-react";
 import { useCreateTodo } from "@/hooks/useTodos";
 import { useProjects, useTags } from "@/hooks/useProjects";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { bare, parseAction, ALL_SIGILS, type Sigil } from "@/lib/composer";
 import { apiMessage } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import { useDateFmt } from "@/lib/datefmt";
 import { lastUsed } from "@/lib/lastUsed";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +37,7 @@ export function QuickAdd({
   defaultExpanded = false,
 }: QuickAddProps) {
   const t = useT();
+  const fmt = useDateFmt();
   const create = useCreateTodo();
   const { data: contexts } = useContexts();
   const { data: projects } = useProjects("active");
@@ -46,6 +49,9 @@ export function QuickAdd({
   const [showFrom, setShowFrom] = useState("");
   const [tags, setTags] = useState("");
   const [error, setError] = useState("");
+  // Show-from of the action just created, when the server deferred it. Cleared
+  // on the next submit, so the notice always refers to the latest action.
+  const [deferredUntil, setDeferredUntil] = useState("");
 
   const activeContexts = useMemo(
     () => contexts?.filter((c) => c.state === "active") ?? [],
@@ -116,6 +122,9 @@ export function QuickAdd({
         onSuccess: (todo) => {
           // Remember where it landed, including a context the server just created.
           lastUsed.remember(todo.contextId, todo.projectId);
+          // The server owns the decision — it applies the user's default
+          // show-from — so the state it returns is what decides the notice.
+          setDeferredUntil(todo.state === "deferred" && todo.showFrom ? todo.showFrom : "");
           setText("");
           setDue("");
           setShowFrom("");
@@ -224,6 +233,18 @@ export function QuickAdd({
       )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {/* An action created with a due date can be deferred on the spot, and
+          then it is not in the list the user is looking at. Say where it went
+          rather than letting it appear to have vanished. */}
+      {deferredUntil && (
+        <p className="text-sm font-medium text-ink-2 dark:text-ink-2-dark">
+          {t("quickadd.deferred", { date: fmt.day(deferredUntil) })}{" "}
+          <Link to="/tickler" className="text-brand underline dark:text-brand-ink-dark">
+            {t("quickadd.deferredLink")}
+          </Link>
+        </p>
+      )}
     </form>
   );
 }

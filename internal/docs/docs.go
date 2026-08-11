@@ -3406,6 +3406,9 @@ const docTemplate = `{
                 "reviewPeriod": {
                     "type": "integer"
                 },
+                "showFromDays": {
+                    "type": "integer"
+                },
                 "theme": {
                     "type": "string"
                 },
@@ -3813,7 +3816,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "autoDeleteAttachments": {
-                    "description": "AutoDeleteAttachments is a pointer because older databases can contain\nNULL in this column. Nil reads as off, same as false.",
                     "type": "boolean"
                 },
                 "dateFormat": {
@@ -3823,6 +3825,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "reviewPeriod": {
+                    "type": "integer"
+                },
+                "showFromDays": {
+                    "description": "ShowFromDays fills in the show-from date of a newly created action that\nhas a due date but no show-from of its own: the action appears this many\ndays before it is due. Positive means earlier, the same direction as\nRecurringTodo.ShowFromDays. Zero — the default — shows it on its due date.\nOnly ever applied at creation; editing a due date never recomputes it.",
                     "type": "integer"
                 },
                 "theme": {

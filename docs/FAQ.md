@@ -204,6 +204,31 @@ Since an action needs a context and a note has none, converting one asks
 which context to use; the project (if any) carries over, and the note is
 removed once the action exists.
 
+## The tickler
+
+An action can carry a "show from" date: until that day arrives it is deferred,
+listed only under Tickler, and it appears in the normal lists by itself once the
+date passes. Nothing runs on a timer — the promotion happens on the next read,
+so a list is never stale.
+
+Setting a due date fills in a show-from automatically, from the per-user
+**Show actions this many days before they are due** setting. Its default is `0`,
+so an action given a due date and nothing else waits in the tickler until the
+day it is due. Raise it to surface the action earlier: `7` puts it in the active
+lists a week ahead. Creating an action that lands in the tickler says so, with a
+link to it — otherwise it would appear to vanish.
+
+Two rules keep this predictable:
+
+- **Show from is never after the due date.** Pick a later one by hand, or drag
+  the due date back past it, and it is pulled to the due date.
+- **The default is applied once, at creation.** Editing a due date afterwards
+  never recomputes show-from, so an action you are working on is not silently
+  hidden. Clearing the due date does clear the show-from that came with it.
+
+An action with no due date can still be parked: give it a show-from on its own
+and nothing constrains how far ahead it goes.
+
 ## Language
 
 The interface ships English, French, Italian and German, and every screen is

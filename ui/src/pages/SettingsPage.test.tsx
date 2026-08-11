@@ -8,8 +8,9 @@ vi.mock("@/lib/auth", () => ({
   useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
 }));
 
-const { requestEmailChange } = vi.hoisted(() => ({
+const { requestEmailChange, updatePreferences } = vi.hoisted(() => ({
   requestEmailChange: vi.fn().mockResolvedValue(undefined),
+  updatePreferences: vi.fn(),
 }));
 
 vi.mock("@/components/PasswordSection", () => ({ PasswordSection: () => null }));
@@ -27,12 +28,13 @@ vi.mock("@/hooks/useSettings", () => ({
       theme: "system",
       weekStart: 1,
       reviewPeriod: 7,
+      showFromDays: 0,
       autoDeleteAttachments: false,
       updatedAt: "2026-07-22T00:00:00Z",
     },
     isLoading: false,
   }),
-  useUpdatePreferences: () => ({ mutate: vi.fn(), isPending: false }),
+  useUpdatePreferences: () => ({ mutate: updatePreferences, isPending: false }),
   useRequestAccountDeletion: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRequestEmailChange: () => ({ mutateAsync: requestEmailChange, isPending: false }),
   useMyUsage: () => ({
@@ -92,5 +94,21 @@ describe("SettingsPage usage pane", () => {
 
     expect(requestEmailChange).toHaveBeenCalledWith({ newEmail: "new@example.com" });
     expect(await screen.findByText("Check the new address for a verification link. Your current email is unchanged until you confirm it.")).toBeTruthy();
+  });
+});
+
+// The setting that decides how far ahead of its due date a new action appears.
+// It only reaches the server as a number of days, so the field has to send one.
+describe("SettingsPage show-from default", () => {
+  it("saves the lead time in days", async () => {
+    const user = userEvent.setup();
+    updatePreferences.mockClear();
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+
+    const field = screen.getByLabelText("Show actions this many days before they are due");
+    await user.type(field, "3");
+
+    // The second argument is the mutation's own callbacks, which this is not about.
+    expect(updatePreferences.mock.calls[0][0]).toEqual({ showFromDays: 3 });
   });
 });

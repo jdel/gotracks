@@ -107,6 +107,7 @@ type preferenceRequest struct {
 	Theme                 *string `json:"theme"`
 	WeekStart             *int    `json:"weekStart"`
 	ReviewPeriod          *int    `json:"reviewPeriod"`
+	ShowFromDays          *int    `json:"showFromDays"`
 	AutoDeleteAttachments *bool   `json:"autoDeleteAttachments"`
 }
 
@@ -147,6 +148,7 @@ func (h *preferenceHandler) update(w http.ResponseWriter, r *http.Request) {
 		Theme:                 req.Theme,
 		WeekStart:             req.WeekStart,
 		ReviewPeriod:          req.ReviewPeriod,
+		ShowFromDays:          req.ShowFromDays,
 		AutoDeleteAttachments: req.AutoDeleteAttachments,
 	})
 	if err != nil {

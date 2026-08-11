@@ -75,13 +75,24 @@ function TodoList({
     return true;
   });
 
-  // Runs of rows sharing a calendar day, in whatever order the server returned
-  // them — the tickler reads forwards, the archive backwards, and neither wants
-  // this to re-sort it.
+  // Runs of rows sharing a calendar day. The server sorts by position — the
+  // drag-reorder order the context lists need — so a date-grouped list has to
+  // sort for itself, or the headers come out in position order and one date
+  // appears under several separate headings. The tickler reads forwards, the
+  // archive backwards.
   const groups: { key: string; label: string; rows: Todo[] }[] = [];
   if (groupBy) {
     const today = fmt.dayKey(new Date().toISOString());
-    for (const todo of visible) {
+    const direction = groupBy === "showFrom" ? 1 : -1;
+    const ordered = [...visible].sort((a, b) => {
+      // Undated rows sink to the end of either list rather than colliding with
+      // the earliest real date.
+      const av = a[groupBy] ?? "";
+      const bv = b[groupBy] ?? "";
+      if (!av || !bv) return av ? -1 : bv ? 1 : 0;
+      return av < bv ? -direction : av > bv ? direction : 0;
+    });
+    for (const todo of ordered) {
       const iso = todo[groupBy];
       const key = iso ? fmt.dayKey(iso) : "";
       const last = groups.at(-1);

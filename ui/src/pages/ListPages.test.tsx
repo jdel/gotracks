@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DonePage } from "./ListPages";
+import { DonePage, TicklerPage } from "./ListPages";
 import { browserTimeZone, formatWeekday } from "@/lib/datefmt";
 
 vi.mock("@/lib/auth", () => ({
@@ -42,15 +42,32 @@ function todo(id: number, description: string, starred = false, completedAt?: st
   };
 }
 
-function renderPage() {
+function renderPage(page: "done" | "tickler" = "done") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <DonePage />
+      {page === "tickler" ? <TicklerPage /> : <DonePage />}
     </QueryClientProvider>,
   );
+}
+
+// A deferred action waiting in the tickler, with the show-from it waits for.
+function deferred(id: number, description: string, showFrom: string) {
+  return {
+    id,
+    contextId: 1,
+    description,
+    tags: [],
+    notes: "",
+    state: "deferred",
+    starred: false,
+    showFrom,
+    position: id,
+    createdAt: "2026-07-20T00:00:00Z",
+    updatedAt: "2026-07-20T00:00:00Z",
+  };
 }
 
 beforeEach(() => {
@@ -125,5 +142,36 @@ describe("done archive grouping", () => {
 
     await screen.findByText("lost record");
     expect(screen.getByText("No date")).toBeTruthy();
+  });
+});
+
+// The server sorts every list by position — the order the context lists are
+// dragged into — so a date-grouped list has to sort for itself. Otherwise the
+// headings come out in position order and one date appears more than once.
+describe("tickler grouping", () => {
+  it("orders the day headings by show-from, not by position", async () => {
+    const zone = browserTimeZone();
+    // Position order deliberately disagrees with date order, and the two
+    // rows sharing a day are not adjacent.
+    todos = [
+      deferred(1, "renew passport", "2026-09-10T00:00:00Z"),
+      deferred(2, "book dentist", "2026-08-20T00:00:00Z"),
+      deferred(3, "pay tax", "2026-09-10T00:00:00Z"),
+    ];
+    renderPage("tickler");
+
+    await screen.findByText("renew passport");
+    const headings = screen
+      .getAllByText(
+        new RegExp(
+          `${formatWeekday("2026-08-20T00:00:00Z", zone)}|${formatWeekday("2026-09-10T00:00:00Z", zone)}`,
+        ),
+      )
+      .map((el) => el.textContent);
+    // One heading per date, earliest first.
+    expect(headings).toEqual([
+      formatWeekday("2026-08-20T00:00:00Z", zone),
+      formatWeekday("2026-09-10T00:00:00Z", zone),
+    ]);
   });
 });

@@ -186,6 +186,24 @@ export function SettingsPage() {
                 onChange={(e) => set({ reviewPeriod: Math.max(1, Number(e.target.value)) })}
               />
             </label>
+
+            {/* The help text sits outside the label: inside it, a screen
+                reader would read the whole paragraph as the field's name. */}
+            <div>
+              <label className={fieldLabel}>
+                {t("settings.showFromDays")}
+                <Input
+                  type="number"
+                  min={0}
+                  className={cn("mt-1", inputClass)}
+                  value={prefs.showFromDays}
+                  onChange={(e) => set({ showFromDays: Math.max(0, Number(e.target.value)) })}
+                />
+              </label>
+              <p className="mt-1 text-xs font-medium text-ink-3 dark:text-ink-4-dark">
+                {t("settings.showFromDaysHelp")}
+              </p>
+            </div>
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-line-3 pt-4 dark:border-line-dark">
             <div>
@@ -198,7 +216,7 @@ export function SettingsPage() {
             </div>
             <Toggle
               id="auto-delete-attachments"
-              checked={prefs.autoDeleteAttachments ?? false}
+              checked={prefs.autoDeleteAttachments}
               disabled={update.isPending}
               onChange={(checked) => set({ autoDeleteAttachments: checked })}
               label={t("settings.autoDeleteAttachments")}
