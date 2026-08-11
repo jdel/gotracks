@@ -222,9 +222,11 @@ Two rules keep this predictable:
 
 - **Show from is never after the due date.** Pick a later one by hand, or drag
   the due date back past it, and it is pulled to the due date.
-- **The default is applied once, at creation.** Editing a due date afterwards
-  never recomputes show-from, so an action you are working on is not silently
-  hidden. Clearing the due date does clear the show-from that came with it.
+- **An action with a due date always has a show-from.** Setting a due date on
+  one that has none fills it in from the default, however the due date arrived.
+- **An existing show-from is never recomputed.** Moving a due date carries it
+  along, keeping the gap, rather than deriving it again from the setting.
+  Clearing the due date clears the show-from that came with it.
 
 An action with no due date can still be parked: give it a show-from on its own
 and nothing constrains how far ahead it goes.
@@ -246,6 +248,11 @@ Both dates have quick-sets. **Due** offers tomorrow, next week and next month,
 counted from today. **Show from** offers 1 day, 1 week and 1 month *before the
 due date*, so it needs one to exist and is disabled without it — the date field
 itself still works, which is how an undated action gets parked.
+
+Nothing is written as you tap. Changes go in when you press Apply, or when you
+move away from the dates — picking a due date is usually half an edit whose
+other half is the show-from, and saving on the first tap would file the action
+elsewhere before the second one happened.
 
 Two rules apply as you edit, matching what the server stores:
 

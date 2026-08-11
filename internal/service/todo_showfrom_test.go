@@ -11,9 +11,13 @@ import (
 )
 
 // dayOf drops the clock from a timestamp, which is the granularity show-from
-// and due are compared at.
+// and due are compared at. Normalised to UTC first: a value that has been
+// through the database comes back in UTC, and comparing its calendar day
+// against a local-zone one would differ by a day for anything late in the
+// evening east of Greenwich, even though both are the same instant.
 func dayOf(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	u := t.UTC()
+	return time.Date(u.Year(), u.Month(), u.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 func sameDay(a *time.Time, b time.Time) bool {
@@ -174,13 +178,14 @@ func TestUpdateDueClampsExistingShowFrom(t *testing.T) {
 	}
 }
 
-// Adding a due date to an action that has none must not silently defer it:
-// the default is a creation-time rule only.
-func TestUpdateAddingDueDoesNotDefer(t *testing.T) {
+// An action with a due date always has a show-from. Setting a due date on one
+// that has none fills it in from the setting, exactly as creating it would
+// have — the invariant holds however the due date arrived.
+func TestUpdateAddingDueFillsEmptyShowFrom(t *testing.T) {
 	svc, store, ctxID := newTodoService(t)
 	ctx := context.Background()
 	prefs := service.NewPreferenceService(store.Preferences)
-	withShowFromDays(t, svc, prefs, 0)
+	withShowFromDays(t, svc, prefs, 3)
 
 	todo, err := svc.Create(ctx, 1, service.TodoInput{
 		ContextID:   &ctxID,
@@ -195,11 +200,39 @@ func TestUpdateAddingDueDoesNotDefer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
-	if updated.ShowFrom != nil {
-		t.Fatalf("want no show-from, got %v", updated.ShowFrom)
+	if !sameDay(updated.ShowFrom, due.AddDate(0, 0, -3)) {
+		t.Fatalf("show-from: want %v, got %v", due.AddDate(0, 0, -3), updated.ShowFrom)
 	}
-	if updated.State != domain.StateActive {
-		t.Fatalf("want active, got %q", updated.State)
+}
+
+// The other half of the rule: an existing show-from is never recomputed. A due
+// date moved by hand leaves it exactly where it was — the client is what
+// carries it along, preserving the gap.
+func TestUpdateDueLeavesExistingShowFromAlone(t *testing.T) {
+	svc, store, ctxID := newTodoService(t)
+	ctx := context.Background()
+	prefs := service.NewPreferenceService(store.Preferences)
+	withShowFromDays(t, svc, prefs, 3)
+
+	due := time.Now().AddDate(0, 0, 10)
+	showFrom := time.Now().AddDate(0, 0, 1)
+	todo, err := svc.Create(ctx, 1, service.TodoInput{
+		ContextID:   &ctxID,
+		Description: strPtr("file the thing"),
+		Due:         &due,
+		ShowFrom:    &showFrom,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	later := time.Now().AddDate(0, 0, 30)
+	updated, err := svc.Update(ctx, 1, todo.ID, service.TodoInput{Due: &later})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if !sameDay(updated.ShowFrom, showFrom) {
+		t.Fatalf("show-from: want %v untouched, got %v", showFrom, updated.ShowFrom)
 	}
 }
 

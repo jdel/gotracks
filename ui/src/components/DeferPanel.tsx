@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { DateFields, type ActionDates } from "@/components/DateFields";
+import { type ActionDates } from "@/components/DateFields";
+import { DateEditor } from "@/components/DateEditor";
 import { useUpdateTodo } from "@/hooks/useTodos";
 import { changedDates, dayValue } from "@/lib/actionDates";
 import { useDateFmt } from "@/lib/datefmt";
@@ -14,9 +15,10 @@ import type { Todo } from "@/lib/types";
  * its due date, which carries the show-from along and drops the action back
  * into the tickler; nothing here special-cases that.
  *
- * Each change saves immediately but the panel stays open, so the pair can be
- * set in either order — closing on the first tap would put Show from out of
- * reach of anyone who started with Due.
+ * Changes are collected and go in on Apply, or when focus leaves — picking a
+ * due date is usually half a thought whose other half is the show-from, and
+ * saving on the first tap would move the action out of the list, taking this
+ * panel with it, before the second one happened.
  */
 export function DeferPanel({ todo }: { todo: Todo }) {
   const fmt = useDateFmt();
@@ -27,9 +29,9 @@ export function DeferPanel({ todo }: { todo: Todo }) {
   });
 
   return (
-    <DateFields
+    <DateEditor
       value={dates}
-      onChange={(next) => {
+      onSave={(next) => {
         // Only what moved: an empty string clears a date, so sending both
         // would wipe whichever one the user did not touch.
         update.mutate({ id: todo.id, ...changedDates(dates, next) });

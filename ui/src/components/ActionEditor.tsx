@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Star, Trash2 } from "lucide-react";
-import { DateFields, type ActionDates } from "@/components/DateFields";
+import { type ActionDates } from "@/components/DateFields";
+import { DateEditor } from "@/components/DateEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useContexts } from "@/hooks/useContexts";
@@ -55,8 +56,8 @@ export function ActionEditor({
   });
 
   function saveDates(next: ActionDates) {
-    setDates(next);
     update.mutate({ id: todo.id, ...changedDates(dates, next) });
+    setDates(next);
   }
 
   return (
@@ -118,7 +119,7 @@ export function ActionEditor({
         </label>
       </div>
 
-      <DateFields value={dates} onChange={saveDates} idPrefix={`todo-${todo.id}`} />
+      <DateEditor value={dates} onSave={saveDates} idPrefix={`todo-${todo.id}`} />
 
       <label className={fieldLabel}>
         {t("quickadd.tags")}

@@ -88,6 +88,20 @@ type TodoInput struct {
 	HasTags       bool
 }
 
+// showFromDays is the user's lead time: how many days before its due date an
+// action first appears. Zero — the default, and what an unwired preference
+// service reads as — shows it on the due date itself.
+func (s *TodoService) showFromDays(ctx context.Context, userID int64) int {
+	if s.prefs == nil {
+		return 0
+	}
+	pref, err := s.prefs.Get(ctx, userID)
+	if err != nil {
+		return 0
+	}
+	return pref.ShowFromDays
+}
+
 // clampShowFrom keeps show-from at or before the due date. An action is not
 // allowed to hide past the day it is due, whichever end the user moved: a
 // hand-picked show-from after the due date, or a due date dragged backwards
@@ -204,15 +218,8 @@ func (s *TodoService) create(ctx context.Context, userID int64, in TodoInput) (*
 		t.ShowFrom = in.ShowFrom
 	} else if t.Due != nil {
 		// A due date with no show-from of its own gets one from the user's
-		// setting. Creation only: editing a due date later must never re-defer
-		// an action someone is working on.
-		lead := 0
-		if s.prefs != nil {
-			if pref, err := s.prefs.Get(ctx, userID); err == nil {
-				lead = pref.ShowFromDays
-			}
-		}
-		showFrom := t.Due.AddDate(0, 0, -lead)
+		// setting.
+		showFrom := t.Due.AddDate(0, 0, -s.showFromDays(ctx, userID))
 		t.ShowFrom = &showFrom
 	}
 	clampShowFrom(t)
@@ -307,6 +314,15 @@ func (s *TodoService) update(ctx context.Context, userID, id int64, in TodoInput
 		}
 	} else if in.ShowFrom != nil {
 		t.ShowFrom = in.ShowFrom
+	}
+	// An action with a due date always has a show-from. Setting a due date on
+	// one that has none fills it in from the user's default, exactly as
+	// creating it would have. This is not the "recompute" case: an existing
+	// show-from is never overwritten — moving a due date carries it along
+	// instead, which the client does before sending both.
+	if t.Due != nil && t.ShowFrom == nil {
+		showFrom := t.Due.AddDate(0, 0, -s.showFromDays(ctx, userID))
+		t.ShowFrom = &showFrom
 	}
 	// Runs whether or not show-from was touched: pulling the due date backwards
 	// past an untouched show-from has to bring it along.

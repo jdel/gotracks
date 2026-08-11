@@ -351,6 +351,9 @@ describe("editing an action's dates", () => {
     await user.click(screen.getByLabelText("Edit this action"));
     fireEvent.change(screen.getAllByLabelText("Due")[0], { target: { value: "2026-09-24" } });
     fireEvent.blur(screen.getAllByLabelText("Due")[0], { target: { value: "2026-09-24" } });
+    // Nothing is written until Apply — a due date is usually half an edit
+    // whose other half is the show-from.
+    await user.click(screen.getAllByRole("button", { name: "Apply" })[0]);
 
     await waitFor(() => {
       const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
