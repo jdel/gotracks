@@ -261,7 +261,14 @@ desktop row, a left swipe on a phone.
 - **Swipe left** — defer. This used to delete; deleting an action with one
   horizontal drag on a list scrolled by thumb was too easy to do by accident.
 - **Long press** — the editor, which is where delete now lives.
-- **Tap the paperclip** — attachments.
+- **Tap the paperclip** — attachments, opened as a full-screen sheet with a
+  delete button per file.
+
+Swipes start away from the screen edges: the browser reads an edge swipe as
+back/forward and will not let a page cancel it, so roughly a thumb's width at
+each side is left alone rather than fought over. Horizontal overscroll is
+contained, which is the other way a browser turns a sideways drag into a
+navigation.
 
 ## Language
 

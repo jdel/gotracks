@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TodoItem } from "./TodoItem";
 import { UndoProvider } from "@/lib/undoable";
@@ -262,7 +262,7 @@ describe("a long title flowing around the row actions", () => {
 // overflow-hidden, so it appeared as a small panel scrolling inside the card.
 describe("the long-press sheet escapes the row", () => {
   function longPress(row: Element) {
-    fireEvent.pointerDown(row, { pointerType: "touch", clientX: 10, clientY: 10 });
+    fireEvent.pointerDown(row, { pointerType: "touch", clientX: 120, clientY: 10 });
     act(() => {
       vi.advanceTimersByTime(600);
     });
@@ -327,7 +327,7 @@ describe("the mobile gestures", () => {
       const { container } = renderItem();
       const row = container.querySelector("li")!;
 
-      fireEvent.pointerDown(row, { pointerType: "touch", clientX: 10, clientY: 10 });
+      fireEvent.pointerDown(row, { pointerType: "touch", clientX: 120, clientY: 10 });
       act(() => {
         vi.advanceTimersByTime(600);
       });
@@ -362,5 +362,68 @@ describe("editing an action's dates", () => {
         showFrom: "2026-09-17",
       });
     });
+  });
+});
+
+// Safari reads a swipe starting at the screen edge as back/forward and will not
+// let JavaScript cancel it. Rather than fight for those pixels and win only
+// sometimes, the row concedes them: the browser owns a thumb's width at each
+// side, the row owns the middle.
+describe("the screen edges belong to the browser", () => {
+  it("ignores a gesture that starts at the edge", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderItem();
+      const row = container.querySelector("li")!;
+
+      fireEvent.pointerDown(row, { pointerType: "touch", clientX: 4, clientY: 10 });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+
+      // No editor: the press was never ours to act on.
+      expect(screen.queryByRole("dialog")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("acts on a gesture that starts away from the edge", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderItem();
+      const row = container.querySelector("li")!;
+
+      fireEvent.pointerDown(row, { pointerType: "touch", clientX: 300, clientY: 10 });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+
+      expect(screen.getByRole("dialog")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// The paperclip is the one row icon a phone keeps: the other actions are
+// gestures there, but no gesture reaches attachments. On a phone the panel
+// opens as a sheet rather than inline, where it would push the rest of the
+// list off screen and squeeze file names into a narrow column.
+describe("attachments on a phone", () => {
+  it("opens the attachment panel in a sheet", async () => {
+    const user = userEvent.setup();
+    attachments = [{ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048, createdAt: "" }];
+    renderItem();
+
+    await user.click(screen.getByLabelText(/attachments/i));
+
+    // Scoped to the sheet: the desktop copy of the panel is hidden by CSS,
+    // which jsdom does not apply, so it is still in the tree.
+    const sheet = await screen.findByRole("dialog");
+    expect(sheet.textContent).toContain("invoice.pdf");
+    // Deleting a single file is reachable from there, not only from the
+    // account-wide attachments page.
+    expect(within(sheet).getByLabelText(/Delete invoice.pdf/)).toBeTruthy();
   });
 });

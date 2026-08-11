@@ -5,6 +5,16 @@ import { cn } from "@/lib/utils";
 // Past this many px on release, a swipe fires; below it, the card springs back.
 const THRESHOLD = 96;
 
+// Gestures starting this close to a screen edge are left to the browser.
+//
+// iOS Safari reads an edge swipe as back/forward, and that cannot be reliably
+// cancelled from JavaScript — a row that claimed the gesture would fight the
+// browser and lose, or worse, win intermittently. Conceding the edges makes the
+// two unambiguous: the browser owns roughly a thumb's width at each side, the
+// row owns everything between. Cards are already inset from the screen edge, so
+// little usable swipe area is given up.
+const EDGE_ZONE = 24;
+
 /**
  * A list row with touch gestures: swipe left to defer, swipe right to star,
  * long-press to open the editor. Touch only — a mouse pointer is ignored so
@@ -49,6 +59,9 @@ export function SwipeRow({
   function onPointerDown(e: PointerEvent) {
     if (e.pointerType !== "touch") return;
     if ((e.target as HTMLElement).closest("[data-drag-handle]")) return;
+    // Started at a screen edge: the browser's navigation gesture, not ours.
+    // Long-press is skipped too, since the finger is already on its way out.
+    if (e.clientX < EDGE_ZONE || window.innerWidth - e.clientX < EDGE_ZONE) return;
     swiping.current = false;
     setDragging(false);
     gestured.current = false;

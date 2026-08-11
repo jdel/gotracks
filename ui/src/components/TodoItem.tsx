@@ -364,7 +364,23 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
 
       </div>
 
-      {showFiles && <AttachmentPanel todoId={todo.id} />}
+      {/* Inline on a desktop, where there is room beside the list; a sheet on a
+          phone, where an inline panel would push the rest of the list off the
+          screen and leave the file names in a 200px-wide column. */}
+      {showFiles && (
+        <div className="hidden md:block">
+          <AttachmentPanel todoId={todo.id} />
+        </div>
+      )}
+      <div className="md:hidden">
+        <Sheet
+          open={showFiles}
+          onClose={() => setShowFiles(false)}
+          title={t("todo.attachmentsFor", { description: todo.description })}
+        >
+          <AttachmentPanel todoId={todo.id} />
+        </Sheet>
+      </div>
 
       <ConfirmDialog
         open={attachmentPrompt !== null}

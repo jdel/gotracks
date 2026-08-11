@@ -39,7 +39,7 @@ export function AttachmentPanel({ todoId }: { todoId: number }) {
   }
 
   return (
-    <div className="mt-2 space-y-2 rounded-md border p-2">
+    <div className="mt-2 space-y-2 rounded-control border border-line p-2 dark:border-line-dark">
       <div className="flex items-center gap-2">
         <input ref={inputRef} type="file" className="hidden" onChange={onPick} />
         <Button
@@ -52,19 +52,19 @@ export function AttachmentPanel({ todoId }: { todoId: number }) {
           <Paperclip /> {upload.isPending ? t("attach.uploading") : t("attach.attachFile")}
         </Button>
         {upload.isError && (
-          <span className="text-xs text-destructive">{(upload.error as Error).message}</span>
+          <span className="text-xs font-medium text-danger">{(upload.error as Error).message}</span>
         )}
       </div>
 
       <ul className="space-y-1">
         {attachments?.map((a) => (
-          <li key={a.id} className="flex items-center gap-2 text-xs">
+          <li key={a.id} className="flex items-center gap-2 text-xs text-ink dark:text-ink-dark">
             {/* Truncated to keep the row one line; the whole name is on hover,
                 as on the attachments screen. */}
             <span className="min-w-0 flex-1 truncate" title={a.fileName}>
               {a.fileName}
             </span>
-            <span className="shrink-0 text-muted-foreground">{humanSize(a.size)}</span>
+            <span className="mono shrink-0 text-ink-4 dark:text-ink-4-dark">{humanSize(a.size)}</span>
             <IconButton
               variant="ghost"
               className="size-7"
@@ -79,15 +79,15 @@ export function AttachmentPanel({ todoId }: { todoId: number }) {
               label={t("attach.deleteLabel", { name: a.fileName })}
               onClick={() => setConfirming(a)}
             >
-              <Trash2 className="size-3 text-destructive" />
+              <Trash2 className="size-3 text-danger" />
             </IconButton>
           </li>
         ))}
       </ul>
       {attachments?.length === 0 && (
-        <p className="text-xs text-muted-foreground">{t("attach.none")}</p>
+        <p className="text-xs font-medium text-ink-4 dark:text-ink-4-dark">{t("attach.none")}</p>
       )}
-      {downloadError && <p className="text-xs text-destructive">{downloadError}</p>}
+      {downloadError && <p className="text-xs font-medium text-danger">{downloadError}</p>}
 
       <ConfirmDialog
         open={confirming !== null}

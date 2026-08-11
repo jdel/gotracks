@@ -197,6 +197,16 @@
   html {
     -webkit-text-size-adjust: 100%;
   }
+  /* Rows are swiped horizontally, and a horizontal overscroll is what Chrome
+     on Android turns into a back/forward navigation — so a swipe that carried
+     past the end of its travel used to leave the page. Nothing here scrolls
+     sideways on purpose, so containing it costs nothing. Safari navigates on
+     an edge swipe instead, which JS cannot cancel; SwipeRow leaves the screen
+     edges to the browser rather than fighting for them. */
+  html,
+  body {
+    overscroll-behavior-x: contain;
+  }
   body {
     background: var(--background);
     color: var(--foreground);
