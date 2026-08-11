@@ -46,14 +46,15 @@ type NavItem = {
 };
 
 // Order matters: the first four non-admin sections are the mobile tab bar
-// (Actions, Projects, Tickler, Notes), so Notes sits ahead of Tags here.
+// (Actions, Tickler, Contexts, Projects), which is why those four lead the list
+// and Notes and Tags follow them.
 const nav: NavItem[] = [
   { to: "/", labelKey: "nav.actions", icon: ListChecks, end: true },
-  { to: "/projects", labelKey: "nav.projects", icon: FolderKanban },
   { to: "/tickler", labelKey: "nav.tickler", icon: CalendarClock },
+  { to: "/contexts", labelKey: "nav.contexts", icon: AtSign },
+  { to: "/projects", labelKey: "nav.projects", icon: FolderKanban },
   { to: "/notes", labelKey: "nav.notes", icon: StickyNote },
   { to: "/tags", labelKey: "nav.tags", icon: Tag },
-  { to: "/contexts", labelKey: "nav.contexts", icon: AtSign },
   { to: "/recurring", labelKey: "nav.recurring", icon: Repeat },
   { to: "/stats", labelKey: "nav.stats", icon: BarChart3 },
   { to: "/attachments", labelKey: "nav.attachments", icon: Paperclip },

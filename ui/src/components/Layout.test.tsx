@@ -289,7 +289,7 @@ describe("collapsing the sidebar", () => {
 
     await user.click(screen.getByRole("button", { name: "Collapse menu" }));
 
-    expect(tabBarLinks()).toEqual(["Actions", "Projects", "Tickler", "Notes"]);
+    expect(tabBarLinks()).toEqual(["Actions", "Tickler", "Contexts", "Projects"]);
     const bar = document.querySelector("nav.sticky") as HTMLElement;
     expect(bar.querySelector("a svg")).toBeNull();
   });
@@ -303,5 +303,19 @@ describe("collapsing the sidebar", () => {
 
     renderLayout();
     expect(screen.getByRole("button", { name: "Expand menu" })).toBeTruthy();
+  });
+});
+
+// The tab bar is the first four entries of the one nav list, so its contents
+// are a property of that list's order — worth pinning, since reordering the
+// list for the sidebar would silently change what a phone shows.
+describe("the mobile tab bar", () => {
+  it("carries Actions, Tickler, Contexts and Projects, then More", async () => {
+    renderLayout();
+
+    expect(tabBarLinks()).toEqual(["Actions", "Tickler", "Contexts", "Projects"]);
+    expect(screen.getByRole("button", { name: /More/i })).toBeTruthy();
+    // The four it displaced are still reachable, just behind More.
+    expect(await allMobileLinks()).toContain("Notes");
   });
 });
