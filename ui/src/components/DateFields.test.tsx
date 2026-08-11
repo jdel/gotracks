@@ -97,7 +97,9 @@ describe("while a date is being typed", () => {
     fireEvent.blur(screen.getByLabelText("Due"), { target: { value: "2026-09-24" } });
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith({ due: "2026-09-24", showFrom: "" });
+    // The show-from comes with it: at the default lead of 0 days that is the
+    // due date itself, which is what the server would have stored anyway.
+    expect(onChange).toHaveBeenCalledWith({ due: "2026-09-24", showFrom: "2026-09-24" });
   });
 
   // The quick-sets are a single deliberate tap, so they save at once.
@@ -107,5 +109,48 @@ describe("while a date is being typed", () => {
     fireEvent.click(screen.getByRole("button", { name: "1 day before" }));
 
     expect(onChange).toHaveBeenCalledWith({ due: "2026-05-10", showFrom: "2026-05-09" });
+  });
+});
+
+// An action with a due date always has a show-from, so setting one fills the
+// other in. The server would do it on save regardless; deriving it here means
+// the field shows the date instead of appearing empty until the round-trip.
+describe("filling in a missing show-from", () => {
+  it("derives one when a due date is set on an action that has none", () => {
+    const onChange = renderFields({ due: "", showFrom: "" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Tomorrow" }));
+
+    const [next] = onChange.mock.calls[0];
+    // Lead time 0 in this fixture, so it lands on the due date itself.
+    expect(next.showFrom).toBe(next.due);
+    expect(next.due).not.toBe("");
+  });
+
+  // The sequence: pick a due date, pick a show-from, then move the due date.
+  // The gap the user arranged is what carries over — not the default.
+  it("recalculates the show-from when the due date changes again", () => {
+    const onChange = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(
+      <QueryClientProvider client={client}>
+        <DateFields value={{ due: "2026-05-10", showFrom: "2026-05-03" }} onChange={onChange} idPrefix="t" />
+      </QueryClientProvider>,
+    );
+
+    // A week's warning, then the deadline slips by two weeks.
+    fireEvent.change(screen.getByLabelText("Due"), { target: { value: "2026-05-24" } });
+    fireEvent.blur(screen.getByLabelText("Due"), { target: { value: "2026-05-24" } });
+
+    expect(onChange).toHaveBeenCalledWith({ due: "2026-05-24", showFrom: "2026-05-17" });
+    rerender(
+      <QueryClientProvider client={client}>
+        <DateFields value={{ due: "2026-05-24", showFrom: "2026-05-17" }} onChange={onChange} idPrefix="t" />
+      </QueryClientProvider>,
+    );
+    // And again, from the new pair — the week is preserved each time.
+    fireEvent.change(screen.getByLabelText("Due"), { target: { value: "2026-06-01" } });
+    fireEvent.blur(screen.getByLabelText("Due"), { target: { value: "2026-06-01" } });
+    expect(onChange).toHaveBeenLastCalledWith({ due: "2026-06-01", showFrom: "2026-05-25" });
   });
 });

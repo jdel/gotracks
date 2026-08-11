@@ -10,6 +10,7 @@ import {
   shiftShowFrom,
   today,
 } from "@/lib/actionDates";
+import { usePreferences } from "@/hooks/useSettings";
 import { useDateFmt } from "@/lib/datefmt";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -74,6 +75,10 @@ export function DateFields({
 }) {
   const t = useT();
   const fmt = useDateFmt();
+  const { data: prefs } = usePreferences();
+  // The user's lead time: how many days before its due date an action first
+  // appears. Zero — the default — means it appears on the due date itself.
+  const leadDays = prefs?.showFromDays ?? 0;
   // What the two inputs are showing while they are being typed into. A date
   // input fires a change per component as it is filled — "2026" then
   // "2026-09" — and the year alone is a complete, wildly wrong date. Committing
@@ -85,9 +90,15 @@ export function DateFields({
 
   function setDue(due: string) {
     setDraft(null);
-    // The show-from travels with the due date, then the clamp has the last word.
-    const moved = shiftShowFrom(value.due, due, value.showFrom);
-    onChange({ due, showFrom: clampShowFrom(due, moved) });
+    // An action with a due date always has a show-from. If it has none yet, the
+    // server would derive one from the user's lead time on save — so derive the
+    // same date here and show it, rather than filling the field in behind the
+    // user's back after the round-trip. If it already has one, that one travels
+    // with the due date instead and is never recomputed.
+    const moved = value.showFrom
+      ? shiftShowFrom(value.due, due, value.showFrom)
+      : due && addDays(due, -leadDays);
+    onChange({ due, showFrom: clampShowFrom(due, moved || "") });
   }
 
   function setShowFrom(showFrom: string) {

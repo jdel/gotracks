@@ -527,6 +527,11 @@ export function Sheet({
     // A sheet that was dragged part-way and then reopened must not come back
     // still displaced.
     setDy(0);
+    // Freeze the page underneath. Without this, dragging the sheet down — or
+    // simply scrolling inside it once it has hit its end — scrolls the list
+    // behind it instead, so the sheet appears to slide over a moving page.
+    const bodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const prev = document.activeElement as HTMLElement | null;
     ref.current?.querySelector<HTMLElement>("input,button,select,textarea")?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -538,6 +543,7 @@ export function Sheet({
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = bodyOverflow;
       prev?.focus?.();
     };
   }, [open, onClose]);
@@ -602,6 +608,9 @@ export function Sheet({
           // make this the containing block for anything fixed inside it.
           transform: dy === 0 ? undefined : `translateY(${dy}px)`,
           transition: dragging ? "none" : "transform 200ms",
+          // Once a pull is under way the sheet must not also try to scroll its
+          // own content: the finger is moving the whole sheet, not the text.
+          touchAction: dragging ? "none" : undefined,
         }}
       >
         <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line-2 dark:bg-line-2-dark" />

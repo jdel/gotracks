@@ -487,3 +487,27 @@ describe("pulling a sheet down", () => {
     }
   });
 });
+
+// A sheet slides over the page; the page must not slide with it. Without the
+// lock, dragging the sheet down — or scrolling inside it past its end — scrolls
+// the list behind instead.
+describe("a sheet freezes the page behind it", () => {
+  it("locks body scrolling while open and restores it after", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderItem();
+      const row = container.querySelector("li")!;
+
+      fireEvent.pointerDown(row, { pointerType: "touch", clientX: 120, clientY: 10 });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(document.body.style.overflow).toBe("hidden");
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(document.body.style.overflow).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
