@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -484,7 +485,15 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
 }
 
 /* Bottom sheet used for quick add and row actions. Escape closes and returns
- * focus to the trigger; focus is trapped while open; the backdrop is not a link. */
+ * focus to the trigger; focus is trapped while open; the backdrop is not a link.
+ *
+ * Rendered into document.body rather than in place. A `position: fixed` box is
+ * only viewport-relative while no ancestor is transformed — and a swipeable row
+ * carries a permanent translateX, which makes it the containing block for
+ * anything fixed inside it. In place, the sheet was laid out against the card
+ * and then clipped by its overflow-hidden, so it opened as a small panel that
+ * scrolled inside the row. The portal takes it out of that subtree entirely,
+ * which also holds for any transform or overflow added to a row later. */
 export function Sheet({
   open,
   onClose,
@@ -514,7 +523,7 @@ export function Sheet({
     };
   }, [open, onClose]);
   if (!open) return null;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div
         onClick={onClose}
@@ -533,7 +542,8 @@ export function Sheet({
         </h2>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

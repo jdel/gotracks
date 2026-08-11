@@ -254,3 +254,44 @@ describe("a long title flowing around the row actions", () => {
     expect(screen.getByRole("textbox", { name: "Action description" })).toBeTruthy();
   });
 });
+
+// A long press opens the action sheet. The sheet is position:fixed, which is
+// only viewport-relative while no ancestor is transformed — and the swipeable
+// row is a transform away from becoming the containing block for it. Rendered
+// in place it was laid out against the card and clipped by the row's
+// overflow-hidden, so it appeared as a small panel scrolling inside the card.
+describe("the long-press sheet escapes the row", () => {
+  function longPress(row: Element) {
+    fireEvent.pointerDown(row, { pointerType: "touch", clientX: 10, clientY: 10 });
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+  }
+
+  it("renders the sheet outside the row that opened it", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderItem();
+      const row = container.querySelector("li");
+      expect(row).not.toBeNull();
+
+      longPress(row!);
+
+      const sheet = document.body.querySelector('[role="dialog"]');
+      expect(sheet).not.toBeNull();
+      // The whole point: not a descendant of the row, so nothing the row does
+      // to its own transform or overflow can clip it.
+      expect(row!.contains(sheet!)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // The row must not carry an identity transform at rest either: that alone
+  // re-creates the containing block for anything fixed inside it.
+  it("leaves the card untransformed when it is not being swiped", () => {
+    const { container } = renderItem();
+    const card = container.querySelector("li > div:nth-of-type(2)") as HTMLElement;
+    expect(card.style.transform).toBe("");
+  });
+});

@@ -143,7 +143,10 @@ export function SwipeRow({
           lifted && "shadow-elevated",
         )}
         style={{
-          transform: `translateX(${dx}px)`,
+          // Left unset at rest, not set to translateX(0px). A transform — even
+          // an identity one — makes this the containing block for every fixed
+          // descendant, and costs a compositor layer per row.
+          transform: dx === 0 ? undefined : `translateX(${dx}px)`,
           // No transition while the finger is down: the card must track it
           // exactly. The spring back on release is what gets animated.
           transition: dragging ? "none" : "transform 200ms",
