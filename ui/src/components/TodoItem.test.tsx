@@ -3,11 +3,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TodoItem } from "./TodoItem";
+import { SwipeRow } from "./SwipeRow";
+import { Sheet } from "./primitives";
 import { UndoProvider } from "@/lib/undoable";
 import { LEAVE_MS } from "@/lib/motion";
 import type { Todo } from "@/lib/types";
 
 let todos: Record<string, unknown>[];
+/** Contexts the fake server knows about. Empty unless a test needs them. */
+let contexts: Record<string, unknown>[];
 let attachments: Record<string, unknown>[];
 
 function jsonResponse(body: unknown, status = 200) {
@@ -23,7 +27,7 @@ function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
   const url = typeof input === "string" ? input : input.toString();
   const method = init?.method ?? "GET";
 
-  if (url.includes("/contexts")) return Promise.resolve(jsonResponse([]));
+  if (url.includes("/contexts")) return Promise.resolve(jsonResponse(contexts));
   if (url.includes("/projects")) return Promise.resolve(jsonResponse([]));
   if (url.includes("/preferences")) return Promise.resolve(jsonResponse({}));
   // The per-todo list and the account-wide one share a prefix; order matters.
@@ -47,7 +51,6 @@ const baseTodo: Todo = {
   id: 7,
   contextId: 1,
   description: "buy paint",
-  notes: "",
   state: "active",
   starred: false,
   position: 1,
@@ -94,6 +97,7 @@ function completeCalls() {
 
 beforeEach(() => {
   todos = [{ ...baseTodo }];
+  contexts = [];
   attachments = [];
   localStorage.setItem("gt.access", "test-token");
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
@@ -157,7 +161,10 @@ describe("the attachment indicator", () => {
     await user.click(screen.getByRole("button", { name: /Show attachments/ }));
     expect(clip()?.classList.contains("text-done")).toBe(true);
 
-    await user.click(screen.getByRole("button", { name: /Hide attachments/ }));
+    // The sheet is modal, so the row behind it is inert — the panel is closed
+    // from the sheet, not by reaching through it.
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(clip()?.classList.contains("text-done")).toBe(true);
   });
 
@@ -349,11 +356,12 @@ describe("editing an action's dates", () => {
     renderItem({ ...baseTodo, due: "2026-09-10T00:00:00Z", showFrom: "2026-09-03T00:00:00Z" });
 
     await user.click(screen.getByLabelText("Edit this action"));
-    fireEvent.change(screen.getAllByLabelText("Due")[0], { target: { value: "2026-09-24" } });
-    fireEvent.blur(screen.getAllByLabelText("Due")[0], { target: { value: "2026-09-24" } });
-    // Nothing is written until Apply — a due date is usually half an edit
+    const due = within(screen.getByRole("dialog")).getByLabelText("Due");
+    fireEvent.change(due, { target: { value: "2026-09-24" } });
+    fireEvent.blur(due, { target: { value: "2026-09-24" } });
+    // Nothing is written until Save — a due date is usually half an edit
     // whose other half is the show-from.
-    await user.click(screen.getAllByRole("button", { name: "Apply" })[0]);
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
@@ -447,15 +455,32 @@ describe("pulling a sheet down", () => {
   }
 
   function drag(sheet: Element, distance: number) {
-    fireEvent.pointerDown(sheet, { pointerType: "touch", clientY: 100 });
-    fireEvent.pointerMove(sheet, { pointerType: "touch", clientY: 100 + distance });
-    fireEvent.pointerUp(sheet, { pointerType: "touch", clientY: 100 + distance });
+    // The header is the grip: the panel below it scrolls, so it cannot also
+    // own a downward drag.
+    const grip = sheet.querySelector("[data-sheet-grip]")!;
+    fireEvent.pointerDown(grip, { pointerType: "touch", clientY: 100 });
+    fireEvent.pointerMove(grip, { pointerType: "touch", clientY: 100 + distance });
+    fireEvent.pointerUp(grip, { pointerType: "touch", clientY: 100 + distance });
   }
 
-  it("dismisses when pulled past the threshold", () => {
+  // Let go past the threshold and the sheet finishes the journey it was
+  // already making, rather than blinking away from under the finger.
+  it("slides the rest of the way out, then dismisses", async () => {
     vi.useFakeTimers();
     try {
-      drag(openSheet(), 200);
+      const sheet = openSheet();
+      drag(sheet, 200);
+
+      // Still there, and travelling: the transform is now well past the drag.
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      const travelled = Number(
+        /translateY\((\d+)px\)/.exec((sheet as HTMLElement).style.transform)?.[1] ?? 0,
+      );
+      expect(travelled).toBeGreaterThan(200);
+
+      act(() => {
+        vi.advanceTimersByTime(LEAVE_MS);
+      });
       expect(screen.queryByRole("dialog")).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -474,14 +499,20 @@ describe("pulling a sheet down", () => {
     }
   });
 
-  // Lower down a long sheet, a downward drag is someone scrolling back up.
-  it("leaves the gesture to the content when it is scrolled down", () => {
+  // The body scrolls, so it cannot also own a downward drag: a browser that
+  // reads the drag as a scroll takes the gesture and cancels the pointer, and
+  // the sheet follows the finger a few pixels and snaps back. Only the header
+  // starts a pull.
+  it("ignores a drag that starts on the scrolling body", () => {
     vi.useFakeTimers();
     try {
       const sheet = openSheet();
-      Object.defineProperty(sheet, "scrollTop", { value: 120, configurable: true });
-      drag(sheet, 200);
+      fireEvent.pointerDown(sheet, { pointerType: "touch", clientY: 100 });
+      fireEvent.pointerMove(sheet, { pointerType: "touch", clientY: 400 });
+      fireEvent.pointerUp(sheet, { pointerType: "touch", clientY: 400 });
+
       expect(screen.getByRole("dialog")).toBeTruthy();
+      expect((sheet as HTMLElement).style.transform).toBe("");
     } finally {
       vi.useRealTimers();
     }
@@ -492,22 +523,366 @@ describe("pulling a sheet down", () => {
 // lock, dragging the sheet down — or scrolling inside it past its end — scrolls
 // the list behind instead.
 describe("a sheet freezes the page behind it", () => {
-  it("locks body scrolling while open and restores it after", () => {
-    vi.useFakeTimers();
-    try {
-      const { container } = renderItem();
-      const row = container.querySelector("li")!;
+  it("locks body scrolling while open and restores it after", async () => {
+    const user = userEvent.setup();
+    renderItem();
 
-      fireEvent.pointerDown(row, { pointerType: "touch", clientX: 120, clientY: 10 });
-      act(() => {
-        vi.advanceTimersByTime(600);
-      });
-      expect(document.body.style.overflow).toBe("hidden");
+    await user.click(screen.getByLabelText("Edit this action"));
+    // The dialog primitive owns the lock; this is the mark it leaves.
+    expect(document.body.hasAttribute("data-scroll-locked")).toBe(true);
 
-      fireEvent.keyDown(document, { key: "Escape" });
-      expect(document.body.style.overflow).toBe("");
-    } finally {
-      vi.useRealTimers();
-    }
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.body.hasAttribute("data-scroll-locked")).toBe(false));
+  });
+});
+
+// The editor's footer button both saves and dismisses. Closing an editor and
+// finding the pending date edit gone is the one outcome nobody wants, so the
+// button that dismisses it is the button that saves.
+describe("the editor's Save button", () => {
+  it("writes the pending date edit and closes", async () => {
+    const user = userEvent.setup();
+    renderItem({ ...baseTodo, due: "2026-09-10T00:00:00Z", showFrom: "2026-09-03T00:00:00Z" });
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "1 day before" }));
+    // Still nothing written: the tap only built up the edit.
+    expect(
+      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => String(c[1]?.method) === "PUT",
+      ),
+    ).toHaveLength(0);
+
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c) => String(c[1]?.method) === "PUT",
+      );
+      expect(JSON.parse(String(put![1].body))).toMatchObject({ showFrom: "2026-09-09" });
+    });
+    // And it is gone: no Close button left behind to press separately.
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+  });
+});
+
+// Tapping the sheet's own title is not a request to save. It used to be read
+// as one: the blur committed the dates, the action stopped matching the list
+// it came from, and the row — with the open sheet inside it — was unmounted
+// out from under the user.
+describe("tapping around inside the editor", () => {
+  it("keeps the sheet open when the title is clicked mid-edit", async () => {
+    const user = userEvent.setup();
+    renderItem({ ...baseTodo, state: "deferred", showFrom: "2026-09-03T00:00:00Z" });
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Tomorrow" }));
+    await user.click(screen.getByRole("heading", { name: baseTodo.description }));
+
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(
+      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => String(c[1]?.method) === "PUT",
+      ),
+    ).toHaveLength(0);
+  });
+
+  // Star and delete moved onto the title row, as icons.
+  it("offers star and delete beside the title", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByLabelText("Star this action")).toBeTruthy();
+    expect(within(sheet).getByLabelText("Delete this action")).toBeTruthy();
+  });
+});
+
+// Save means something only if there is a way not to save. Dismissing the
+// editor — the backdrop, Escape, a pull-down — throws the edit away, so an
+// edit begun by accident has an exit.
+describe("discarding an edit", () => {
+  it("writes nothing when the sheet is dismissed", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.type(within(screen.getByRole("dialog")).getByLabelText("Action description"), " later");
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Tomorrow" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(
+      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => String(c[1]?.method) === "PUT",
+      ),
+    ).toHaveLength(0);
+  });
+
+  // One request for the whole screenful, rather than one per field as each
+  // was left.
+  it("sends every change in a single request on Save", async () => {
+    const user = userEvent.setup();
+    renderItem();
+    const sheet = () => screen.getByRole("dialog");
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.type(within(sheet()).getByLabelText("Action description"), " today");
+    await user.type(within(sheet()).getByLabelText("Tags (comma separated)"), "errand");
+    // Scoped to the sheet: the desktop copy of the editor is hidden by CSS,
+    // which jsdom does not apply, so it is a second live instance with its own
+    // draft.
+    await user.click(within(sheet()).getByRole("button", { name: "Tomorrow" }));
+    await user.click(within(sheet()).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const puts = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => String(c[1]?.method) === "PUT",
+      );
+      expect(puts).toHaveLength(1);
+      const body = JSON.parse(String(puts[0][1].body));
+      expect(body.description).toBe("buy paint today");
+      expect(body.tags).toEqual(["errand"]);
+      expect(body.due).toBeTruthy();
+    });
+  });
+
+  it("keeps Save inert until something actually changes", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByRole("button", { name: "Save" })).toHaveProperty("disabled", true);
+
+    await user.click(within(sheet).getByRole("button", { name: "Tomorrow" }));
+    expect(within(sheet).getByRole("button", { name: "Save" })).toHaveProperty("disabled", false);
+    expect(within(sheet).getByText("Unsaved changes")).toBeTruthy();
+  });
+});
+
+// Adding and editing share one form, and the difference between them is the
+// description: "@context", "#project" and "!tag" are shortcuts when creating,
+// but a stored description is taken literally. Re-parsing one would be
+// destructive — an action called "call about invoice #7741" would acquire a
+// project named 7741 the first time anyone touched an unrelated field.
+describe("editing does not re-parse the description", () => {
+  it("keeps a # in the text out of the project", async () => {
+    const user = userEvent.setup();
+    renderItem({ ...baseTodo, description: "call about invoice #7741" });
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const sheet = screen.getByRole("dialog");
+    await user.type(within(sheet).getByLabelText("Action description"), " today");
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c) => String(c[1]?.method) === "PUT",
+      );
+      expect(put).toBeTruthy();
+      const body = JSON.parse(String(put![1].body));
+      expect(body.description).toBe("call about invoice #7741 today");
+      expect(body.projectName).toBeUndefined();
+      expect(body.projectId ?? null).toBeNull();
+    });
+  });
+});
+
+// Escape has to close a sheet whatever is focused inside it. The title row's
+// icon buttons each carry a tooltip, and a focused tooltip eats the key before
+// the dialog underneath ever sees it — so a sheet with actions could be left
+// with Escape doing nothing.
+describe("closing a sheet from the keyboard", () => {
+  it("closes even when a title-row button has focus", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const star = within(screen.getByRole("dialog")).getByLabelText("Star this action");
+    star.focus();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  // And the sheet opens on its content, not on the delete button beside the title.
+  it("opens with the first field focused, not a title-row action", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+
+    const sheet = screen.getByRole("dialog");
+    expect(sheet.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement?.getAttribute("aria-label")).not.toBe("Delete this action");
+    expect(document.activeElement?.getAttribute("aria-label")).not.toBe("Star this action");
+  });
+});
+
+// A bare <button> inside a <form> submits it, and submitting the editor saves
+// and closes. Every icon button in the form — clearing a date, a quick-set —
+// therefore used to dismiss the sheet the moment it was tapped.
+describe("buttons inside the editor do not submit it", () => {
+  it("stays open when a date is cleared", async () => {
+    const user = userEvent.setup();
+    renderItem({
+      ...baseTodo,
+      state: "deferred",
+      due: "2026-09-10T00:00:00Z",
+      showFrom: "2026-09-03T00:00:00Z",
+    });
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const sheet = screen.getByRole("dialog");
+    await user.click(within(sheet).getByLabelText("Clear the due date"));
+
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(
+      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => String(c[1]?.method) === "PUT",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("stays open when a quick-set is tapped", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const sheet = screen.getByRole("dialog");
+    await user.click(within(sheet).getByRole("button", { name: "Next week" }));
+
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+});
+
+// The editor closes when it is saved, so any stray submit dismissed it — a
+// button that forgot its type, a keystroke a control passed on, a browser
+// deciding a lone field meant implicit submission. There is no form around the
+// editor at all now, so no such path exists: only Save closes it.
+describe("nothing but Save closes the editor", () => {
+  it("has no form to submit", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const sheet = screen.getByRole("dialog");
+
+    expect(sheet.querySelector("form")).toBeNull();
+    expect(within(sheet).getByRole("button", { name: "Save" }).getAttribute("type")).toBe("button");
+  });
+
+  it("stays open when Enter is pressed in the description", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const sheet = screen.getByRole("dialog");
+    await user.type(within(sheet).getByLabelText("Action description"), " now{Enter}");
+
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(
+      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => String(c[1]?.method) === "PUT",
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+// The dialog's own "did that land outside?" heuristic is refused, because it
+// misjudges a sheet: a native select or date picker, or a pointer captured by
+// the swipeable row underneath, retargets the event away from the panel and the
+// sheet dismisses itself under a tap that was plainly inside it. So the ways
+// out are explicit, and each one has to keep working.
+describe("what dismisses a sheet", () => {
+  it("closes on the backdrop", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const overlay = document.querySelector("[data-radix-dialog-overlay], [data-state=open].fixed.inset-0");
+    expect(overlay).not.toBeNull();
+    await user.click(overlay as Element);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("does not close when a select inside it is used", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const sheet = screen.getByRole("dialog");
+    // A picker retargets the pointer; the sheet must survive it. The picker is
+    // itself a dialog, so the sheet is named to tell them apart.
+    fireEvent.pointerDown(document.body, { pointerType: "touch", clientX: 5, clientY: 5 });
+    fireEvent.click(within(sheet).getAllByLabelText("Context")[0]);
+
+    expect(screen.getByRole("dialog", { name: baseTodo.description })).toBeTruthy();
+  });
+});
+
+// Contexts and projects are typed into rather than scrolled through.
+describe("choosing a context while editing", () => {
+  it("filters the list and files the action under the choice", async () => {
+    const user = userEvent.setup();
+    contexts = [
+      { id: 1, name: "@home", state: "active", position: 1 },
+      { id: 2, name: "@calls", state: "active", position: 2 },
+      { id: 3, name: "@errands", state: "active", position: 3 },
+    ];
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const sheet = screen.getByRole("dialog", { name: baseTodo.description });
+    await user.click(within(sheet).getByLabelText("Context"));
+    await user.type(screen.getByLabelText("Filter contexts"), "call");
+
+    expect(screen.queryByRole("button", { name: "errands" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "calls" }));
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c) => String(c[1]?.method) === "PUT",
+      );
+      expect(JSON.parse(String(put![1].body))).toMatchObject({ contextId: 2 });
+    });
+  });
+});
+
+// A sheet is portalled, but React propagates its events through the component
+// tree — so a swipe across an open sheet reached the swipeable row underneath
+// it: dragging left starred the action, dragging right threw the defer sheet on
+// top of the editor.
+describe("gestures inside a sheet stay inside it", () => {
+  function Harness({ onSwipeLeft, onSwipeRight }: { onSwipeLeft: () => void; onSwipeRight: () => void }) {
+    return (
+      <ul>
+        <SwipeRow onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} onLongPress={() => {}}>
+          <Sheet open onClose={() => {}} title="editor">
+            <button type="button">field</button>
+          </Sheet>
+        </SwipeRow>
+      </ul>
+    );
+  }
+
+  it("does not reach the row's swipe handlers", () => {
+    const left = vi.fn();
+    const right = vi.fn();
+    render(<Harness onSwipeLeft={left} onSwipeRight={right} />);
+    const sheet = screen.getByRole("dialog");
+
+    fireEvent.pointerDown(sheet, { pointerType: "touch", clientX: 300, clientY: 400 });
+    fireEvent.pointerMove(sheet, { pointerType: "touch", clientX: 120, clientY: 400 });
+    fireEvent.pointerUp(sheet, { pointerType: "touch", clientX: 120, clientY: 400 });
+
+    expect(left).not.toHaveBeenCalled();
+    expect(right).not.toHaveBeenCalled();
   });
 });

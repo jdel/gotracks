@@ -123,7 +123,12 @@ export function DateFields({
               onChange={(e) => setDraft({ ...shown, due: e.target.value })}
               onBlur={(e) => setDue(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") setDue((e.target as HTMLInputElement).value);
+                if (e.key !== "Enter") return;
+                // Commit the date, and nothing else: without this the Enter
+                // also submits the form around the field, which saves the whole
+                // action — and, on the add form, empties the dates again.
+                e.preventDefault();
+                setDue((e.target as HTMLInputElement).value);
               }}
             />
           </label>
@@ -165,7 +170,9 @@ export function DateFields({
               onChange={(e) => setDraft({ ...shown, showFrom: e.target.value })}
               onBlur={(e) => setShowFrom(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") setShowFrom((e.target as HTMLInputElement).value);
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                setShowFrom((e.target as HTMLInputElement).value);
               }}
             />
           </label>
@@ -189,11 +196,6 @@ export function DateFields({
               onClick={() => setShowFrom(addDays(shown.due, -p.days))}
             />
           ))}
-          {!shown.due && (
-            <span className="text-xs font-medium text-ink-4 dark:text-ink-4-dark">
-              {t("dates.needsDue")}
-            </span>
-          )}
         </div>
       </div>
     </div>

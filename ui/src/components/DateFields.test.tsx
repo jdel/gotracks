@@ -53,7 +53,6 @@ describe("the due and show-from pair", () => {
     renderFields({ due: "", showFrom: "" });
 
     expect(screen.getByRole("button", { name: "1 week before" })).toHaveProperty("disabled", true);
-    expect(screen.getByText("Set a due date to use these.")).toBeTruthy();
   });
 
   // Parking an undated action arbitrarily far ahead stays possible: only the
@@ -152,5 +151,35 @@ describe("filling in a missing show-from", () => {
     fireEvent.change(screen.getByLabelText("Due"), { target: { value: "2026-06-01" } });
     fireEvent.blur(screen.getByLabelText("Due"), { target: { value: "2026-06-01" } });
     expect(onChange).toHaveBeenLastCalledWith({ due: "2026-06-01", showFrom: "2026-05-25" });
+  });
+});
+
+// Enter commits the date being typed. It must not also reach the form around
+// the field: submitting the add form there saves the action and clears the
+// dates, so the field appeared to empty itself.
+describe("pressing Enter in a date field", () => {
+  it("commits the date without submitting the form", () => {
+    const onChange = vi.fn();
+    const onSubmit = vi.fn((e: React.FormEvent) => e.preventDefault());
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <form onSubmit={onSubmit}>
+          <DateFields value={{ due: "", showFrom: "" }} onChange={onChange} idPrefix="t" />
+        </form>
+      </QueryClientProvider>,
+    );
+
+    const due = screen.getByLabelText("Due");
+    fireEvent.change(due, { target: { value: "2026-09-24" } });
+    // fireEvent returns false when the handler cancelled the event, which is
+    // what stops the browser submitting the form around it. jsdom never
+    // performs that implicit submit, so asserting on onSubmit alone would pass
+    // even with the bug.
+    const notCancelled = fireEvent.keyDown(due, { key: "Enter" });
+
+    expect(onChange).toHaveBeenCalledWith({ due: "2026-09-24", showFrom: "2026-09-24" });
+    expect(notCancelled).toBe(false);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

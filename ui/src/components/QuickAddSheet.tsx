@@ -20,11 +20,7 @@ export function QuickAddSheet({
   const t = useT();
   return (
     <Sheet open={open} onClose={onClose} title={t("home.addAction")}>
-      <QuickAdd
-        defaultExpanded
-        defaultContextId={defaultContextId}
-        defaultProjectId={defaultProjectId}
-      />
+      <QuickAdd defaultContextId={defaultContextId} defaultProjectId={defaultProjectId} />
     </Sheet>
   );
 }

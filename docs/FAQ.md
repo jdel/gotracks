@@ -249,10 +249,12 @@ counted from today. **Show from** offers 1 day, 1 week and 1 month *before the
 due date*, so it needs one to exist and is disabled without it — the date field
 itself still works, which is how an undated action gets parked.
 
-Nothing is written as you tap. Changes go in when you press Apply, or when you
-move away from the dates — picking a due date is usually half an edit whose
-other half is the show-from, and saving on the first tap would file the action
-elsewhere before the second one happened.
+Nothing is written as you edit. The whole screenful goes in at once when you
+press Save, and dismissing the editor another way — pulling the sheet down, the
+backdrop, Escape — discards it. That is what makes Save mean something and gives
+an edit begun by accident a way out; it also stops an action moving out from
+under the panel mid-edit, which is what saving each field as you left it did in
+a list that filters on those very fields.
 
 Two rules apply as you edit, matching what the server stores:
 

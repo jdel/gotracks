@@ -215,6 +215,19 @@
     font-synthesis-weight: none;
     -webkit-font-smoothing: antialiased;
   }
+  /* A date input lays its picker button out immediately after the digits, so
+     in a full-width field it floats in the middle of empty space. Pin it to the
+     right edge, where the eye looks for a control. */
+  input[type="date"] {
+    position: relative;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+  }
   /* Never remove focus rings. Every interactive element gets this. */
   :focus-visible {
     outline: 2px solid var(--ring);

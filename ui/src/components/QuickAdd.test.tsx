@@ -82,12 +82,14 @@ function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
     const todo = {
       id: nextId++,
       contextId,
+      // Echoed, so a test can tell "filed under no project" from "the fixture
+      // never carried one".
+      projectId: body.projectId,
       description: body.description,
       due: body.due,
       showFrom: deferred ? body.due : undefined,
       state: deferred ? "deferred" : "active",
       starred: false,
-      notes: "",
       position: 1,
       tags: body.tags ?? [],
       createdAt: "2026-07-18T00:00:00Z",
@@ -249,9 +251,11 @@ describe("QuickAdd deferred notice", () => {
     await screen.findByText("context:@home");
     await user.click(screen.getByLabelText(/Add an action/));
     await user.keyboard("renew passport");
-    await user.click(screen.getByLabelText(/Add a due date/));
+    // The dates are always on the form now — no disclosure to open first.
     await user.type(screen.getByLabelText("Due"), "2027-03-01");
-    await user.keyboard("{Enter}");
+    // Not Enter: inside a date field that commits the date and goes no
+    // further, so the form is submitted from its own button.
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await screen.findByText(/waiting in the tickler/);
     expect(screen.getByRole("link", { name: "View tickler" }).getAttribute("href")).toBe("/tickler");
@@ -268,5 +272,38 @@ describe("QuickAdd deferred notice", () => {
 
     await waitFor(() => expect(screen.getByText("todo:buy milk")).toBeDefined());
     expect(screen.queryByText(/waiting in the tickler/)).toBeNull();
+  });
+});
+
+// A context is mandatory on an action, so defaulting to the last one saves a
+// choice that has to be made anyway. A project is not: inheriting the previous
+// action's would quietly file unrelated things under it.
+describe("QuickAdd project handling", () => {
+  it("leaves a new action out of any project by default", async () => {
+    const user = userEvent.setup();
+    projects = [{ id: 5, name: "#kitchen", state: "active" }];
+    // A project the previous session had used.
+    localStorage.setItem("gt.lastProject", "5");
+    renderApp();
+
+    await screen.findByText("context:@home");
+    await user.click(screen.getByLabelText(/Add an action/));
+    await user.keyboard("ring the bank{Enter}");
+
+    await waitFor(() => expect(screen.getByText("todo:ring the bank")).toBeDefined());
+    expect(todos.at(-1)?.projectId).toBeUndefined();
+  });
+
+  it("still files it under a project named with #", async () => {
+    const user = userEvent.setup();
+    projects = [{ id: 5, name: "#kitchen", state: "active" }];
+    renderApp();
+
+    await screen.findByText("context:@home");
+    await user.click(screen.getByLabelText(/Add an action/));
+    await user.keyboard("fix the tap #kitchen{Tab}{Enter}");
+
+    await waitFor(() => expect(screen.getByText("todo:fix the tap")).toBeDefined());
+    expect(todos.at(-1)?.projectId).toBe(5);
   });
 });

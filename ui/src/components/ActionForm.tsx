@@ -1,0 +1,364 @@
+import { useId, useMemo, useState, type FormEvent } from "react";
+import { Link } from "react-router";
+import { ActionInput } from "@/components/ActionInput";
+import { DateFields } from "@/components/DateFields";
+import { FilterPicker } from "@/components/FilterPicker";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useContexts } from "@/hooks/useContexts";
+import { useProjects, useTags } from "@/hooks/useProjects";
+import { useCreateTodo, useUpdateTodo, type TodoInput } from "@/hooks/useTodos";
+import { apiMessage } from "@/lib/api";
+import { dayValue } from "@/lib/actionDates";
+import { bare, parseAction, ALL_SIGILS, type Sigil } from "@/lib/composer";
+import { useDateFmt } from "@/lib/datefmt";
+import { useT } from "@/lib/i18n";
+import { lastUsed } from "@/lib/lastUsed";
+import type { Todo } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+const fieldLabel = "text-xs font-bold text-ink-2 dark:text-ink-2-dark";
+
+function tagList(tags: string): string[] {
+  return tags
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export interface ActionFormProps {
+  /** The action being edited. Omitted to create a new one. */
+  todo?: Todo;
+  defaultContextId?: number;
+  defaultProjectId?: number;
+  /** Which prefixes the description accepts when creating. A project page drops "#". */
+  sigils?: Sigil[];
+  /** Creating: after the action is added. Editing: after Save, or on cancel. */
+  onDone?: () => void;
+}
+
+/**
+ * One form for adding an action and for editing one.
+ *
+ * They were separate for a long time and drifted — different layouts, different
+ * fields, two places to fix anything about either. The only real difference is
+ * how the description is read: creating accepts "@context", "#project" and
+ * "!tag" as shortcuts that fill in the controls below, while editing takes the
+ * description literally. Re-parsing a stored description would be destructive —
+ * "call about invoice #7741" would acquire a project named 7741 the first time
+ * anyone touched an unrelated field — so editing turns the sigils off, which
+ * the same input already supports.
+ *
+ * Everything else is shared: the context and project controls, the tags, the
+ * two dates and their quick-sets, and the single Save.
+ */
+export function ActionForm({
+  todo,
+  defaultContextId,
+  defaultProjectId,
+  sigils = ALL_SIGILS,
+  onDone,
+}: ActionFormProps) {
+  const t = useT();
+  const fmt = useDateFmt();
+  const uid = useId();
+  const create = useCreateTodo();
+  const update = useUpdateTodo();
+  const editing = todo !== undefined;
+
+  const { data: contexts } = useContexts();
+  const { data: projects } = useProjects(editing ? undefined : "active");
+  const { data: knownTags } = useTags();
+
+  const [text, setText] = useState(todo?.description ?? "");
+  // The context and project chosen in the selects. Creating starts them unset,
+  // so the defaults below still apply until the user picks something.
+  const [pickedContext, setPickedContext] = useState<number | undefined>(todo?.contextId);
+  const [pickedProject, setPickedProject] = useState<number | null | undefined>(
+    editing ? todo.projectId ?? null : undefined,
+  );
+  const [tags, setTags] = useState(todo ? todo.tags.join(", ") : "");
+  const [dates, setDates] = useState({
+    due: dayValue(todo?.due, fmt.dayKey),
+    showFrom: dayValue(todo?.showFrom, fmt.dayKey),
+  });
+  const [error, setError] = useState("");
+  // Show-from of the action just created, when the server deferred it. Cleared
+  // on the next submit, so the notice always refers to the latest action.
+  const [deferredUntil, setDeferredUntil] = useState("");
+
+  const activeContexts = useMemo(
+    () => contexts?.filter((c) => c.state === "active") ?? [],
+    [contexts],
+  );
+  const activeProjects = useMemo(() => projects ?? [], [projects]);
+  const knownTagList = useMemo(() => knownTags ?? [], [knownTags]);
+  // Editing takes the description literally; creating reads the shortcuts.
+  const parseOpts = useMemo(() => ({ sigils: editing ? [] : sigils }), [editing, sigils]);
+  const parsed = useMemo(
+    () => parseAction(text, activeContexts, activeProjects, knownTagList, parseOpts),
+    [text, activeContexts, activeProjects, knownTagList, parseOpts],
+  );
+
+  // Precedence: a typed token wins, then the select, then the page's own
+  // context, then whatever the previous action used, then the first context as
+  // a last resort. A token naming something new carries no id — the server
+  // creates it by name.
+  const rememberedContext = activeContexts.some((c) => c.id === lastUsed.contextId)
+    ? lastUsed.contextId
+    : undefined;
+  const effectiveContextId = parsed.contextIsNew
+    ? undefined
+    : parsed.contextId ??
+      pickedContext ??
+      defaultContextId ??
+      rememberedContext ??
+      activeContexts[0]?.id;
+  // No fallback to the previous action's project: an action lives outside a
+  // project unless one is named with "#", chosen here, or inherited from the
+  // project page it is being added from.
+  const effectiveProjectId = parsed.projectIsNew
+    ? undefined
+    : parsed.projectId ?? pickedProject ?? defaultProjectId ?? null;
+
+  const contextLabel =
+    parsed.contextName ?? activeContexts.find((c) => c.id === effectiveContextId)?.name;
+  const projectLabel =
+    parsed.projectName ?? activeProjects.find((p) => p.id === effectiveProjectId)?.name;
+
+  // Tags typed as "!tag" plus any from the tags field, de-duplicated.
+  const allTags = useMemo(
+    () => Array.from(new Set([...parsed.tags, ...tagList(tags)].map((s) => s.toLowerCase()))),
+    [parsed.tags, tags],
+  );
+
+  /** What an edit would send: only the fields that actually moved. */
+  function changes(): TodoInput {
+    if (!todo) return {};
+    const out: TodoInput = {};
+    const description = parsed.description.trim();
+    if (description && description !== todo.description) out.description = description;
+    if (effectiveContextId && effectiveContextId !== todo.contextId) {
+      out.contextId = effectiveContextId;
+    }
+    if (effectiveProjectId !== (todo.projectId ?? null)) out.projectId = effectiveProjectId;
+    if (allTags.join(",") !== [...todo.tags].map((s) => s.toLowerCase()).join(",")) {
+      out.tags = allTags;
+    }
+    // An empty string clears a date, so only a field that moved is sent —
+    // otherwise saving one date would wipe the other.
+    if (dates.due !== dayValue(todo.due, fmt.dayKey)) out.due = dates.due;
+    if (dates.showFrom !== dayValue(todo.showFrom, fmt.dayKey)) out.showFrom = dates.showFrom;
+    return out;
+  }
+
+  const dirty = editing && Object.keys(changes()).length > 0;
+
+  function submit() {
+    if (!parsed.description.trim()) return;
+    // A new @name substitutes for an existing context, so only complain when
+    // there is neither.
+    if (!effectiveContextId && !parsed.contextIsNew) {
+      setError(t("quickadd.errorContext"));
+      return;
+    }
+    setError("");
+
+    if (todo) {
+      if (dirty) update.mutate({ id: todo.id, ...changes() });
+      onDone?.();
+      return;
+    }
+
+    create.mutate(
+      {
+        contextId: effectiveContextId,
+        projectId: effectiveProjectId ?? undefined,
+        contextName: parsed.contextIsNew ? parsed.contextName : undefined,
+        projectName: parsed.projectIsNew ? parsed.projectName : undefined,
+        description: parsed.description,
+        due: dates.due || undefined,
+        showFrom: dates.showFrom || undefined,
+        tags: allTags.length > 0 ? allTags : undefined,
+      },
+      {
+        onSuccess: (created) => {
+          // Remember the context it landed in, including one the server just
+          // created. Not the project — see lastUsed.
+          lastUsed.remember(created.contextId);
+          // The server owns the decision — it applies the user's default
+          // show-from — so the state it returns is what decides the notice.
+          setDeferredUntil(created.state === "deferred" && created.showFrom ? created.showFrom : "");
+          setText("");
+          setDates({ due: "", showFrom: "" });
+          setTags("");
+          setPickedProject(undefined);
+          onDone?.();
+        },
+        onError: (err) => setError(apiMessage(err, t("quickadd.errorAdd"))),
+      },
+    );
+  }
+
+  function onFormSubmit(e: FormEvent) {
+    e.preventDefault();
+    submit();
+  }
+
+  // Adding is a form: Enter in the description adds the action, which is the
+  // whole point of a capture box. Editing is not. An edit closes the drawer
+  // when it is saved, so *any* stray submit — a button that forgot its type, a
+  // keystroke a control passed on, a browser deciding a lone field means
+  // implicit submission — would dismiss the drawer under the user's fingers.
+  // With no form there, the only way out is the Save button.
+  const Shell = editing ? "div" : "form";
+  const shellProps = editing ? {} : { onSubmit: onFormSubmit };
+
+  const placeholder = sigils.includes("#")
+    ? t("quickadd.placeholderFull")
+    : t("quickadd.placeholderNoProject");
+
+  return (
+    <Shell {...shellProps} className="space-y-2">
+      <ActionInput
+        value={text}
+        onChange={setText}
+        // Enter saves and closes when adding; while editing it commits nothing
+        // on its own, so the drawer cannot vanish mid-edit.
+        onSubmit={editing ? () => {} : submit}
+        contexts={activeContexts}
+        projects={activeProjects}
+        tags={knownTagList}
+        sigils={editing ? [] : sigils}
+        placeholder={editing ? t("todo.actionDescription") : placeholder}
+      />
+
+      {/* Where this action will land. Only worth showing while the shortcuts
+          are live — editing has the controls below and nothing to preview. */}
+      {!editing && (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          {contextLabel && (
+            <span
+              className={cn(
+                "rounded-full px-2 py-[3px] text-[10px] font-bold text-brand dark:text-brand-ink-dark",
+                parsed.contextIsNew
+                  ? "border border-dashed border-brand dark:border-brand-ink-dark"
+                  : "bg-brand-soft dark:bg-brand-pill-dark",
+              )}
+            >
+              @{bare(contextLabel, "@")}
+              {parsed.contextIsNew && ` · ${t("quickadd.new")}`}
+            </span>
+          )}
+          {projectLabel && (
+            <span
+              className={cn(
+                "rounded-full px-2 py-[3px] text-[10px] font-bold text-done-text dark:text-done-dark",
+                parsed.projectIsNew
+                  ? "border border-dashed border-done dark:border-done-dark"
+                  : "bg-done-soft dark:bg-done-fill-dark",
+              )}
+            >
+              #{bare(projectLabel, "#")}
+              {parsed.projectIsNew && ` · ${t("quickadd.new")}`}
+            </span>
+          )}
+          {allTags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full border border-line bg-surface px-2 py-[3px] text-[10px] font-bold text-ink-2 dark:border-line-dark dark:bg-card-dark dark:text-ink-2-dark"
+            >
+              !{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="grid gap-3 rounded-lg border p-3">
+        <div className="grid grid-cols-2 gap-3">
+          {/* Typed into rather than scrolled: a native select is fine for four
+              contexts and useless for forty. */}
+          <label className={fieldLabel}>
+            {t("todo.context")}
+            <FilterPicker
+              className="mt-1"
+              value={parsed.contextIsNew ? "" : String(effectiveContextId ?? "")}
+              options={
+                parsed.contextIsNew
+                  ? [{ value: "", label: `@${parsed.contextName}` }]
+                  : activeContexts.map((c) => ({ value: String(c.id), label: bare(c.name, "@") }))
+              }
+              onChange={(v) => setPickedContext(v ? Number(v) : undefined)}
+              ariaLabel={t("todo.context")}
+              filterLabel={t("picker.filterContexts")}
+              noMatchLabel={t("picker.noMatch")}
+            />
+          </label>
+
+          <label className={fieldLabel}>
+            {t("todo.project")}
+            <FilterPicker
+              className="mt-1"
+              value={parsed.projectIsNew ? "" : String(effectiveProjectId ?? "")}
+              options={[
+                {
+                  value: "",
+                  label: parsed.projectIsNew ? `#${parsed.projectName}` : t("todo.noProject"),
+                },
+                ...activeProjects.map((p) => ({ value: String(p.id), label: bare(p.name, "#") })),
+              ]}
+              onChange={(v) => setPickedProject(v ? Number(v) : null)}
+              ariaLabel={t("todo.project")}
+              filterLabel={t("picker.filterProjects")}
+              noMatchLabel={t("picker.noMatch")}
+            />
+          </label>
+        </div>
+
+        {/* Leaving Show from blank is what lets the server apply the user's
+            default when a due date is set. */}
+        <DateFields value={dates} onChange={setDates} idPrefix={uid} />
+
+        <label className={fieldLabel}>
+          {t("quickadd.tags")}
+          <Input
+            className="mt-1"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder={t("quickadd.tagsPlaceholder")}
+          />
+        </label>
+      </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <div className="flex items-center gap-2">
+        {editing && dirty && (
+          <span className="text-xs font-medium text-ink-4 dark:text-ink-4-dark">
+            {t("todo.unsaved")}
+          </span>
+        )}
+        <Button
+          type={editing ? "button" : "submit"}
+          onClick={editing ? submit : undefined}
+          className="ml-auto"
+          disabled={create.isPending || (editing && !dirty)}
+        >
+          {t("common.save")}
+        </Button>
+      </div>
+
+      {/* An action created with a due date can be deferred on the spot, and
+          then it is not in the list the user is looking at. Say where it went
+          rather than letting it appear to have vanished. */}
+      {deferredUntil && (
+        <p className="text-sm font-medium text-ink-2 dark:text-ink-2-dark">
+          {t("quickadd.deferred", { date: fmt.day(deferredUntil) })}{" "}
+          <Link to="/tickler" className="text-brand underline dark:text-brand-ink-dark">
+            {t("quickadd.deferredLink")}
+          </Link>
+        </p>
+      )}
+    </Shell>
+  );
+}

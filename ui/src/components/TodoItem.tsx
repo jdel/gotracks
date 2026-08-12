@@ -412,29 +412,53 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
           a sheet, which is the only way to reach it there. */}
       <div className="hidden md:block">
         {editorOpen && (
-          <ActionEditor
-            todo={todo}
-            onClose={() => setEditorOpen(false)}
-            onDelete={() => schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id))}
-          />
+          <ActionEditor todo={todo} onClose={() => setEditorOpen(false)} />
         )}
         {deferOpen && (
           <div className="mt-3 border-t border-line-3 pt-3 dark:border-line-dark">
-            <DeferPanel todo={todo} />
+            <DeferPanel todo={todo} onSaved={() => setDeferOpen(false)} />
           </div>
         )}
       </div>
 
       <div className="md:hidden">
-        <Sheet open={editorOpen} onClose={() => setEditorOpen(false)} title={todo.description}>
-          <ActionEditor
-            todo={todo}
-            onClose={() => setEditorOpen(false)}
-            onDelete={() => schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id))}
-          />
+        <Sheet
+          open={editorOpen}
+          onClose={() => setEditorOpen(false)}
+          title={todo.description}
+          // Star and delete ride on the title row rather than sitting in the
+          // editor's footer: they act on the action as a whole, not on any
+          // field, and as icons they cost nothing next to the title.
+          actions={
+            <>
+              <IconButton
+                variant="ghost"
+                className="size-8"
+                label={todo.starred ? t("todo.removeStar") : t("todo.star")}
+                onClick={() => update.mutate({ id: todo.id, starred: !todo.starred })}
+              >
+                <Star
+                  className={cn("size-4", todo.starred ? "fill-done text-done" : "text-ink-4")}
+                />
+              </IconButton>
+              <IconButton
+                variant="ghost"
+                className="size-8"
+                label={t("todo.delete")}
+                onClick={() => {
+                  setEditorOpen(false);
+                  schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id));
+                }}
+              >
+                <Trash2 className="size-4 text-danger" />
+              </IconButton>
+            </>
+          }
+        >
+          <ActionEditor todo={todo} onClose={() => setEditorOpen(false)} />
         </Sheet>
         <Sheet open={deferOpen} onClose={() => setDeferOpen(false)} title={t("todo.defer")}>
-          <DeferPanel todo={todo} />
+          <DeferPanel todo={todo} onSaved={() => setDeferOpen(false)} />
         </Sheet>
       </div>
     </SwipeRow>
