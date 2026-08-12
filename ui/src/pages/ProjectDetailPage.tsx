@@ -158,7 +158,7 @@ export function ProjectDetailPage() {
     >
       {/* Desktop quick-add bar, pre-scoped to this project ("#" is not a token). */}
       <div className="mt-3.5 hidden rounded-card bg-card p-2.5 shadow-card md:block dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none">
-        <QuickAdd defaultProjectId={projectId} sigils={["@", "!"]} />
+        <QuickAdd compact defaultProjectId={projectId} sigils={["@", "!"]} />
       </div>
 
       <div className="mt-4 flex flex-col gap-5 md:grid md:grid-cols-[1.6fr_1fr]">

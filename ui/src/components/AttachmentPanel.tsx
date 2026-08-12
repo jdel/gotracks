@@ -39,7 +39,7 @@ export function AttachmentPanel({ todoId }: { todoId: number }) {
   }
 
   return (
-    <div className="mt-2 space-y-2 rounded-control border border-line p-2 dark:border-line-dark">
+    <div className="space-y-2">
       <div className="flex items-center gap-2">
         <input ref={inputRef} type="file" className="hidden" onChange={onPick} />
         <Button

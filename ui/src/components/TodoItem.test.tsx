@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { TodoItem } from "./TodoItem";
 import { SwipeRow } from "./SwipeRow";
 import { Sheet } from "./primitives";
+import { setViewport } from "@/test/viewport";
 import { UndoProvider } from "@/lib/undoable";
 import { LEAVE_MS } from "@/lib/motion";
 import type { Todo } from "@/lib/types";
@@ -340,8 +341,8 @@ describe("the mobile gestures", () => {
       });
 
       // The editor, not the old three-button menu: it carries the fields.
-      expect(screen.getAllByLabelText("Show from").length).toBeGreaterThan(0);
-      expect(screen.getAllByRole("button", { name: "Delete this action" }).length).toBeGreaterThan(0);
+      expect(screen.getByLabelText("Show from")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Delete this action" })).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
@@ -610,7 +611,7 @@ describe("discarding an edit", () => {
     renderItem();
 
     await user.click(screen.getByLabelText("Edit this action"));
-    await user.type(within(screen.getByRole("dialog")).getByLabelText("Action description"), " later");
+    await user.type(within(screen.getByRole("dialog")).getByLabelText("Tags (comma separated)"), "errand");
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Tomorrow" }));
     fireEvent.keyDown(document, { key: "Escape" });
 
@@ -629,7 +630,6 @@ describe("discarding an edit", () => {
     const sheet = () => screen.getByRole("dialog");
 
     await user.click(screen.getByLabelText("Edit this action"));
-    await user.type(within(sheet()).getByLabelText("Action description"), " today");
     await user.type(within(sheet()).getByLabelText("Tags (comma separated)"), "errand");
     // Scoped to the sheet: the desktop copy of the editor is hidden by CSS,
     // which jsdom does not apply, so it is a second live instance with its own
@@ -643,7 +643,6 @@ describe("discarding an edit", () => {
       );
       expect(puts).toHaveLength(1);
       const body = JSON.parse(String(puts[0][1].body));
-      expect(body.description).toBe("buy paint today");
       expect(body.tags).toEqual(["errand"]);
       expect(body.due).toBeTruthy();
     });
@@ -663,20 +662,28 @@ describe("discarding an edit", () => {
   });
 });
 
-// Adding and editing share one form, and the difference between them is the
-// description: "@context", "#project" and "!tag" are shortcuts when creating,
-// but a stored description is taken literally. Re-parsing one would be
-// destructive — an action called "call about invoice #7741" would acquire a
-// project named 7741 the first time anyone touched an unrelated field.
-describe("editing does not re-parse the description", () => {
-  it("keeps a # in the text out of the project", async () => {
+// An action's description is edited in place, by clicking its title in the row.
+// The editor deliberately has no field for it: two ways to change one thing,
+// and only one of them shows the result where the user will read it. It also
+// removes the hazard that made add and edit differ — re-parsing a stored
+// description would have turned "invoice #7741" into a project named 7741.
+describe("the editor does not edit the description", () => {
+  it("has no description field", async () => {
     const user = userEvent.setup();
     renderItem({ ...baseTodo, description: "call about invoice #7741" });
 
     await user.click(screen.getByLabelText("Edit this action"));
-    const sheet = screen.getByRole("dialog");
-    await user.type(within(sheet).getByLabelText("Action description"), " today");
-    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+
+    expect(screen.queryByLabelText("Action description")).toBeNull();
+  });
+
+  it("leaves the description alone when other fields are saved", async () => {
+    const user = userEvent.setup();
+    renderItem({ ...baseTodo, description: "call about invoice #7741" });
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.click(screen.getByRole("button", { name: "Tomorrow" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
@@ -684,79 +691,9 @@ describe("editing does not re-parse the description", () => {
       );
       expect(put).toBeTruthy();
       const body = JSON.parse(String(put![1].body));
-      expect(body.description).toBe("call about invoice #7741 today");
+      expect(body.description).toBeUndefined();
       expect(body.projectName).toBeUndefined();
-      expect(body.projectId ?? null).toBeNull();
     });
-  });
-});
-
-// Escape has to close a sheet whatever is focused inside it. The title row's
-// icon buttons each carry a tooltip, and a focused tooltip eats the key before
-// the dialog underneath ever sees it — so a sheet with actions could be left
-// with Escape doing nothing.
-describe("closing a sheet from the keyboard", () => {
-  it("closes even when a title-row button has focus", async () => {
-    const user = userEvent.setup();
-    renderItem();
-
-    await user.click(screen.getByLabelText("Edit this action"));
-    const star = within(screen.getByRole("dialog")).getByLabelText("Star this action");
-    star.focus();
-
-    await user.keyboard("{Escape}");
-
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  });
-
-  // And the sheet opens on its content, not on the delete button beside the title.
-  it("opens with the first field focused, not a title-row action", async () => {
-    const user = userEvent.setup();
-    renderItem();
-
-    await user.click(screen.getByLabelText("Edit this action"));
-
-    const sheet = screen.getByRole("dialog");
-    expect(sheet.contains(document.activeElement)).toBe(true);
-    expect(document.activeElement?.getAttribute("aria-label")).not.toBe("Delete this action");
-    expect(document.activeElement?.getAttribute("aria-label")).not.toBe("Star this action");
-  });
-});
-
-// A bare <button> inside a <form> submits it, and submitting the editor saves
-// and closes. Every icon button in the form — clearing a date, a quick-set —
-// therefore used to dismiss the sheet the moment it was tapped.
-describe("buttons inside the editor do not submit it", () => {
-  it("stays open when a date is cleared", async () => {
-    const user = userEvent.setup();
-    renderItem({
-      ...baseTodo,
-      state: "deferred",
-      due: "2026-09-10T00:00:00Z",
-      showFrom: "2026-09-03T00:00:00Z",
-    });
-
-    await user.click(screen.getByLabelText("Edit this action"));
-    const sheet = screen.getByRole("dialog");
-    await user.click(within(sheet).getByLabelText("Clear the due date"));
-
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(
-      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (c) => String(c[1]?.method) === "PUT",
-      ),
-    ).toHaveLength(0);
-  });
-
-  it("stays open when a quick-set is tapped", async () => {
-    const user = userEvent.setup();
-    renderItem();
-
-    await user.click(screen.getByLabelText("Edit this action"));
-    const sheet = screen.getByRole("dialog");
-    await user.click(within(sheet).getByRole("button", { name: "Next week" }));
-
-    expect(screen.getByRole("dialog")).toBeTruthy();
   });
 });
 
@@ -776,13 +713,13 @@ describe("nothing but Save closes the editor", () => {
     expect(within(sheet).getByRole("button", { name: "Save" }).getAttribute("type")).toBe("button");
   });
 
-  it("stays open when Enter is pressed in the description", async () => {
+  it("stays open when Enter is pressed in a field", async () => {
     const user = userEvent.setup();
     renderItem();
 
     await user.click(screen.getByLabelText("Edit this action"));
     const sheet = screen.getByRole("dialog");
-    await user.type(within(sheet).getByLabelText("Action description"), " now{Enter}");
+    await user.type(within(sheet).getByLabelText("Tags (comma separated)"), "errand{Enter}");
 
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(
@@ -820,7 +757,7 @@ describe("what dismisses a sheet", () => {
     // A picker retargets the pointer; the sheet must survive it. The picker is
     // itself a dialog, so the sheet is named to tell them apart.
     fireEvent.pointerDown(document.body, { pointerType: "touch", clientX: 5, clientY: 5 });
-    fireEvent.click(within(sheet).getAllByLabelText("Context")[0]);
+    fireEvent.click(within(sheet).getByLabelText("Context"));
 
     expect(screen.getByRole("dialog", { name: baseTodo.description })).toBeTruthy();
   });
@@ -884,5 +821,225 @@ describe("gestures inside a sheet stay inside it", () => {
 
     expect(left).not.toHaveBeenCalled();
     expect(right).not.toHaveBeenCalled();
+  });
+});
+
+// A sheet renders through a portal, so a `md:hidden` wrapper cannot hide it: a
+// desktop opening any of these got the inline panel *and* a modal sheet over
+// the top of it, trapping focus and locking the page. The presentation is
+// chosen now, and exactly one of the two mounts.
+describe("one presentation per viewport", () => {
+  it("edits inline on a desktop, with no dialog", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByLabelText("Tags (comma separated)")).toBeTruthy();
+  });
+
+  it("edits in a sheet on a phone, with no inline copy", async () => {
+    const user = userEvent.setup();
+    setViewport("phone");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    // One editor, not two: the inline copy is not mounted at all.
+    expect(screen.getAllByLabelText("Tags (comma separated)")).toHaveLength(1);
+  });
+
+  it("defers inline on a desktop, with no dialog", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Defer"));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByLabelText("Due")).toBeTruthy();
+  });
+
+  it("defers in a sheet on a phone", async () => {
+    const user = userEvent.setup();
+    setViewport("phone");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Defer"));
+
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getAllByLabelText("Due")).toHaveLength(1);
+  });
+
+  it("shows attachments inline on a desktop, with no dialog", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    attachments = [{ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048, createdAt: "" }];
+    renderItem();
+
+    await user.click(screen.getByLabelText(/attachments/i));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(await screen.findByText("invoice.pdf")).toBeTruthy();
+  });
+
+  it("shows attachments in a sheet on a phone", async () => {
+    const user = userEvent.setup();
+    setViewport("phone");
+    attachments = [{ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048, createdAt: "" }];
+    renderItem();
+
+    await user.click(screen.getByLabelText(/attachments/i));
+
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText("invoice.pdf")).toBeTruthy();
+  });
+});
+
+// Attachments, defer and the editor were three independent flags, so opening
+// each in turn left all three stacked down the row. Only one of them can be the
+// thing being worked on.
+describe("one panel at a time", () => {
+  it("replaces the open panel rather than stacking", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    attachments = [{ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048, createdAt: "" }];
+    renderItem();
+
+    await user.click(screen.getByLabelText(/attachments/i));
+    expect(await screen.findByText("invoice.pdf")).toBeTruthy();
+
+    await user.click(screen.getByLabelText("Defer"));
+    expect(screen.queryByText("invoice.pdf")).toBeNull();
+    expect(screen.getByLabelText("Due")).toBeTruthy();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    expect(screen.getByLabelText("Tags (comma separated)")).toBeTruthy();
+    // The defer panel's own Save is gone with it: one panel, one Save.
+    expect(screen.getAllByRole("button", { name: "Save" })).toHaveLength(1);
+  });
+
+  it("closes the panel when its own control is clicked again", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Defer"));
+    expect(screen.getByLabelText("Due")).toBeTruthy();
+
+    await user.click(screen.getByLabelText("Defer"));
+    expect(screen.queryByLabelText("Due")).toBeNull();
+  });
+});
+
+// A panel that opens under a row left focus on the icon that opened it, so the
+// next Tab went along the row's other icons instead of into the form.
+describe("focus follows the panel that opens", () => {
+  it("puts focus in the defer form's first field", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Defer"));
+
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Due")));
+  });
+
+  it("puts focus in the editor's first field", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Context")));
+  });
+
+  // The add form is mounted with the page; focusing it would steal the caret.
+  it("leaves focus alone when the form is used to add", async () => {
+    setViewport("desktop");
+    renderItem();
+
+    expect(document.activeElement).toBe(document.body);
+  });
+});
+
+// The editor has no form — a stray submit used to dismiss it — so saving from
+// the keyboard needs its own key rather than the browser's implicit one.
+describe("saving and leaving from the keyboard", () => {
+  it("saves the editor with Ctrl+Enter", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.click(screen.getByRole("button", { name: "Tomorrow" }));
+    await user.keyboard("{Control>}{Enter}{/Control}");
+
+    await waitFor(() => {
+      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c) => String(c[1]?.method) === "PUT",
+      );
+      expect(put).toBeTruthy();
+      expect(JSON.parse(String(put![1].body)).due).toBeTruthy();
+    });
+    // And it closes, as pressing Save does.
+    expect(screen.queryByLabelText("Tags (comma separated)")).toBeNull();
+  });
+
+  it("leaves the editor with Escape, writing nothing", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.click(screen.getByRole("button", { name: "Tomorrow" }));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByLabelText("Tags (comma separated)")).toBeNull();
+    expect(
+      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c) => String(c[1]?.method) === "PUT",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("saves the defer panel with Ctrl+Enter", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Defer"));
+    await user.click(screen.getByRole("button", { name: "Tomorrow" }));
+    await user.keyboard("{Control>}{Enter}{/Control}");
+
+    await waitFor(() =>
+      expect(
+        (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+          (c) => String(c[1]?.method) === "PUT",
+        ),
+      ).toHaveLength(1),
+    );
+  });
+
+  // One press should undo one thing: closing a picker must not also close the
+  // panel it sits in.
+  it("keeps the panel open when Escape closes a picker", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    contexts = [{ id: 1, name: "@home", state: "active", position: 1 }];
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.click(screen.getByLabelText("Context"));
+    expect(screen.getByLabelText("Filter contexts")).toBeTruthy();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByLabelText("Filter contexts")).toBeNull();
+    expect(screen.getByLabelText("Tags (comma separated)")).toBeTruthy();
   });
 });

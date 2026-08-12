@@ -235,18 +235,51 @@ with no date at all cannot be promoted by the sweep and would sit in the tickler
 forever, so any that exist in older data are activated the next time their lists
 are read.
 
+## Adding an action
+
+The add box on a desktop is one line: a description, a context and a Save
+button, which is the whole of most actions. A chevron opens the rest — project,
+tags, both dates — and it stays open for the actions that follow, so a run of
+detailed entries is not a run of clicks. On a phone there is no toggle: the
+sheet has the room, so it shows the full form.
+
+Only the context is required. An action belongs to no project unless one is
+chosen, and adding one does not inherit the project you used last.
+
+The actions view groups by context and shows only the contexts that have
+something in them. An empty context is not a heading worth a line; when nothing
+matches at all the view says so once, rather than repeating it under every
+context you own.
+
 ## Editing an action
 
-Every detail of an action is editable in place — description, context, project,
-tags, notes, both dates, starred — from the same editor wherever the action is
-shown, including the tickler. On a desktop the card expands; on a phone a long
-press opens it full screen. Each field saves as you leave it rather than behind
-a Save button.
+An action's context, project, tags and both dates are editable from the same
+editor wherever the action is shown, including the tickler. Its description is
+not in that editor: clicking the title in the row edits it in place, where the
+result reads exactly as it will afterwards.
+
+On a desktop the card expands beneath the row; on a phone a long press opens the
+same editor as a sheet. Exactly one of the two is ever mounted — a sheet renders
+through a portal, so hiding it with a stylesheet rule does not stop it appearing
+over the desktop layout.
+
+Only one panel shows at a time: opening attachments, defer or the editor closes
+whichever was open, and clicking the same control again closes it.
 
 Both dates have quick-sets. **Due** offers tomorrow, next week and next month,
 counted from today. **Show from** offers 1 day, 1 week and 1 month *before the
 due date*, so it needs one to exist and is disabled without it — the date field
 itself still works, which is how an undated action gets parked.
+
+Context and project are typed into rather than scrolled through: start typing
+and the field opens a filtered list, the arrows move through it, Enter picks,
+Escape closes it, and Tab moves to the next field rather than walking the
+options. It is the same picker the time-zone setting uses.
+
+The editor takes focus when it opens, so the keyboard reaches it without tabbing
+across the row's icons. **Ctrl+Enter** (or Cmd) saves from any field — the
+editor is deliberately not a form, so there is no implicit submit to lean on —
+and **Escape** leaves without saving.
 
 Nothing is written as you edit. The whole screenful goes in at once when you
 press Save, and dismissing the editor another way — pulling the sheet down, the
@@ -273,7 +306,8 @@ desktop row, a left swipe on a phone.
 - **Swipe right** — star.
 - **Swipe left** — defer. This used to delete; deleting an action with one
   horizontal drag on a list scrolled by thumb was too easy to do by accident.
-- **Long press** — the editor, which is where delete now lives.
+- **Long press** — the editor. Star and delete sit on its title row, which is
+  where deleting an action lives now.
 - **Tap the paperclip** — attachments, opened as a sheet with a delete button
   per file.
 - **Pull a sheet down** — dismiss it. Sheets can also be closed with the

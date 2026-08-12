@@ -25,7 +25,11 @@ export CGO_ENABLED := 0
 # Source prerequisites, so an unchanged tree skips the expensive builds and a
 # touched source triggers exactly the right rebuild.
 GO_SRC := $(shell find . -type f -name '*.go' -not -path './ui/*')
-UI_SRC := $(shell find ui -type f -not -path 'ui/node_modules/*' -not -path 'ui/dist/*')
+# *.tsbuildinfo is TypeScript's own incremental cache, rewritten by any `tsc -b`
+# — a lint run, an editor, a test — and it is not a source of anything. Left in,
+# it made every such run mark the SPA stale, so the next `make gotracks` sat
+# through a full `npm ci && npm run build`.
+UI_SRC := $(shell find ui -type f -not -path 'ui/node_modules/*' -not -path 'ui/dist/*' -not -name '*.tsbuildinfo')
 # The embedded SPA entry point stands in for the whole internal/web/dist tree.
 SPA    := internal/web/dist/index.html
 

@@ -189,3 +189,48 @@ describe("overdue in the account's time zone", () => {
     }
   });
 });
+
+// A heading over nothing says only that an action could go there, which the
+// composer already says. A screenful of them buries the contexts that do have
+// work in them.
+describe("contexts with nothing in them", () => {
+  it("shows only the contexts that have actions", async () => {
+    contexts = [
+      { id: 1, name: "@home", state: "active", position: 1 },
+      { id: 2, name: "@calls", state: "active", position: 2 },
+      { id: 3, name: "@errands", state: "active", position: 3 },
+    ];
+    todos = [todo(1, 2, "ring the bank")];
+    renderPage();
+
+    // Scoped to the group headings: the composer's preview chip also names a
+    // context, and it is not one of these.
+    await screen.findByText("ring the bank");
+    const headings = screen
+      .getAllByText(/^@/)
+      .filter((el) => el.className.includes("font-extrabold"))
+      .map((el) => el.textContent);
+    expect(headings).toEqual(["@calls"]);
+  });
+
+  it("says so when every context is empty", async () => {
+    contexts = [{ id: 1, name: "@home", state: "active", position: 1 }];
+    todos = [];
+    renderPage();
+
+    expect(await screen.findByText("Nothing to do. Add an action above.")).toBeTruthy();
+  });
+
+  // A filter that matches nothing is a different situation and reads that way.
+  it("keeps the no-match wording when filtering", async () => {
+    const user = userEvent.setup();
+    contexts = [{ id: 1, name: "@home", state: "active", position: 1 }];
+    todos = [todo(1, 1, "ring the bank")];
+    renderPage();
+
+    await screen.findByText("ring the bank");
+    await user.type(screen.getByLabelText("Filter actions"), "zzz");
+
+    expect(await screen.findByText("No actions match your filter.")).toBeTruthy();
+  });
+});

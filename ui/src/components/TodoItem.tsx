@@ -16,6 +16,7 @@ import { DeferPanel } from "@/components/DeferPanel";
 import { useContexts } from "@/hooks/useContexts";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllAttachments, usePreferences } from "@/hooks/useSettings";
+import { useIsDesktop } from "@/hooks/useMediaQuery";
 import { bare } from "@/lib/composer";
 import { api } from "@/lib/api";
 import type { Attachment, Todo } from "@/lib/types";
@@ -41,6 +42,11 @@ import { useDateFmt } from "@/lib/datefmt";
 // account's time zone, not the browser's, so the red chip does not depend on
 // where the machine happens to be. dayKey is a sortable YYYY-MM-DD, so the
 // string comparison is a day comparison.
+// Every panel that opens under a row is spaced the same way and separated by
+// nothing: a rule under the title read as a divider on one panel and was absent
+// on the others, and the row's own chips already end the header.
+const inlinePanel = "mt-3";
+
 function isOverdue(due: string, dayKey: (iso: string) => string): boolean {
   return dayKey(due) < dayKey(new Date().toISOString());
 }
@@ -116,6 +122,7 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
   const del = useDeleteTodo();
   const update = useUpdateTodo();
   const { data: prefs } = usePreferences();
+  const isDesktop = useIsDesktop();
   // Shared across every rendered TodoItem: React Query dedupes it into one
   // request, so this costs nothing extra beyond the first item on the page.
   const { data: allAttachments } = useAllAttachments();
@@ -127,13 +134,18 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
   // True for the few hundred ms the row spends animating out after the undo
   // window closes.
   const [leaving, setLeaving] = useState(false);
-  const [showFiles, setShowFiles] = useState(false);
+  // One panel at a time. Three booleans let attachments, defer and the editor
+  // all sit open at once, stacked down the row; only one of them can be the
+  // thing being worked on.
+  const [panel, setPanel] = useState<"files" | "defer" | "editor" | null>(null);
+  const showFiles = panel === "files";
+  const deferOpen = panel === "defer";
+  const editorOpen = panel === "editor";
+  /** Opens a panel, or closes it if it is the one already open. */
+  const toggle = (which: "files" | "defer" | "editor") =>
+    setPanel((open) => (open === which ? null : which));
+  const closePanel = () => setPanel(null);
   const [editing, setEditing] = useState(false);
-  // The full editor: expanded in the card on the web, a full-screen sheet from
-  // a long press on a phone. Same component either way.
-  const [editorOpen, setEditorOpen] = useState(false);
-  // The quick-defer surface: swipe left on a phone, the Defer button on the web.
-  const [deferOpen, setDeferOpen] = useState(false);
   // Set right after marking an action done, when it had attachments and
   // auto-delete is off — offers to clean them up instead of doing it silently.
   const [attachmentPrompt, setAttachmentPrompt] = useState<Attachment[] | null>(null);
@@ -189,12 +201,13 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
     <SwipeRow
       lifted={lifted}
       leaving={leaving}
+      expanded={isDesktop && panel !== null}
       // Swipe left defers rather than deletes: deleting an action with one
       // horizontal drag on a list scrolled by thumb is too easy to do by
       // accident. Delete lives in the editor, behind a long press and a tap.
-      onSwipeLeft={() => setDeferOpen(true)}
+      onSwipeLeft={() => setPanel("defer")}
       onSwipeRight={() => update.mutate({ id: todo.id, starred: !todo.starred })}
-      onLongPress={() => setEditorOpen(true)}
+      onLongPress={() => setPanel("editor")}
     >
       {/* items-start, so the handle, the checkbox and the row actions stay on
           the first line of a title that wraps instead of drifting to its
@@ -236,7 +249,12 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
             Floated rather than a flex sibling: the title's first line runs
             beside these, and its later lines run underneath them instead of
             being squeezed into a permanently narrower column. */}
-        <div className={cn(rowActions, "float-right ml-2.5 flex")}>
+        {/* Hidden while the title is being edited in place: the field is
+            full-width, and a full-width block cannot sit beside a float — it is
+            pushed below it, so the text appeared to jump down a line the moment
+            it was clicked. With the float gone the field takes exactly the line
+            the title occupied. */}
+        <div className={cn(rowActions, "float-right ml-2.5 flex", editing && "hidden")}>
         <IconButton
           variant="ghost"
           className="size-7"
@@ -247,7 +265,7 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
                 ? t("todo.showAttachmentsSome")
                 : t("todo.showAttachments")
           }
-          onClick={() => setShowFiles((v) => !v)}
+          onClick={() => toggle("files")}
         >
           {/* State lives in the icon: brand tint means this action has files,
               which stays true while the panel is open. */}
@@ -266,7 +284,7 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
           variant="ghost"
           className="hidden size-7 md:inline-flex"
           label={t("todo.defer")}
-          onClick={() => setDeferOpen((v) => !v)}
+          onClick={() => toggle("defer")}
         >
           <CalendarClock
             className={cn("size-3.5", deferOpen ? "text-foreground" : "text-ink-4")}
@@ -276,7 +294,7 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
           variant="ghost"
           className="hidden size-7 md:inline-flex"
           label={t("todo.editAction")}
-          onClick={() => setEditorOpen((v) => !v)}
+          onClick={() => toggle("editor")}
         >
           <Pencil className={cn("size-3.5", editorOpen ? "text-foreground" : "text-ink-4")} />
         </IconButton>
@@ -366,21 +384,25 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
 
       {/* Inline on a desktop, where there is room beside the list; a sheet on a
           phone, where an inline panel would push the rest of the list off the
-          screen and leave the file names in a 200px-wide column. */}
-      {showFiles && (
-        <div className="hidden md:block">
-          <AttachmentPanel todoId={todo.id} />
-        </div>
-      )}
-      <div className="md:hidden">
-        <Sheet
-          open={showFiles}
-          onClose={() => setShowFiles(false)}
-          title={t("todo.attachmentsFor", { description: todo.description })}
-        >
-          <AttachmentPanel todoId={todo.id} />
-        </Sheet>
-      </div>
+          screen and leave the file names in a 200px-wide column.
+          Chosen here rather than hidden with a class: a sheet renders through a
+          portal, so `md:hidden` on a wrapper cannot reach it, and a desktop
+          would get both. */}
+      {isDesktop
+        ? showFiles && (
+            <div className={inlinePanel}>
+              <AttachmentPanel todoId={todo.id} />
+            </div>
+          )
+        : (
+          <Sheet
+            open={showFiles}
+            onClose={closePanel}
+            title={t("todo.attachmentsFor", { description: todo.description })}
+          >
+            <AttachmentPanel todoId={todo.id} />
+          </Sheet>
+        )}
 
       <ConfirmDialog
         open={attachmentPrompt !== null}
@@ -410,57 +432,63 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
       {/* One editor, two presentations. On the web it expands inside the card so
           the list around it stays readable; on a phone a long press opens it as
           a sheet, which is the only way to reach it there. */}
-      <div className="hidden md:block">
-        {editorOpen && (
-          <ActionEditor todo={todo} onClose={() => setEditorOpen(false)} />
-        )}
-        {deferOpen && (
-          <div className="mt-3 border-t border-line-3 pt-3 dark:border-line-dark">
-            <DeferPanel todo={todo} onSaved={() => setDeferOpen(false)} />
-          </div>
-        )}
-      </div>
+      {isDesktop && (
+        <>
+          {editorOpen && (
+            <div className={inlinePanel}>
+              <ActionEditor todo={todo} onClose={closePanel} />
+            </div>
+          )}
+          {deferOpen && (
+            <div className={inlinePanel}>
+              <DeferPanel todo={todo} onSaved={closePanel} />
+            </div>
+          )}
+        </>
+      )}
 
-      <div className="md:hidden">
-        <Sheet
-          open={editorOpen}
-          onClose={() => setEditorOpen(false)}
-          title={todo.description}
-          // Star and delete ride on the title row rather than sitting in the
-          // editor's footer: they act on the action as a whole, not on any
-          // field, and as icons they cost nothing next to the title.
-          actions={
-            <>
-              <IconButton
-                variant="ghost"
-                className="size-8"
-                label={todo.starred ? t("todo.removeStar") : t("todo.star")}
-                onClick={() => update.mutate({ id: todo.id, starred: !todo.starred })}
-              >
-                <Star
-                  className={cn("size-4", todo.starred ? "fill-done text-done" : "text-ink-4")}
-                />
-              </IconButton>
-              <IconButton
-                variant="ghost"
-                className="size-8"
-                label={t("todo.delete")}
-                onClick={() => {
-                  setEditorOpen(false);
-                  schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id));
-                }}
-              >
-                <Trash2 className="size-4 text-danger" />
-              </IconButton>
-            </>
-          }
-        >
-          <ActionEditor todo={todo} onClose={() => setEditorOpen(false)} />
-        </Sheet>
-        <Sheet open={deferOpen} onClose={() => setDeferOpen(false)} title={t("todo.defer")}>
-          <DeferPanel todo={todo} onSaved={() => setDeferOpen(false)} />
-        </Sheet>
-      </div>
+      {!isDesktop && (
+        <>
+          <Sheet
+            open={editorOpen}
+            onClose={closePanel}
+            title={todo.description}
+            // Star and delete ride on the title row rather than sitting in the
+            // editor's footer: they act on the action as a whole, not on any
+            // field, and as icons they cost nothing next to the title.
+            actions={
+              <>
+                <IconButton
+                  variant="ghost"
+                  className="size-8"
+                  label={todo.starred ? t("todo.removeStar") : t("todo.star")}
+                  onClick={() => update.mutate({ id: todo.id, starred: !todo.starred })}
+                >
+                  <Star
+                    className={cn("size-4", todo.starred ? "fill-done text-done" : "text-ink-4")}
+                  />
+                </IconButton>
+                <IconButton
+                  variant="ghost"
+                  className="size-8"
+                  label={t("todo.delete")}
+                  onClick={() => {
+                    closePanel();
+                    schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id));
+                  }}
+                >
+                  <Trash2 className="size-4 text-danger" />
+                </IconButton>
+              </>
+            }
+          >
+            <ActionEditor todo={todo} onClose={closePanel} />
+          </Sheet>
+          <Sheet open={deferOpen} onClose={closePanel} title={t("todo.defer")}>
+            <DeferPanel todo={todo} onSaved={closePanel} />
+          </Sheet>
+        </>
+      )}
     </SwipeRow>
   );
 }

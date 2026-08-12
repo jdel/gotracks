@@ -24,6 +24,7 @@ const EDGE_ZONE = 24;
 export function SwipeRow({
   lifted,
   leaving,
+  expanded,
   onSwipeLeft,
   onSwipeRight,
   onLongPress,
@@ -32,6 +33,8 @@ export function SwipeRow({
   lifted?: boolean;
   /** True while the row plays its completion animation, just before it is removed. */
   leaving?: boolean;
+  /** True while the row has a panel open below it, so the height cap is lifted. */
+  expanded?: boolean;
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
   onLongPress: () => void;
@@ -124,8 +127,12 @@ export function SwipeRow({
     <li
       className={cn(
         // max-height rather than height so the row keeps sizing itself to its
-        // content; the cap only has to beat the tallest realistic row.
-        "group relative isolate max-h-[400px] touch-pan-y overflow-hidden rounded-card",
+        // content; the cap only has to beat the tallest realistic row. An open
+        // editor is taller than any realistic row, so the cap comes off while
+        // one is showing — otherwise the panel is cropped and its Save button
+        // is below the cut.
+        "group relative isolate touch-pan-y overflow-hidden rounded-card",
+        expanded ? "max-h-none" : "max-h-[400px]",
         "transition-[max-height,opacity] duration-[260ms] ease-out",
         lifted && "rotate-[-0.4deg]",
         leaving && "max-h-0 opacity-0",

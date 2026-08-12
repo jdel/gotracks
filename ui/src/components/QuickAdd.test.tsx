@@ -307,3 +307,76 @@ describe("QuickAdd project handling", () => {
     expect(todos.at(-1)?.projectId).toBe(5);
   });
 });
+
+// The desktop capture bar is one line: type, Enter, carry on reading the list.
+// The full form belongs to the mobile sheet, where there is room for it and no
+// keyboard shortcut to lean on.
+describe("the compact capture bar", () => {
+  function renderCompact() {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    return render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <QuickAdd compact />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it("shows only the line and its buttons", async () => {
+    renderCompact();
+    await screen.findByLabelText(/Add an action/);
+
+    expect(screen.queryByLabelText("Due")).toBeNull();
+    expect(screen.queryByLabelText("Show from")).toBeNull();
+    expect(screen.queryByLabelText("Tags (comma separated)")).toBeNull();
+    expect(screen.queryByLabelText("Context")).toBeNull();
+    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+  });
+
+  // A due date has no shorthand, so the bar has to be able to open into the
+  // same fields the sheet shows.
+  it("opens into the full fields and closes again", async () => {
+    const user = userEvent.setup();
+    renderCompact();
+    await screen.findByLabelText(/Add an action/);
+
+    await user.click(screen.getByRole("button", { name: /Add a due date/ }));
+    expect(screen.getByLabelText("Due")).toBeTruthy();
+    expect(screen.getByLabelText("Tags (comma separated)")).toBeTruthy();
+    expect(screen.getByLabelText("Context")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /Hide the extra fields/ }));
+    expect(screen.queryByLabelText("Due")).toBeNull();
+  });
+
+  // The sheet is already the full form; a toggle there would toggle nothing.
+  it("has no toggle when it is not compact", async () => {
+    renderApp();
+    await screen.findByText("context:@home");
+
+    expect(screen.queryByRole("button", { name: /Add a due date/ })).toBeNull();
+  });
+
+  it("still adds from the line, with the tokens applied", async () => {
+    const user = userEvent.setup();
+    renderCompact();
+
+    await user.click(await screen.findByLabelText(/Add an action/));
+    await user.keyboard("ring the bank @calls !urgent{Enter}");
+
+    await waitFor(() => expect(todos.at(-1)?.description).toBe("ring the bank"));
+    expect(todos.at(-1)?.tags).toEqual(["urgent"]);
+  });
+
+  // The sheet keeps everything: it is the same component, not a second form.
+  it("leaves the full form alone when not compact", async () => {
+    renderApp();
+    await screen.findByText("context:@home");
+
+    expect(screen.getByLabelText("Due")).toBeTruthy();
+    expect(screen.getByLabelText("Tags (comma separated)")).toBeTruthy();
+  });
+});

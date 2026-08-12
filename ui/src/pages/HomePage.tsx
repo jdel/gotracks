@@ -78,9 +78,11 @@ export function HomePage() {
   });
 
   const filtering = query.trim() !== "";
-  const visibleContexts = filtering
-    ? activeContexts.filter((c) => (byContext.get(c.id)?.length ?? 0) > 0)
-    : activeContexts;
+  // Only contexts that have something in them. An empty context is a heading
+  // over nothing: it says where an action could go, which the composer already
+  // says, and a screenful of them buries the contexts that do have work.
+  // Contexts themselves are managed on their own page.
+  const visibleContexts = activeContexts.filter((c) => (byContext.get(c.id)?.length ?? 0) > 0);
 
   // Today / Starred / Overdue read the active list; Done reads the completed
   // list. All are flat views where chips show @context, since no group header
@@ -135,7 +137,7 @@ export function HomePage() {
     >
       {/* Desktop create lives here, directly under the banner; mobile uses the FAB. */}
       <div className="mt-3.5 hidden rounded-card bg-card p-2.5 shadow-card md:block dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none">
-        <QuickAdd />
+        <QuickAdd compact />
       </div>
 
       {/* Filter box first, the pills pushed to the right of the row. */}
@@ -165,8 +167,10 @@ export function HomePage() {
         <SkeletonList />
       ) : filter === "contexts" ? (
         <>
-          {filtering && visibleContexts.length === 0 && (
-            <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">{t("home.noMatch")}</p>
+          {visibleContexts.length === 0 && (
+            <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">
+              {filtering ? t("home.noMatch") : t("home.emptyActions")}
+            </p>
           )}
           <div className="flex flex-col gap-[15px] md:grid md:grid-cols-2 md:gap-5">
             {visibleContexts.map((c) => {
@@ -174,11 +178,7 @@ export function HomePage() {
               return (
                 <section key={c.id} className="flex flex-col gap-[9px]">
                   <GroupHeader label={`@${bare(c.name, "@")}`} count={list.length} />
-                  {list.length === 0 ? (
-                    <p className="text-sm font-medium text-ink-3 dark:text-ink-4-dark">
-                      {t("home.noActionsHere")}
-                    </p>
-                  ) : filtering ? (
+                  {filtering ? (
                     // Reordering is disabled on a filtered subset — a drop
                     // carries no meaningful position.
                     <List>

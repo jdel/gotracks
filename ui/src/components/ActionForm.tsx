@@ -1,9 +1,11 @@
-import { useId, useMemo, useState, type FormEvent } from "react";
+import { useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link } from "react-router";
+import { ChevronDown } from "lucide-react";
 import { ActionInput } from "@/components/ActionInput";
 import { DateFields } from "@/components/DateFields";
 import { FilterPicker } from "@/components/FilterPicker";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { useContexts } from "@/hooks/useContexts";
 import { useProjects, useTags } from "@/hooks/useProjects";
@@ -13,6 +15,7 @@ import { dayValue } from "@/lib/actionDates";
 import { bare, parseAction, ALL_SIGILS, type Sigil } from "@/lib/composer";
 import { useDateFmt } from "@/lib/datefmt";
 import { useT } from "@/lib/i18n";
+import { useFocusFirstField } from "@/hooks/useFocusFirstField";
 import { lastUsed } from "@/lib/lastUsed";
 import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -33,6 +36,12 @@ export interface ActionFormProps {
   defaultProjectId?: number;
   /** Which prefixes the description accepts when creating. A project page drops "#". */
   sigils?: Sigil[];
+  /**
+   * One line and a button, for the desktop capture bar: type, press Enter, keep
+   * reading the list. The fields below are what the mobile sheet is for, and
+   * what "@", "#" and "!" already reach from the line itself.
+   */
+  compact?: boolean;
   /** Creating: after the action is added. Editing: after Save, or on cancel. */
   onDone?: () => void;
 }
@@ -57,11 +66,13 @@ export function ActionForm({
   defaultContextId,
   defaultProjectId,
   sigils = ALL_SIGILS,
+  compact = false,
   onDone,
 }: ActionFormProps) {
   const t = useT();
   const fmt = useDateFmt();
   const uid = useId();
+  const fields = useRef<HTMLDivElement>(null);
   const create = useCreateTodo();
   const update = useUpdateTodo();
   const editing = todo !== undefined;
@@ -83,6 +94,10 @@ export function ActionForm({
     showFrom: dayValue(todo?.showFrom, fmt.dayKey),
   });
   const [error, setError] = useState("");
+  // Compact only: the one-line bar can open into the same fields the sheet
+  // shows, for the times when the "@"/"#"/"!" shortcuts are not enough — a due
+  // date has no shorthand.
+  const [expanded, setExpanded] = useState(false);
   // Show-from of the action just created, when the server deferred it. Cleared
   // on the next submit, so the notice always refers to the latest action.
   const [deferredUntil, setDeferredUntil] = useState("");
@@ -200,6 +215,10 @@ export function ActionForm({
     );
   }
 
+  // Editing only: adding mounts with the page, and stealing the caret there
+  // would put the cursor in a form nobody asked for.
+  useFocusFirstField(fields, editing);
+
   function onFormSubmit(e: FormEvent) {
     e.preventDefault();
     submit();
@@ -218,20 +237,62 @@ export function ActionForm({
     ? t("quickadd.placeholderFull")
     : t("quickadd.placeholderNoProject");
 
+  // The editor has no <form> — a stray submit used to dismiss it — so the
+  // keyboard needs a way in that does not depend on one. Ctrl/Cmd+Enter saves
+  // from any field; Escape leaves without saving, which is what dismissing the
+  // sheet already does on a phone.
+  function onPanelKeyDown(e: KeyboardEvent<HTMLElement>) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      submit();
+    } else if (e.key === "Escape" && editing) {
+      e.preventDefault();
+      onDone?.();
+    }
+  }
+
   return (
-    <Shell {...shellProps} className="space-y-2">
-      <ActionInput
-        value={text}
-        onChange={setText}
-        // Enter saves and closes when adding; while editing it commits nothing
-        // on its own, so the drawer cannot vanish mid-edit.
-        onSubmit={editing ? () => {} : submit}
-        contexts={activeContexts}
-        projects={activeProjects}
-        tags={knownTagList}
-        sigils={editing ? [] : sigils}
-        placeholder={editing ? t("todo.actionDescription") : placeholder}
-      />
+    <Shell {...shellProps} className="space-y-2" onKeyDown={onPanelKeyDown}>
+      {/* Adding only. An existing action's description is edited in place by
+          clicking its title in the row, so a second field for it here would be
+          two ways to change one thing — and the one in the row is the one that
+          shows what it will look like afterwards. */}
+      {!editing && (
+        <div className={cn(compact && "flex gap-2")}>
+          <ActionInput
+            value={text}
+            onChange={setText}
+            onSubmit={submit}
+            contexts={activeContexts}
+            projects={activeProjects}
+            tags={knownTagList}
+            sigils={sigils}
+            placeholder={placeholder}
+          />
+          {compact && (
+            <IconButton
+              type="button"
+              variant="outline"
+              label={expanded ? t("quickadd.collapse") : t("quickadd.expand")}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              <ChevronDown
+                className={expanded ? "rotate-180 transition-transform" : "transition-transform"}
+              />
+            </IconButton>
+          )}
+          {compact && (
+            <Button
+              type="submit"
+              disabled={create.isPending}
+              aria-keyshortcuts="Control+Enter Meta+Enter"
+              title={t("common.saveShortcut")}
+            >
+              {t("common.save")}
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Where this action will land. Only worth showing while the shortcuts
           are live — editing has the controls below and nothing to preview. */}
@@ -274,7 +335,8 @@ export function ActionForm({
         </div>
       )}
 
-      <div className="grid gap-3 rounded-lg border p-3">
+      {(!compact || expanded) && (
+      <div className="grid gap-3" ref={fields}>
         <div className="grid grid-cols-2 gap-3">
           {/* Typed into rather than scrolled: a native select is fine for four
               contexts and useless for forty. */}
@@ -329,9 +391,11 @@ export function ActionForm({
           />
         </label>
       </div>
+      )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
+      {!compact && (
       <div className="flex items-center gap-2">
         {editing && dirty && (
           <span className="text-xs font-medium text-ink-4 dark:text-ink-4-dark">
@@ -343,10 +407,13 @@ export function ActionForm({
           onClick={editing ? submit : undefined}
           className="ml-auto"
           disabled={create.isPending || (editing && !dirty)}
+          aria-keyshortcuts="Control+Enter Meta+Enter"
+          title={t("common.saveShortcut")}
         >
           {t("common.save")}
         </Button>
       </div>
+      )}
 
       {/* An action created with a due date can be deferred on the spot, and
           then it is not in the list the user is looking at. Say where it went

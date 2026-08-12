@@ -6,6 +6,8 @@ interface QuickAddProps {
   defaultProjectId?: number;
   /** Which prefixes this field accepts. A project page drops "#". */
   sigils?: Sigil[];
+  /** One line and a button — the desktop capture bar. */
+  compact?: boolean;
   /** Called after an action is added, so a container (the mobile sheet) can close. */
   onAdded?: () => void;
 }
@@ -21,6 +23,7 @@ export function QuickAdd({
   defaultContextId,
   defaultProjectId,
   sigils,
+  compact,
   onAdded,
 }: QuickAddProps) {
   return (
@@ -28,6 +31,7 @@ export function QuickAdd({
       defaultContextId={defaultContextId}
       defaultProjectId={defaultProjectId}
       sigils={sigils}
+      compact={compact}
       onDone={onAdded}
     />
   );
