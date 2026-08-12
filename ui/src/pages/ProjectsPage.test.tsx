@@ -88,3 +88,21 @@ describe("projects page", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });
+
+// The card is the target, not just the four words of its name: a project's
+// title can be short, and the rest of the card was dead space.
+describe("opening a project", () => {
+  it("stretches the link across the whole card", async () => {
+    renderPage();
+
+    const name = await screen.findByText("Kitchen remodel");
+    const link = name.closest("a")!;
+    expect(link.getAttribute("href")).toBe("/projects/1");
+    // The overlay that covers the card, rather than only the text.
+    expect(link.className).toContain("after:inset-0");
+
+    // The action buttons sit above it, so they still do their own job.
+    const actions = link.closest("li")!.querySelector("[class*='z-10']");
+    expect(actions).not.toBeNull();
+  });
+});

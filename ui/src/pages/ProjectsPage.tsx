@@ -121,7 +121,7 @@ export function ProjectsPage() {
       header={
         <HeaderBlock
           title={t("nav.projects")}
-          avatar={initials(user?.email)}
+          avatar={initials(user?.email)} avatarLabel={t("nav.settings")}
           metrics={[
             { value: activeCount, label: t("projects.metricActive") },
             { value: openActions, label: t("projects.metricOpen"), tone: "done" },
@@ -174,7 +174,9 @@ export function ProjectsPage() {
                     open count used to ride along and made the float nearly
                     twice as wide, which left a narrow card's first line with
                     almost nowhere to start. */}
-                <div className={cn(rowActions, "float-right ml-2.5")}>
+                {/* Above the card-wide link below, so the icons stay
+                    clickable rather than navigating. */}
+                <div className={cn(rowActions, "relative z-10 float-right ml-2.5")}>
                     <IconButton
                       variant="ghost"
                       className="size-7"
@@ -204,7 +206,14 @@ export function ProjectsPage() {
                       <Trash2 className="size-3.5 text-danger" />
                     </IconButton>
                 </div>
-                <Link to={`/projects/${p.id}`} className="inline">
+                {/* The link stretches over the whole card: anywhere that is
+                    not one of the action buttons opens the project. It stays a
+                    real link on the title, so it reads and behaves as one for
+                    the keyboard and for a screen reader. */}
+                <Link
+                  to={`/projects/${p.id}`}
+                  className="inline after:absolute after:inset-0 after:content-['']"
+                >
                   <span
                     className={cn(
                       "text-sm leading-[1.3] font-bold break-words text-ink dark:text-ink-dark",
