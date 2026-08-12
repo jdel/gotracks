@@ -141,7 +141,6 @@ export interface Todo {
   projectId?: number;
   recurringTodoId?: number;
   description: string;
-  notes: string;
   due?: string;
   showFrom?: string;
   completedAt?: string;
@@ -177,7 +176,6 @@ export interface RecurringTodo {
   contextId: number;
   projectId?: number;
   description: string;
-  notes: string;
   state: string;
   period: RecurrencePeriod;
   everyN: number;

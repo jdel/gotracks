@@ -17,7 +17,7 @@ func (r *recurringRepo) Create(ctx context.Context, rec *domain.RecurringTodo) e
 
 func (r *recurringRepo) Update(ctx context.Context, rec *domain.RecurringTodo) error {
 	res, err := r.db.NewUpdate().Model(rec).
-		Column("context_id", "project_id", "description", "notes", "state", "period",
+		Column("context_id", "project_id", "description", "state", "period",
 			"every_n", "weekdays", "day_of_month", "month_of_year", "show_from_days",
 			"start_from", "end_date", "last_spawned_at", "completed_at", "updated_at").
 		Where("id = ? AND user_id = ?", rec.ID, rec.UserID).Exec(ctx)

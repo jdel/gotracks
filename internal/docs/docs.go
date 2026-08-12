@@ -3481,9 +3481,6 @@ const docTemplate = `{
                 "monthOfYear": {
                     "type": "integer"
                 },
-                "notes": {
-                    "type": "string"
-                },
                 "period": {
                     "type": "string"
                 },
@@ -3564,9 +3561,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "due": {
-                    "type": "string"
-                },
-                "notes": {
                     "type": "string"
                 },
                 "projectId": {
@@ -3917,9 +3911,6 @@ const docTemplate = `{
                     "description": "yearly (1-12)",
                     "type": "integer"
                 },
-                "notes": {
-                    "type": "string"
-                },
                 "period": {
                     "description": "Pattern. EveryN applies to the chosen period (every 2 weeks, every 3 months…).",
                     "type": "string"
@@ -3977,9 +3968,6 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
-                },
-                "notes": {
-                    "type": "string"
                 },
                 "position": {
                     "type": "integer"

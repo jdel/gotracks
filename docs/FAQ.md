@@ -83,8 +83,7 @@ ceremony belongs to nobody and cannot complete a sign-in.
 User-authored text is bounded by Unicode character count so row quotas also
 bound database growth. Context, project, tag and passkey names, plus attachment
 filenames and attachment content types allow 200 characters; action, recurrence
-and project descriptions allow 1,000; note bodies and action/recurrence notes
-allow 1,000. These limits are enforced by the API and cannot be disabled by
+and project descriptions allow 1,000; note bodies allow 1,000. These limits are enforced by the API and cannot be disabled by
 configuration.
 
 ## Audit log

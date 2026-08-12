@@ -101,7 +101,7 @@ func TestMigrateAdoptsCurrentUntrackedSchema(t *testing.T) {
 	}
 	// The baseline is adopted rather than run; everything after it is applied
 	// normally, so each new migration belongs in this list.
-	want := []string{"202607230001", "202607230002", "202607240001", "202607240002", "202607240003", "202607240004", "202607270001", "202608120001"}
+	want := []string{"202607230001", "202607230002", "202607240001", "202607240002", "202607240003", "202607240004", "202607270001", "202608120001", "202608120002"}
 	if len(migrationNames) != len(want) {
 		t.Fatalf("unexpected applied migrations: %v", migrationNames)
 	}
@@ -221,5 +221,28 @@ func TestMigrateRetriesIncompleteBaseline(t *testing.T) {
 		Model(&domain.Preference{UserID: 1, DateFormat: "d", TimeZone: "UTC", Locale: "en", Theme: "system"}).
 		Exec(ctx); err != nil {
 		t.Fatalf("insert into recreated table: %v", err)
+	}
+}
+
+// Actions and recurrence patterns no longer carry notes, and the column goes
+// with the field: a schema that still had it would keep the data alive and
+// leave the two out of step.
+func TestMigrateDropsActionNotes(t *testing.T) {
+	bdb := open(t)
+	ctx := context.Background()
+	if err := db.Migrate(ctx, bdb); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, table := range []string{"todos", "recurring_todos"} {
+		var count int
+		if err := bdb.NewRaw(
+			"SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = 'notes'", table,
+		).Scan(ctx, &count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Fatalf("%s still has a notes column", table)
+		}
 	}
 }

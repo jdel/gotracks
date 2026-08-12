@@ -62,7 +62,6 @@ export interface TodoInput {
   contextName?: string;
   projectName?: string;
   description?: string;
-  notes?: string;
   due?: string;
   showFrom?: string;
   starred?: boolean;

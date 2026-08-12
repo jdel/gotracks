@@ -16,7 +16,6 @@ export interface RecurringInput {
   contextName?: string;
   projectName?: string;
   description?: string;
-  notes?: string;
   state?: string;
   period?: string;
   everyN?: number;

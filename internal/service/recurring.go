@@ -43,7 +43,6 @@ type RecurringInput struct {
 	ContextName  *string
 	ProjectName  *string
 	Description  *string
-	Notes        *string
 	State        *string
 	Period       *string
 	EveryN       *int
@@ -117,9 +116,6 @@ func (s *RecurringService) create(ctx context.Context, userID int64, in Recurrin
 		EveryN:      1,
 		CreatedAt:   now,
 		UpdatedAt:   now,
-	}
-	if in.Notes != nil {
-		rec.Notes = *in.Notes
 	}
 	if in.EveryN != nil && *in.EveryN > 0 {
 		rec.EveryN = *in.EveryN
@@ -201,9 +197,6 @@ func (s *RecurringService) update(ctx context.Context, userID, id int64, in Recu
 			return nil, ErrValidation
 		}
 		rec.Description = strings.TrimSpace(*in.Description)
-	}
-	if in.Notes != nil {
-		rec.Notes = *in.Notes
 	}
 	if in.State != nil {
 		if *in.State != domain.StateActive && *in.State != domain.StateCompleted {
@@ -350,7 +343,6 @@ func (s *RecurringService) spawnIfDue(ctx context.Context, rec *domain.Recurring
 		ProjectID:       rec.ProjectID,
 		RecurringTodoID: &rec.ID,
 		Description:     rec.Description,
-		Notes:           rec.Notes,
 		Due:             &dueCopy,
 		ShowFrom:        showFromPtr,
 		State:           state,
@@ -386,9 +378,6 @@ func validateRecurringInput(in RecurringInput, creating bool) error {
 		if err := validateRequired(*in.Description, MaxDescriptionCharacters); err != nil {
 			return err
 		}
-	}
-	if err := validateOptional(in.Notes, MaxNotesCharacters); err != nil {
-		return err
 	}
 	if in.Weekdays != nil && !validWeekdays(*in.Weekdays) {
 		return ErrValidation

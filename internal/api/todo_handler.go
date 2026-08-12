@@ -23,7 +23,6 @@ type todoRequest struct {
 	ContextName *string   `json:"contextName"`
 	ProjectName *string   `json:"projectName"`
 	Description *string   `json:"description"`
-	Notes       *string   `json:"notes"`
 	Due         *string   `json:"due"`
 	ShowFrom    *string   `json:"showFrom"`
 	Starred     *bool     `json:"starred"`
@@ -39,7 +38,6 @@ func (r *todoRequest) toInput() (service.TodoInput, bool) {
 		ContextName: r.ContextName,
 		ProjectName: r.ProjectName,
 		Description: r.Description,
-		Notes:       r.Notes,
 		Starred:     r.Starred,
 	}
 	if r.Due != nil {

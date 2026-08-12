@@ -17,7 +17,6 @@ type recurringRequest struct {
 	ContextName  *string `json:"contextName"`
 	ProjectName  *string `json:"projectName"`
 	Description  *string `json:"description"`
-	Notes        *string `json:"notes"`
 	State        *string `json:"state"`
 	Period       *string `json:"period"`
 	EveryN       *int    `json:"everyN"`
@@ -36,7 +35,6 @@ func (r *recurringRequest) toInput() (service.RecurringInput, bool) {
 		ContextName:  r.ContextName,
 		ProjectName:  r.ProjectName,
 		Description:  r.Description,
-		Notes:        r.Notes,
 		State:        r.State,
 		Period:       r.Period,
 		EveryN:       r.EveryN,

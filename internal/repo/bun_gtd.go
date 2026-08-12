@@ -88,7 +88,7 @@ func (r *todoRepo) Create(ctx context.Context, t *domain.Todo) error {
 
 func (r *todoRepo) Update(ctx context.Context, t *domain.Todo) error {
 	res, err := r.db.NewUpdate().Model(t).
-		Column("context_id", "project_id", "description", "notes", "due", "show_from",
+		Column("context_id", "project_id", "description", "due", "show_from",
 			"completed_at", "state", "starred", "position", "updated_at").
 		Where("id = ? AND user_id = ?", t.ID, t.UserID).Exec(ctx)
 	if err != nil {

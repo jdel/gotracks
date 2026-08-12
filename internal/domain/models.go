@@ -99,7 +99,6 @@ type Todo struct {
 	ProjectID       *int64     `bun:"project_id" json:"projectId,omitempty"`
 	RecurringTodoID *int64     `bun:"recurring_todo_id" json:"recurringTodoId,omitempty"`
 	Description     string     `bun:"description,notnull" json:"description"`
-	Notes           string     `bun:"notes" json:"notes"`
 	Due             *time.Time `bun:"due" json:"due,omitempty"`
 	ShowFrom        *time.Time `bun:"show_from" json:"showFrom,omitempty"`
 	CompletedAt     *time.Time `bun:"completed_at" json:"completedAt,omitempty"`
@@ -130,7 +129,6 @@ type RecurringTodo struct {
 	ContextID   int64  `bun:"context_id,notnull" json:"contextId"`
 	ProjectID   *int64 `bun:"project_id" json:"projectId,omitempty"`
 	Description string `bun:"description,notnull" json:"description"`
-	Notes       string `bun:"notes" json:"notes"`
 	State       string `bun:"state,notnull" json:"state"`
 
 	// Pattern. EveryN applies to the chosen period (every 2 weeks, every 3 months…).

@@ -78,7 +78,6 @@ type TodoInput struct {
 	ProjectName   *string
 	ClearProject  bool
 	Description   *string
-	Notes         *string
 	Due           *time.Time
 	ClearDue      bool
 	ShowFrom      *time.Time
@@ -208,9 +207,6 @@ func (s *TodoService) create(ctx context.Context, userID int64, in TodoInput) (*
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if in.Notes != nil {
-		t.Notes = *in.Notes
-	}
 	if in.Due != nil {
 		t.Due = in.Due
 	}
@@ -296,9 +292,6 @@ func (s *TodoService) update(ctx context.Context, userID, id int64, in TodoInput
 			return nil, ErrValidation
 		}
 		t.Description = strings.TrimSpace(*in.Description)
-	}
-	if in.Notes != nil {
-		t.Notes = *in.Notes
 	}
 	if in.ClearDue {
 		t.Due = nil
@@ -490,9 +483,6 @@ func validateTodoInput(in TodoInput, creating bool) error {
 		if err := validateRequired(*in.Description, MaxDescriptionCharacters); err != nil {
 			return err
 		}
-	}
-	if err := validateOptional(in.Notes, MaxNotesCharacters); err != nil {
-		return err
 	}
 	for _, name := range normalizeTags(in.Tags) {
 		if err := validateName(name); err != nil {

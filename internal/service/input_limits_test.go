@@ -65,12 +65,6 @@ func TestTextLimitsAreEnforcedByServices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	notes := overLimit(service.MaxNotesCharacters)
-	if _, err := todoSvc.Update(ctx, 1, todo.ID, service.TodoInput{
-		Notes: &notes,
-	}); !errors.Is(err, service.ErrValidation) {
-		t.Fatalf("oversized action update: %v", err)
-	}
 	oversizedTag := overLimit(service.MaxNameCharacters)
 	if _, err := todoSvc.Update(ctx, 1, todo.ID, service.TodoInput{
 		Tags: []string{oversizedTag}, HasTags: true,
@@ -80,11 +74,6 @@ func TestTextLimitsAreEnforcedByServices(t *testing.T) {
 
 	recurring := newRecurringService(t, store)
 	period := domain.PeriodDaily
-	if _, err := recurring.Create(ctx, 1, service.RecurringInput{
-		ContextID: &contextID, Description: strPtr("recurring"), Notes: &notes, Period: &period,
-	}); !errors.Is(err, service.ErrValidation) {
-		t.Fatalf("oversized recurrence notes: %v", err)
-	}
 	weekdays := strings.Repeat("0,", 1000)
 	if _, err := recurring.Create(ctx, 1, service.RecurringInput{
 		ContextID: &contextID, Description: strPtr("recurring"), Weekdays: &weekdays, Period: &period,

@@ -70,7 +70,6 @@ type ExportTodo struct {
 	Description string     `json:"description"`
 	Context     string     `json:"context"`
 	Project     string     `json:"project,omitempty"`
-	Notes       string     `json:"notes"`
 	State       string     `json:"state"`
 	Due         *time.Time `json:"due,omitempty"`
 	ShowFrom    *time.Time `json:"showFrom,omitempty"`
@@ -85,7 +84,6 @@ type ExportRecurring struct {
 	Description   string     `json:"description"`
 	Context       string     `json:"context"`
 	Project       string     `json:"project,omitempty"`
-	Notes         string     `json:"notes"`
 	State         string     `json:"state"`
 	Period        string     `json:"period"`
 	EveryN        int        `json:"everyN"`
@@ -175,7 +173,7 @@ func (s *TransferService) Gather(ctx context.Context, userID int64) (*Export, er
 	}
 	outTodos := make([]ExportTodo, 0, len(todos))
 	for _, t := range todos {
-		out := ExportTodo{Description: t.Description, Context: contextNames[t.ContextID], Notes: t.Notes, State: t.State, Due: t.Due, ShowFrom: t.ShowFrom, CompletedAt: t.CompletedAt, Starred: t.Starred, Tags: t.Tags, CreatedAt: t.CreatedAt}
+		out := ExportTodo{Description: t.Description, Context: contextNames[t.ContextID], State: t.State, Due: t.Due, ShowFrom: t.ShowFrom, CompletedAt: t.CompletedAt, Starred: t.Starred, Tags: t.Tags, CreatedAt: t.CreatedAt}
 		if t.ProjectID != nil {
 			out.Project = projectNames[*t.ProjectID]
 		}
@@ -183,7 +181,7 @@ func (s *TransferService) Gather(ctx context.Context, userID int64) (*Export, er
 	}
 	outRecurring := make([]ExportRecurring, 0, len(recurring))
 	for _, r := range recurring {
-		out := ExportRecurring{Description: r.Description, Context: contextNames[r.ContextID], Notes: r.Notes, State: r.State, Period: r.Period, EveryN: r.EveryN, Weekdays: r.Weekdays, DayOfMonth: r.DayOfMonth, MonthOfYear: r.MonthOfYear, ShowFromDays: r.ShowFromDays, StartFrom: r.StartFrom, EndDate: r.EndDate, LastSpawnedAt: r.LastSpawnedAt, CompletedAt: r.CompletedAt, CreatedAt: r.CreatedAt}
+		out := ExportRecurring{Description: r.Description, Context: contextNames[r.ContextID], State: r.State, Period: r.Period, EveryN: r.EveryN, Weekdays: r.Weekdays, DayOfMonth: r.DayOfMonth, MonthOfYear: r.MonthOfYear, ShowFromDays: r.ShowFromDays, StartFrom: r.StartFrom, EndDate: r.EndDate, LastSpawnedAt: r.LastSpawnedAt, CompletedAt: r.CompletedAt, CreatedAt: r.CreatedAt}
 		if r.ProjectID != nil {
 			out.Project = projectNames[*r.ProjectID]
 		}
