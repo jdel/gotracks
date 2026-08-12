@@ -298,7 +298,7 @@ export function AdminPage() {
       header={
         <HeaderBlock
           title={t("admin.title")}
-          avatar={initials(user?.email)}
+          avatar={initials(user?.email)} avatarLabel={t("nav.settings")}
           metrics={[{ value: total, label: t("admin.metricAccounts") }]}
         />
       }

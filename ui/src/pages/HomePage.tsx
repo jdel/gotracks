@@ -118,7 +118,7 @@ export function HomePage() {
   const header = (
     <HeaderBlock
       title={t("actions.title")}
-      avatar={initials(user?.email)}
+      avatar={initials(user?.email)} avatarLabel={t("nav.settings")}
       metrics={[
         { value: openCount, label: t("home.openLabel") },
         { value: doneToday, label: t("home.doneTodayLabel"), tone: "done" },

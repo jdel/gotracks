@@ -110,7 +110,7 @@ function TodoList({
   }
 
   return (
-    <Screen header={<HeaderBlock title={title} avatar={initials(user?.email)} />}>
+    <Screen header={<HeaderBlock title={title} avatar={initials(user?.email)} avatarLabel={t("nav.settings")} />}>
       <div className="flex flex-wrap items-center gap-2 pb-4">
         <SearchInput
           className="w-full min-w-[180px] sm:w-auto sm:max-w-[300px] sm:flex-1"
@@ -244,7 +244,7 @@ export function TagsPage() {
   const contextName = (id: number) => contexts?.find((c) => c.id === id)?.name;
 
   return (
-    <Screen header={<HeaderBlock title={t("nav.tags")} avatar={initials(user?.email)} />}>
+    <Screen header={<HeaderBlock title={t("nav.tags")} avatar={initials(user?.email)} avatarLabel={t("nav.settings")} />}>
       {tags?.length === 0 ? (
         <EmptyState message={t("tags.emptyList")} />
       ) : (

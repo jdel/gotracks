@@ -171,7 +171,7 @@ export function AuditPage() {
       header={
         <HeaderBlock
           title={t("nav.audit")}
-          avatar={initials(user?.email)}
+          avatar={initials(user?.email)} avatarLabel={t("nav.settings")}
           metrics={[{ value: data?.total ?? 0, label: t("audit.matchingLabel") }]}
           action={
             <button

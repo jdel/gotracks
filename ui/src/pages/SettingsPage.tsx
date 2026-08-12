@@ -95,7 +95,7 @@ export function SettingsPage() {
       header={
         <HeaderBlock
           title={t("settings.title")}
-          avatar={initials(user?.email)}
+          avatar={initials(user?.email)} avatarLabel={t("nav.settings")}
           metrics={user?.email ? [{ label: user.email }] : []}
         />
       }

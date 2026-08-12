@@ -110,7 +110,7 @@ export function StatsPage() {
   const hasData = stats.totalActions > 0;
 
   return (
-    <Screen header={<HeaderBlock title={t("stats.title")} avatar={initials(user?.email)} />}>
+    <Screen header={<HeaderBlock title={t("stats.title")} avatar={initials(user?.email)} avatarLabel={t("nav.settings")} />}>
       {!hasData ? (
         <p className="mt-4 text-sm font-medium text-ink-3 dark:text-ink-4-dark">{t("stats.noData")}</p>
       ) : (

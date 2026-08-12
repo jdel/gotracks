@@ -148,7 +148,7 @@ export function AttachmentsPage() {
   const rows = sortAttachments(filtered, sort, desc);
 
   return (
-    <Screen header={<HeaderBlock title={t("nav.attachments")} avatar={initials(user?.email)} />}>
+    <Screen header={<HeaderBlock title={t("nav.attachments")} avatar={initials(user?.email)} avatarLabel={t("nav.settings")} />}>
       <div className="flex flex-wrap items-center gap-2 pb-4">
         <SearchInput
           value={query}

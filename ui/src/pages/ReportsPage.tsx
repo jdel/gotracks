@@ -199,7 +199,7 @@ export function ReportsPage() {
       header={
         <HeaderBlock
           title={t("nav.reports")}
-          avatar={initials(user?.email)}
+          avatar={initials(user?.email)} avatarLabel={t("nav.settings")}
           metrics={[
             { value: report?.total ?? 0, label: t("admin.metricAccounts") },
             {

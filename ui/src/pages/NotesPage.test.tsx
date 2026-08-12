@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NotesPage } from "./NotesPage";
@@ -85,7 +86,9 @@ function renderPage() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <NotesPage />
+      <MemoryRouter>
+        <NotesPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -97,9 +100,11 @@ function renderPageWithUndo() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <UndoProvider>
-        <NotesPage />
-      </UndoProvider>
+      <MemoryRouter>
+        <UndoProvider>
+          <NotesPage />
+        </UndoProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }

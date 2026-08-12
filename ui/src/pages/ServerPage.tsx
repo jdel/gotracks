@@ -34,7 +34,7 @@ export function ServerPage() {
       header={
         <HeaderBlock
           title={t("server.title")}
-          avatar={initials(user?.email)}
+          avatar={initials(user?.email)} avatarLabel={t("nav.settings")}
         />
       }
     >

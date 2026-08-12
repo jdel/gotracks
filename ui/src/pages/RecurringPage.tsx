@@ -484,7 +484,7 @@ export function RecurringPage() {
 
   return (
     <Screen
-      header={<HeaderBlock title={t("nav.recurring")} avatar={initials(user?.email)} />}
+      header={<HeaderBlock title={t("nav.recurring")} avatar={initials(user?.email)} avatarLabel={t("nav.settings")} />}
       fab={<Fab label={t("recurring.addTitle")} onClick={() => setAdding(true)} />}
     >
       <div className="mt-3.5 hidden md:block">

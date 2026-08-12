@@ -34,7 +34,7 @@ export function LegalAdminPage() {
       header={
         <HeaderBlock
           title={t("nav.legal")}
-          avatar={initials(user?.email)}
+          avatar={initials(user?.email)} avatarLabel={t("nav.settings")}
         />
       }
     >

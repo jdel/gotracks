@@ -144,7 +144,7 @@ export function NotesPage() {
       header={
         <HeaderBlock
           title={t("nav.notes")}
-          avatar={initials(user?.email)}
+          avatar={initials(user?.email)} avatarLabel={t("nav.settings")}
           metrics={[{ value: notes?.length ?? 0, label: t("notes.metricLabel") }]}
         />
       }

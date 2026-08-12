@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DonePage, TicklerPage } from "./ListPages";
@@ -32,7 +33,6 @@ function todo(id: number, description: string, starred = false, completedAt?: st
     contextId: 1,
     description,
     tags: [],
-    notes: "",
     state: "completed",
     starred,
     completedAt,
@@ -48,7 +48,9 @@ function renderPage(page: "done" | "tickler" = "done") {
   });
   return render(
     <QueryClientProvider client={client}>
-      {page === "tickler" ? <TicklerPage /> : <DonePage />}
+      <MemoryRouter>
+        {page === "tickler" ? <TicklerPage /> : <DonePage />}
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -60,7 +62,6 @@ function deferred(id: number, description: string, showFrom: string) {
     contextId: 1,
     description,
     tags: [],
-    notes: "",
     state: "deferred",
     starred: false,
     showFrom,

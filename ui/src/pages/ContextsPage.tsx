@@ -133,7 +133,7 @@ export function ContextsPage() {
 
   return (
     <Screen
-      header={<HeaderBlock title={t("nav.contexts")} avatar={initials(user?.email)} />}
+      header={<HeaderBlock title={t("nav.contexts")} avatar={initials(user?.email)} avatarLabel={t("nav.settings")} />}
       fab={<Fab label={t("contexts.addTitle")} onClick={() => setAdding(true)} />}
     >
       <div className="mt-3.5 hidden rounded-card bg-card p-2.5 shadow-card md:block dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none">
