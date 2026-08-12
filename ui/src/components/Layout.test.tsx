@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -317,5 +317,27 @@ describe("the mobile tab bar", () => {
     expect(screen.getByRole("button", { name: /More/i })).toBeTruthy();
     // The four it displaced are still reachable, just behind More.
     expect(await allMobileLinks()).toContain("Notes");
+  });
+});
+
+// The navigation menu was the last drawer built on a different primitive: it
+// had a grab handle that did nothing, no scroll lock and no inert background.
+// It shares the one Sheet now, so it has to behave like every other drawer.
+describe("the More menu is an ordinary drawer", () => {
+  it("locks the page behind it and pulls down to dismiss", async () => {
+    const user = userEvent.setup();
+    renderLayout();
+
+    await user.click(screen.getByRole("button", { name: /More/i }));
+    const sheet = screen.getByRole("dialog");
+    expect(document.body.hasAttribute("data-scroll-locked")).toBe(true);
+
+    const grip = sheet.querySelector("[data-sheet-grip]")!;
+    fireEvent.pointerDown(grip, { pointerType: "touch", clientY: 100 });
+    fireEvent.pointerMove(grip, { pointerType: "touch", clientY: 400 });
+    fireEvent.pointerUp(grip, { pointerType: "touch", clientY: 400 });
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.body.hasAttribute("data-scroll-locked")).toBe(false));
   });
 });

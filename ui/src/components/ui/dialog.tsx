@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
+
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogClose = DialogPrimitive.Close;
@@ -53,33 +54,36 @@ const DialogContent = React.forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 /**
- * SheetContent is a dialog anchored to the bottom of the screen, for the
- * mobile navigation menu. Same primitive, so it keeps the focus trap, the
- * escape handling and the scroll lock.
+ * SheetSurface is a dialog anchored to the bottom of the screen: the panel a
+ * bottom sheet is drawn on. It carries no handle, header or gesture — the Sheet
+ * primitive in components/primitives.tsx puts those on top of it, and is what
+ * the application uses. Same dialog underneath as the modals, so the focus
+ * trap, escape handling and scroll lock are the same too.
  */
-const SheetContent = React.forwardRef<
+const SheetSurface = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    /** Tapping the dimmed area behind the sheet. */
+    onOverlayClick?: () => void;
+  }
+>(({ className, children, onOverlayClick, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogOverlay />
+    <DialogOverlay onClick={onOverlayClick} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-xl border-t bg-background",
-        "p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg",
-        "animate-in slide-in-from-bottom duration-200",
+        "fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] touch-pan-y overflow-y-auto rounded-t-sheet",
+        "bg-card px-4 pt-3.5 shadow-sheet dark:bg-card-dark",
+        "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
         className,
       )}
       {...props}
     >
-      {/* Grab handle: signals the sheet can be dismissed. */}
-      <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted-foreground/30" />
       {children}
     </DialogPrimitive.Content>
   </DialogPrimitive.Portal>
 ));
-SheetContent.displayName = "SheetContent";
+SheetSurface.displayName = "SheetSurface";
 
 function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("space-y-2", className)} {...props} />;
@@ -118,7 +122,7 @@ export {
   DialogTrigger,
   DialogClose,
   DialogContent,
-  SheetContent,
+  SheetSurface,
   DialogHeader,
   DialogFooter,
   DialogTitle,

@@ -1,12 +1,7 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ButtonHTMLAttributes,
-  type PointerEvent,
-  type ReactNode,
-} from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { Link } from "react-router";
+import { usePullToDismiss } from "@/hooks/usePullToDismiss";
+import { Dialog, DialogTitle, SheetSurface } from "@/components/ui/dialog";
 import { ArrowLeft, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +55,7 @@ export function HeaderBlock({
   onBack,
   action,
   avatar = "JD",
+  avatarLabel,
 }: {
   title: ReactNode;
   metrics?: Metric[];
@@ -67,6 +63,9 @@ export function HeaderBlock({
   onBack?: () => void;
   action?: ReactNode;
   avatar?: ReactNode;
+  /** Accessible name for the avatar link. Already translated, like everything
+   *  else a caller hands this file. */
+  avatarLabel?: string;
 }) {
   const backButton = (extra: string) => (
     <button
@@ -96,9 +95,15 @@ export function HeaderBlock({
           </div>
         )}
         {action ?? (
-          <div className="flex size-[26px] items-center justify-center rounded-full bg-white/[0.18] text-[10px] font-extrabold">
+          // The initials are the only account affordance on a phone, so they
+          // are the way into Settings rather than decoration.
+          <Link
+            to="/settings"
+            aria-label={avatarLabel}
+            className="flex size-[26px] items-center justify-center rounded-full bg-white/[0.18] text-[10px] font-extrabold transition-colors hover:bg-white/30"
+          >
             {avatar}
-          </div>
+          </Link>
         )}
       </div>
 
@@ -491,136 +496,107 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
   );
 }
 
-// How far a sheet must be pulled down before letting go dismisses it.
-const SHEET_DISMISS = 96;
-
-/* Bottom sheet used for quick add and row actions. Escape closes and returns
- * focus to the trigger; focus is trapped while open; the backdrop is not a link.
+/* Bottom sheet used for quick add, row actions and the mobile navigation.
  *
- * Rendered into document.body rather than in place. A `position: fixed` box is
- * only viewport-relative while no ancestor is transformed — and a swipeable row
- * carries a permanent translateX, which makes it the containing block for
- * anything fixed inside it. In place, the sheet was laid out against the card
- * and then clipped by its overflow-hidden, so it opened as a small panel that
- * scrolled inside the row. The portal takes it out of that subtree entirely,
- * which also holds for any transform or overflow added to a row later. */
+ * Built on the same dialog primitive as the modals, which is what supplies the
+ * focus trap, the escape handling, the aria wiring and the scroll lock on the
+ * page behind. An earlier hand-rolled version of this only moved focus into the
+ * sheet and claimed to trap it — Tab walked straight back out to the page
+ * underneath.
+ *
+ * The pull-to-dismiss gesture starts on the header, never on the body: the body
+ * scrolls, so a browser that reads a downward drag there as a scroll takes the
+ * gesture and the sheet would follow the finger a few pixels and snap back. */
 export function Sheet({
   open,
   onClose,
   title,
+  actions,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
+  /** Icon buttons for the title row, pinned to its right. */
+  actions?: ReactNode;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  // How far the sheet has been pulled down, and whether a pull is in progress.
-  const [dy, setDy] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const startY = useRef(0);
-  const pulling = useRef(false);
+  const pull = usePullToDismiss(onClose);
+  const { reset } = pull;
+  const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
     // A sheet that was dragged part-way and then reopened must not come back
     // still displaced.
-    setDy(0);
-    // Freeze the page underneath. Without this, dragging the sheet down — or
-    // simply scrolling inside it once it has hit its end — scrolls the list
-    // behind it instead, so the sheet appears to slide over a moving page.
-    const bodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const prev = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLElement>("input,button,select,textarea")?.focus();
+    if (open) reset();
+  }, [open, reset]);
+
+  // Escape closes, explicitly. The dialog primitive offers this, but an icon
+  // button carries a tooltip, and a focused tooltip swallows the key before the
+  // dialog sees it — so the sheet's own title-row buttons could leave Escape
+  // doing nothing at all.
+  useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
+      if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = bodyOverflow;
-      prev?.focus?.();
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
-  // The grabber promises the sheet can be pulled down, so it can be. The pull
-  // only starts when the content is scrolled to the top: lower down, a downward
-  // drag is someone scrolling back up through a long sheet, and stealing that
-  // would make the content unreadable.
-  // Every pointer event stops here. A portal still propagates through the React
-  // tree, not the DOM one, so without this a drag on a sheet opened from a
-  // swipeable row would also reach that row's gesture handlers — pulling the
-  // sheet down would fire a swipe on the card behind it.
-  function onPointerDown(e: PointerEvent) {
-    e.stopPropagation();
-    if (e.pointerType !== "touch") return;
-    if ((ref.current?.scrollTop ?? 0) > 0) return;
-    startY.current = e.clientY;
-    pulling.current = true;
-  }
 
-  function onPointerMove(e: PointerEvent) {
-    e.stopPropagation();
-    if (!pulling.current || e.pointerType !== "touch") return;
-    const moved = e.clientY - startY.current;
-    // Downward only. Dragging up is the scroll the content expects.
-    if (moved <= 0) {
-      setDy(0);
-      return;
-    }
-    if (!dragging && moved > 8) setDragging(true);
-    setDy(moved);
-  }
-
-  function endPull(e: PointerEvent) {
-    e.stopPropagation();
-    pulling.current = false;
-    setDragging(false);
-    // Past the threshold it closes; short of it, it springs back rather than
-    // sitting half-open.
-    if (dy > SHEET_DISMISS) onClose();
-    else setDy(0);
-  }
-
-  if (!open) return null;
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <div
-        onClick={onClose}
-        className="absolute inset-0 bg-[rgb(20_22_31_/_0.4)] motion-safe:animate-[fadeIn_160ms_ease-out]"
-      />
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endPull}
-        onPointerCancel={endPull}
-        className="relative max-h-[85dvh] touch-pan-y overflow-auto rounded-t-sheet bg-card px-4 pt-3.5 pb-5 shadow-sheet motion-safe:animate-[sheetUp_240ms_cubic-bezier(0.32,0.72,0,1)] dark:bg-card-dark"
-        style={{
-          // Unset at rest, like the swipe rows: an identity transform would
-          // make this the containing block for anything fixed inside it.
-          transform: dy === 0 ? undefined : `translateY(${dy}px)`,
-          transition: dragging ? "none" : "transform 200ms",
-          // Once a pull is under way the sheet must not also try to scroll its
-          // own content: the finger is moving the whole sheet, not the text.
-          touchAction: dragging ? "none" : undefined,
+  return (
+    <Dialog open={open} onOpenChange={(next: boolean) => !next && onClose()}>
+      <SheetSurface
+        aria-describedby={undefined}
+        onOverlayClick={onClose}
+        // Every pointer event stops at the sheet. A portal propagates through
+        // the React tree rather than the DOM one, so without this a swipe
+        // inside a sheet opened from a swipeable row reaches that row's gesture
+        // handlers underneath: dragging across the editor starred the action,
+        // or threw the defer sheet on top of it.
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerMove={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+        onPointerCancel={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        // The dialog's own "did that interaction land outside?" heuristic is
+        // refused. It misjudges a sheet: a native select or date picker, and a
+        // pointer captured by the swipeable row underneath, both retarget the
+        // event away from the panel, and the sheet then dismisses itself under
+        // a tap that was plainly inside it. Dismissal here is only ever the
+        // backdrop, Escape, the pull, or the sheet's own buttons — all of them
+        // explicit, none of them a guess.
+        onInteractOutside={(e) => e.preventDefault()}
+        style={pull.style}
+        className="motion-safe:animate-[sheetUp_240ms_cubic-bezier(0.32,0.72,0,1)]"
+        onOpenAutoFocus={(e) => {
+          // Focus the first control of the sheet's content, not the title row:
+          // opening a sheet on its delete button is startling, and it is the
+          // field below that the sheet was opened to reach.
+          e.preventDefault();
+          const first = body.current?.querySelector<HTMLElement>(
+            "input,button,select,textarea,[tabindex]:not([tabindex='-1'])",
+          );
+          first?.focus();
         }}
       >
-        <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line-2 dark:bg-line-2-dark" />
-        <h2 className="mb-2 text-[17px] font-extrabold tracking-[-0.02em] text-ink dark:text-ink-dark">
-          {title}
-        </h2>
-        {children}
-      </div>
-    </div>,
-    document.body,
+        {/* The header is the grip: the pull starts here, where the handle
+            invites it, so the scrolling body below keeps its own gesture. */}
+        <div {...pull.dragHandleProps} className="cursor-grab active:cursor-grabbing">
+          <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line-2 dark:bg-line-2-dark" />
+          {/* The title takes one line and is cut off: a long action description
+              would otherwise push the actions beside it off the row, or eat the
+              top of a sheet that has little height to spare. */}
+          <div className="mb-2 flex items-center gap-2">
+            <DialogTitle className="min-w-0 flex-1 truncate text-[17px] font-extrabold tracking-[-0.02em] text-ink dark:text-ink-dark">
+              {title}
+            </DialogTitle>
+            {actions && <div className="flex flex-none items-center gap-1">{actions}</div>}
+          </div>
+        </div>
+        <div ref={body}>{children}</div>
+      </SheetSurface>
+    </Dialog>
   );
 }
 

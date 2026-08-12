@@ -24,8 +24,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { useServerConfig, useServerVersion } from "@/hooks/useSettings";
 import { useT } from "@/lib/i18n";
-import { Dialog, DialogTitle, SheetContent } from "@/components/ui/dialog";
-import { Mark } from "@/components/primitives";
+import { Mark, Sheet } from "@/components/primitives";
 import { formatVersion } from "@/lib/version";
 import { cn } from "@/lib/utils";
 import { LegalLinks } from "@/pages/LegalPage";
@@ -261,8 +260,12 @@ export function Layout() {
       <div className="relative flex min-h-dvh min-w-0 flex-1 flex-col overflow-x-clip md:min-h-0">
         <Outlet />
 
-        {/* Mobile bottom tab bar — text-only labels, active on a brand-soft pill. */}
-        <nav className="sticky bottom-0 z-30 flex h-[62px] items-center justify-around border-t border-line bg-card px-1.5 md:hidden dark:border-line-dark dark:bg-nav-dark">
+        {/* Mobile bottom tab bar — text-only labels, active on a brand-soft pill.
+            Every tab takes an equal share of the width (flex-1 basis-0) rather
+            than sizing to its label: the active one is bolder and wears a
+            padded pill, so content-width tabs made the whole bar shuffle
+            sideways each time one was tapped. */}
+        <nav className="sticky bottom-0 z-30 flex h-[62px] items-stretch border-t border-line bg-card px-1.5 md:hidden dark:border-line-dark dark:bg-nav-dark">
           {primaryNav.map((item) => (
             <NavLink
               key={item.to}
@@ -270,7 +273,7 @@ export function Layout() {
               end={item.end}
               className={({ isActive }) =>
                 cn(
-                  "flex h-full min-w-[44px] items-center justify-center px-2 text-[11px]",
+                  "flex h-full min-w-0 flex-1 basis-0 items-center justify-center px-1 text-[11px]",
                   isActive
                     ? "font-extrabold text-brand dark:text-brand-ink-dark"
                     : "font-semibold text-ink-4 dark:text-ink-4-dark",
@@ -295,7 +298,7 @@ export function Layout() {
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
             className={cn(
-              "flex h-full min-w-[44px] items-center justify-center px-2 text-[11px]",
+              "flex h-full min-w-0 flex-1 basis-0 items-center justify-center px-1 text-[11px]",
               inOverflow
                 ? "font-extrabold text-brand dark:text-brand-ink-dark"
                 : "font-semibold text-ink-4 dark:text-ink-4-dark",
@@ -312,33 +315,33 @@ export function Layout() {
         </nav>
       </div>
 
-      <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent className="md:hidden">
-          <DialogTitle className="sr-only">{t("nav.more")}</DialogTitle>
-          <nav className="grid grid-cols-2 gap-1">
-            {visibleOverflow.map((item) => link(item, () => setMenuOpen(false)))}
-          </nav>
-          <div className="mt-3 border-t border-line-3 pt-3 dark:border-line-dark">
-            <p className="truncate px-3 text-sm text-ink-4">{user?.email}</p>
-            {/* The desktop sidebar carries these; hidden here, a signed-in phone
-                would otherwise have no route to sign out or to the legal pages. */}
-            <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                logout();
-              }}
-              className="mt-1 w-fit px-3 text-left text-xs font-medium text-brand underline underline-offset-2 dark:text-brand-ink-dark"
-            >
-              {t("nav.signOut")}
-            </button>
-            <LegalLinks
-              className="px-3 pt-2 text-[11px] font-medium text-ink-4"
-              onNavigate={() => setMenuOpen(false)}
-            />
-          </div>
-        </SheetContent>
-      </Dialog>
+      {/* The same sheet the rest of the app uses, so this menu pulls down to
+          dismiss like every other drawer. It was the last holdout on the older
+          dialog-based one. */}
+      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title={t("nav.more")}>
+        <nav className="grid grid-cols-2 gap-1">
+          {visibleOverflow.map((item) => link(item, () => setMenuOpen(false)))}
+        </nav>
+        <div className="mt-3 border-t border-line-3 pt-3 dark:border-line-dark">
+          <p className="truncate px-3 text-sm text-ink-4">{user?.email}</p>
+          {/* The desktop sidebar carries these; hidden here, a signed-in phone
+              would otherwise have no route to sign out or to the legal pages. */}
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              logout();
+            }}
+            className="mt-1 w-fit px-3 text-left text-xs font-medium text-brand underline underline-offset-2 dark:text-brand-ink-dark"
+          >
+            {t("nav.signOut")}
+          </button>
+          <LegalLinks
+            className="px-3 pt-2 text-[11px] font-medium text-ink-4"
+            onNavigate={() => setMenuOpen(false)}
+          />
+        </div>
+      </Sheet>
     </div>
   );
 }

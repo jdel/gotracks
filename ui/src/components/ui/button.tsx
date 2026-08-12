@@ -11,10 +11,21 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, type, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        // A bare <button> inside a <form> submits it. That default has caught
+        // this app out — the clear-date button in the action editor was
+        // submitting the form, which saves and closes the sheet, so tapping it
+        // looked like the drawer dismissing itself. Every button that really
+        // does submit says so explicitly; the rest do not want it.
+        // asChild renders someone else's element, which may not be a button.
+        {...(asChild ? {} : { type: type ?? "button" })}
+        {...props}
+      />
     );
   }
 );
