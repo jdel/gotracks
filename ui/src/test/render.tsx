@@ -8,7 +8,7 @@ import { setViewport } from "@/test/viewport";
 /**
  * Renders a component with what the application gives it.
  *
- * `new QueryClient` appeared thirty times across the suite, most of them
+ * `new QueryClient` appeared twenty-seven times across the suite, most of them
  * forgetting `retry: false` — which turns a test that should fail in
  * milliseconds into one that fails after three retries and a backoff, or worse,
  * passes because the retry succeeded against a stub that had moved on.

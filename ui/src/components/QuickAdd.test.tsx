@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QuickAdd } from "./QuickAdd";
 import { useContexts } from "@/hooks/useContexts";
 import { useTodos } from "@/hooks/useTodos";
+import { mockApi, reply } from "@/test/api";
+import { aContext, aProject, aTodo } from "@/test/fixtures";
+import { renderWithProviders } from "@/test/render";
+import type { Context, Project, Todo } from "@/lib/types";
 
 // A miniature Home page: quick-add plus the list it is supposed to update.
 function MiniHome() {
@@ -28,103 +30,76 @@ function MiniHome() {
   );
 }
 
-/** Server state the fake backend keeps between requests. */
-let contexts: { id: number; name: string; state: string; position: number }[];
-let projects: unknown[];
-let todos: Record<string, unknown>[];
+/**
+ * Server state the fake backend keeps between requests. These tests are about
+ * cache invalidation, so the routes below read this state on every call rather
+ * than answering with a snapshot taken when the server was installed.
+ */
+let contexts: Context[];
+let projects: Project[];
+let todos: Todo[];
 let nextId: number;
 /** When set, the fake server refuses a create with this 409 message. */
 let quotaMessage: string | null;
+/** When set, the request never reaches a server at all. */
+let offline: boolean;
 
-function jsonResponse(body: unknown, status = 200) {
-  return {
-    ok: status < 400,
-    status,
-    json: async () => body,
-    blob: async () => new Blob(),
-  } as Response;
-}
-
-// A fake API that mimics the real one closely enough to exercise cache
-// invalidation: creating a todo with an unknown contextName also creates it.
-function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const url = typeof input === "string" ? input : input.toString();
-  const method = init?.method ?? "GET";
-
-  if (url.includes("/contexts") && method === "GET") return Promise.resolve(jsonResponse(contexts));
-  if (url.includes("/projects") && method === "GET") return Promise.resolve(jsonResponse(projects));
-  if (url.includes("/tags") && method === "GET") return Promise.resolve(jsonResponse([]));
-
-  if (url.includes("/todos") && method === "GET") {
-    return Promise.resolve(jsonResponse(todos));
-  }
-
-  if (url.includes("/todos") && method === "POST") {
-    // null means "do not fail"; "" means "fail carrying no message".
-    if (quotaMessage !== null) {
-      return Promise.resolve(jsonResponse({ error: quotaMessage }, 409));
-    }
-    const body = JSON.parse(String(init?.body ?? "{}"));
-    let contextId = body.contextId as number | undefined;
-    if (!contextId && body.contextName) {
-      const created = {
-        id: nextId++,
-        name: `@${body.contextName}`,
-        state: "active",
-        position: contexts.length + 1,
-      };
-      contexts = [...contexts, created];
-      contextId = created.id;
-    }
-    // The server fills in a show-from for an action that has a due date, and
-    // defers it — which is what the "waiting in the tickler" notice reacts to.
-    const deferred = Boolean(body.due);
-    const todo = {
+/** Mimics the real API closely enough that an unknown "@name" creates a context. */
+function createTodo(body: Record<string, unknown>): Todo {
+  let contextId = body.contextId as number | undefined;
+  if (!contextId && body.contextName) {
+    const created = aContext({
       id: nextId++,
-      contextId,
-      // Echoed, so a test can tell "filed under no project" from "the fixture
-      // never carried one".
-      projectId: body.projectId,
-      description: body.description,
-      due: body.due,
-      showFrom: deferred ? body.due : undefined,
-      state: deferred ? "deferred" : "active",
-      starred: false,
-      position: 1,
-      tags: body.tags ?? [],
-      createdAt: "2026-07-18T00:00:00Z",
-      updatedAt: "2026-07-18T00:00:00Z",
-    };
-    todos = [...todos, todo];
-    return Promise.resolve(jsonResponse(todo, 201));
+      name: `@${String(body.contextName)}`,
+      position: contexts.length + 1,
+    });
+    contexts = [...contexts, created];
+    contextId = created.id;
   }
-
-  return Promise.resolve(jsonResponse({}, 404));
-}
-
-function renderApp() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  // The server fills in a show-from for an action that has a due date, and
+  // defers it — which is what the "waiting in the tickler" notice reacts to.
+  const due = body.due as string | undefined;
+  const todo = aTodo({
+    id: nextId++,
+    contextId,
+    // Echoed, so a test can tell "filed under no project" from "the fixture
+    // never carried one".
+    projectId: body.projectId as number | undefined,
+    description: String(body.description),
+    due,
+    showFrom: due,
+    state: due ? "deferred" : "active",
+    tags: (body.tags as string[]) ?? [],
   });
-  return render(
-    <QueryClientProvider client={client}>
-      {/* A router, because the deferred notice links to the tickler. */}
-      <MemoryRouter>
-        <MiniHome />
-      </MemoryRouter>
-    </QueryClientProvider>
-  );
+  todos = [...todos, todo];
+  return todo;
 }
 
 beforeEach(() => {
-  contexts = [{ id: 1, name: "@home", state: "active", position: 1 }];
+  contexts = [aContext({ id: 1, name: "@home" })];
   projects = [];
   todos = [];
   nextId = 100;
   quotaMessage = null;
+  offline = false;
   localStorage.setItem("gt.access", "test-token");
-  vi.stubGlobal("fetch", vi.fn(fakeFetch));
+  mockApi({
+    "GET /contexts": () => contexts,
+    "GET /projects": () => projects,
+    "GET /tags": [],
+    "GET /todos": () => todos,
+    "POST /todos": ({ body }) => {
+      // What a browser does when the request never arrives: fetch rejects, and
+      // there is no response to take any wording from.
+      if (offline) throw new TypeError("Failed to fetch");
+      if (quotaMessage !== null) return reply(409, { error: quotaMessage });
+      return reply(201, createTodo(body as Record<string, unknown>));
+    },
+  });
 });
+
+// A router, because the deferred notice links to the tickler.
+const renderApp = () => renderWithProviders(<MiniHome />);
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -135,10 +110,7 @@ describe("QuickAdd defaults", () => {
   // The previous action's context is the most likely one for the next.
   it("defaults to the last used context", async () => {
     const user = userEvent.setup();
-    contexts = [
-      { id: 1, name: "@home", state: "active", position: 1 },
-      { id: 2, name: "@calls", state: "active", position: 2 },
-    ];
+    contexts = [aContext({ id: 1, name: "@home" }), aContext({ id: 2, name: "@calls", position: 2 })];
     localStorage.setItem("gt.lastContext", "2");
     renderApp();
 
@@ -153,10 +125,7 @@ describe("QuickAdd defaults", () => {
 
   it("remembers the context after adding", async () => {
     const user = userEvent.setup();
-    contexts = [
-      { id: 1, name: "@home", state: "active", position: 1 },
-      { id: 2, name: "@calls", state: "active", position: 2 },
-    ];
+    contexts = [aContext({ id: 1, name: "@home" }), aContext({ id: 2, name: "@calls", position: 2 })];
     renderApp();
 
     await screen.findByText("context:@home");
@@ -227,9 +196,15 @@ describe("QuickAdd error reporting", () => {
   });
 
   // A transport failure carries no useful server text, so the fallback stands.
+  //
+  // This used to be a 409 whose error field was empty, which passed only
+  // because the hand-rolled stub left `statusText` undefined: a real refusal
+  // always carries a status line, and the client shows that in preference to
+  // its own wording. The failure with genuinely nothing to say is the one where
+  // no response arrives.
   it("falls back to a local message when the failure carries none", async () => {
     const user = userEvent.setup();
-    quotaMessage = "";
+    offline = true;
     renderApp();
 
     await screen.findByText("context:@home");
@@ -281,7 +256,7 @@ describe("QuickAdd deferred notice", () => {
 describe("QuickAdd project handling", () => {
   it("leaves a new action out of any project by default", async () => {
     const user = userEvent.setup();
-    projects = [{ id: 5, name: "#kitchen", state: "active" }];
+    projects = [aProject({ id: 5, name: "#kitchen" })];
     // A project the previous session had used.
     localStorage.setItem("gt.lastProject", "5");
     renderApp();
@@ -296,7 +271,7 @@ describe("QuickAdd project handling", () => {
 
   it("still files it under a project named with #", async () => {
     const user = userEvent.setup();
-    projects = [{ id: 5, name: "#kitchen", state: "active" }];
+    projects = [aProject({ id: 5, name: "#kitchen" })];
     renderApp();
 
     await screen.findByText("context:@home");
@@ -312,18 +287,7 @@ describe("QuickAdd project handling", () => {
 // The full form belongs to the mobile sheet, where there is room for it and no
 // keyboard shortcut to lean on.
 describe("the compact capture bar", () => {
-  function renderCompact() {
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    return render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <QuickAdd compact />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-  }
+  const renderCompact = () => renderWithProviders(<QuickAdd compact />);
 
   it("shows only the line and its buttons", async () => {
     renderCompact();

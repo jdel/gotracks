@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Outlet } from "react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { screen, waitFor } from "@testing-library/react";
+import { Outlet } from "react-router";
 import { I18nProvider } from "@/lib/I18nProvider";
 import { App } from "./App";
 import { useAuth } from "@/lib/auth";
+import { aUser } from "@/test/fixtures";
+import { renderWithProviders } from "@/test/render";
 
 vi.mock("@/lib/auth", () => ({ useAuth: vi.fn() }));
 // The real shell is a whole navigation; the routes are what is under test, so
@@ -33,14 +34,7 @@ vi.mock("@/hooks/useLegal", async (importOriginal) => ({
 
 function signedIn(isAdmin: boolean) {
   vi.mocked(useAuth).mockReturnValue({
-    user: {
-      id: 1,
-      login: "user0001",
-      email: "user0001@example.com",
-      isAdmin,
-      createdAt: "",
-      updatedAt: "",
-    },
+    user: aUser({ isAdmin }),
     ready: true,
     logout: vi.fn(),
   } as unknown as ReturnType<typeof useAuth>);
@@ -52,6 +46,11 @@ let requested: string[] = [];
 beforeEach(() => {
   signedIn(false);
   requested = [];
+  // Deliberately not `mockApi`: this suite mounts every admin page behind the
+  // guard and asserts on which URLs were asked for, so it needs a recorder that
+  // answers anything. Enumerating each page's routes would make the test about
+  // those routes rather than about the guard, and an unrouted request throwing
+  // would fail the admin cases for a reason that is not what is under test.
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
@@ -70,17 +69,13 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-function renderAt(route: string) {
-  return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={[route]}>
-        <I18nProvider>
-          <App />
-        </I18nProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
+const renderAt = (route: string) =>
+  renderWithProviders(
+    <I18nProvider>
+      <App />
+    </I18nProvider>,
+    { route },
   );
-}
 
 const adminRoutes = ["/admin", "/admin/settings", "/reports", "/legal", "/audit"];
 const adminRequest = () => requested.filter((url) => url.includes("/api/v1/admin"));

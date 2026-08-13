@@ -1,124 +1,82 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TodoItem } from "./TodoItem";
 import { SwipeRow } from "./SwipeRow";
 import { Sheet } from "./primitives";
 import { setViewport } from "@/test/viewport";
-import { UndoProvider } from "@/lib/undoable";
+import { mockApi, reply, type MockApi } from "@/test/api";
+import { aContext, anAttachment, aTodo } from "@/test/fixtures";
+import { renderWithProviders } from "@/test/render";
 import { LEAVE_MS } from "@/lib/motion";
-import type { Todo } from "@/lib/types";
+import type { Attachment, Context, Todo } from "@/lib/types";
 
-let todos: Record<string, unknown>[];
+/** Rows the fake server keeps, so a write is visible to the next read. */
+let todos: Todo[];
 /** Contexts the fake server knows about. Empty unless a test needs them. */
-let contexts: Record<string, unknown>[];
-let attachments: Record<string, unknown>[];
-
-function jsonResponse(body: unknown, status = 200) {
-  return {
-    ok: status < 400,
-    status,
-    json: async () => body,
-    blob: async () => new Blob(),
-  } as Response;
-}
-
-/** Attachment ids the fake server has been asked to delete, in order. */
-let deletedIds: number[];
+let contexts: Context[];
+let attachments: Attachment[];
+let api: MockApi;
 /** Ids the fake server refuses to delete, so partial failure can be tested. */
 const failDelete = new Set<number>();
-const deleted = () => deletedIds;
 
-function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const url = typeof input === "string" ? input : input.toString();
-  const method = init?.method ?? "GET";
+const baseTodo: Todo = aTodo({ id: 7 });
 
-  if (method === "DELETE" && /\/attachments\/\d+$/.test(url)) {
-    const id = Number(url.split("/attachments/")[1]);
-    deletedIds.push(id);
-    if (failDelete.has(id)) {
-      return Promise.resolve(jsonResponse({ error: "attachment in use" }, 409));
-    }
-    return Promise.resolve(jsonResponse({}, 204));
-  }
-
-  if (url.includes("/contexts")) return Promise.resolve(jsonResponse(contexts));
-  if (url.includes("/projects")) return Promise.resolve(jsonResponse([]));
-  if (url.includes("/preferences")) return Promise.resolve(jsonResponse({}));
-  // The per-todo list and the account-wide one share a prefix; order matters.
-  if (url.includes("/todos/") && url.includes("/attachments")) {
-    return Promise.resolve(jsonResponse(attachments));
-  }
-  if (url.includes("/attachments")) return Promise.resolve(jsonResponse(attachments));
-
-  if (url.includes("/todos/") && method === "PUT") {
-    const id = Number(url.split("/todos/")[1]);
-    const body = JSON.parse(String(init?.body ?? "{}"));
-    todos = todos.map((t) => (t.id === id ? { ...t, ...body } : t));
-    return Promise.resolve(jsonResponse(todos.find((t) => t.id === id)));
-  }
-  if (url.includes("/todos")) return Promise.resolve(jsonResponse(todos));
-
-  return Promise.resolve(jsonResponse({}, 404));
-}
-
-const baseTodo: Todo = {
-  id: 7,
-  contextId: 1,
-  description: "buy paint",
-  state: "active",
-  starred: false,
-  position: 1,
-  tags: [],
-  createdAt: "2026-07-20T00:00:00Z",
-  updatedAt: "2026-07-20T00:00:00Z",
-};
-
-function renderItem(todo: Todo = baseTodo) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={client}>
-      <ul>
-        <TodoItem todo={todo} />
-      </ul>
-    </QueryClientProvider>,
+const renderItem = (todo: Todo = baseTodo) =>
+  renderWithProviders(
+    <ul>
+      <TodoItem todo={todo} />
+    </ul>,
   );
-}
 
 // Completing is only deferred inside the provider; on its own the item falls
 // back to committing straight away.
-function renderItemWithUndo(todo: Todo = baseTodo) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={client}>
-      <UndoProvider>
-        <ul>
-          <TodoItem todo={todo} />
-        </ul>
-      </UndoProvider>
-    </QueryClientProvider>,
+const renderItemWithUndo = (todo: Todo = baseTodo) =>
+  renderWithProviders(
+    <ul>
+      <TodoItem todo={todo} />
+    </ul>,
+    { undo: true },
   );
-}
 
-function completeCalls() {
-  return (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter((c) =>
-    String(c[0]).includes("/complete"),
-  );
-}
+/** The date/tag/context writes, which is what most of these assertions are about. */
+const puts = () => api.writes().filter((c) => c.method === "PUT");
+const completeCalls = () => api.calls.filter((c) => c.path.endsWith("/complete"));
+/** Attachment ids the fake server has been asked to delete, in order. */
+const deleted = () =>
+  api.calls
+    .filter((c) => c.method === "DELETE" && c.path.includes("/attachments/"))
+    .map((c) => Number(c.params.id));
 
 beforeEach(() => {
   todos = [{ ...baseTodo }];
   contexts = [];
   attachments = [];
-  deletedIds = [];
   failDelete.clear();
   localStorage.setItem("gt.access", "test-token");
-  vi.stubGlobal("fetch", vi.fn(fakeFetch));
+  api = mockApi({
+    "DELETE /attachments/:id": ({ params }) =>
+      failDelete.has(Number(params.id)) ? reply(409, { error: "attachment in use" }) : reply(204),
+    // Routed rather than answered by a catch-all: the row's own delete and an
+    // attachment delete used to be told apart by a substring of the URL.
+    "DELETE /todos/:id": reply(204),
+    "GET /contexts": () => contexts,
+    "GET /projects": [],
+    "GET /preferences": {},
+    "GET /todos": () => todos,
+    // Two different endpoints, and the row uses both: the paperclip reads the
+    // account-wide list and filters it, while completing reads this action's.
+    // A substring stub could not tell them apart, so which one a change had
+    // broken was invisible; routed, each is answered on its own terms.
+    "GET /todos/:id/attachments": () => attachments,
+    "GET /attachments": () => attachments,
+    "PUT /todos/:id": ({ params, body }) => {
+      const id = Number(params.id);
+      todos = todos.map((t) => (t.id === id ? { ...t, ...(body as Partial<Todo>) } : t));
+      return todos.find((t) => t.id === id)!;
+    },
+    "POST /todos/:id/complete": ({ params }) => todos.find((t) => t.id === Number(params.id))!,
+  });
 });
 
 afterEach(() => {
@@ -150,7 +108,9 @@ describe("editing an action inline", () => {
     await user.type(field, "call about invoice #7741{Enter}");
 
     await waitFor(() => expect(todos[0].description).toBe("call about invoice #7741"));
-    expect(todos[0].projectName).toBeUndefined();
+    // Asserted on what was sent: the stored row cannot carry a projectName, so
+    // reading it back off the fixture asked a question with only one answer.
+    expect(puts()[0]?.body).not.toHaveProperty("projectName");
   });
 
   it("abandons the edit on Escape", async () => {
@@ -170,7 +130,7 @@ describe("the attachment indicator", () => {
   // colour with the open-state tint, so the marker vanished on click.
   it("stays coloured while the panel is open", async () => {
     const user = userEvent.setup();
-    attachments = [{ id: 1, todoId: 7, fileName: "swatch.png", size: 10, createdAt: "" }];
+    attachments = [anAttachment({ id: 1, todoId: 7, fileName: "swatch.png", size: 10 })];
     renderItem();
 
     const clip = () => document.querySelector(".lucide-paperclip");
@@ -266,8 +226,8 @@ describe("clearing attachments after completing", () => {
 
   beforeEach(() => {
     attachments = [
-      { id: 21, todoId: 7, fileName: "swatch.png", size: 10, createdAt: "" },
-      { id: 22, todoId: 7, fileName: "invoice.pdf", size: 20, createdAt: "" },
+      anAttachment({ id: 21, todoId: 7, fileName: "swatch.png", size: 10 }),
+      anAttachment({ id: 22, todoId: 7, fileName: "invoice.pdf", size: 20 }),
     ];
   });
 
@@ -404,10 +364,7 @@ describe("the mobile gestures", () => {
 
     // The sheet, not the web row's Defer button — both carry the same name.
     expect(await screen.findByRole("dialog", { name: "Defer" })).toBeTruthy();
-    const deletes = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
-      (c) => String(c[1]?.method) === "DELETE",
-    );
-    expect(deletes).toHaveLength(0);
+    expect(api.writes().filter((c) => c.method === "DELETE")).toHaveLength(0);
   });
 
   it("opens the editor on a long press", () => {
@@ -445,17 +402,10 @@ describe("editing an action's dates", () => {
     // whose other half is the show-from.
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
 
-    await waitFor(() => {
-      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
-        (c) => String(c[1]?.method) === "PUT",
-      );
-      expect(put).toBeTruthy();
-      // Two weeks later, and the show-from moved by the same fortnight.
-      expect(JSON.parse(String(put![1].body))).toMatchObject({
-        due: "2026-09-24",
-        showFrom: "2026-09-17",
-      });
-    });
+    // Two weeks later, and the show-from moved by the same fortnight.
+    await waitFor(() =>
+      expect(puts()[0]?.body).toMatchObject({ due: "2026-09-24", showFrom: "2026-09-17" }),
+    );
   });
 });
 
@@ -507,7 +457,7 @@ describe("the screen edges belong to the browser", () => {
 describe("attachments on a phone", () => {
   it("opens the attachment panel in a sheet", async () => {
     const user = userEvent.setup();
-    attachments = [{ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048, createdAt: "" }];
+    attachments = [anAttachment({ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048 })];
     renderItem();
 
     await user.click(screen.getByLabelText(/attachments/i));
@@ -630,20 +580,11 @@ describe("the editor's Save button", () => {
     await user.click(screen.getByLabelText("Edit this action"));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "1 day before" }));
     // Still nothing written: the tap only built up the edit.
-    expect(
-      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (c) => String(c[1]?.method) === "PUT",
-      ),
-    ).toHaveLength(0);
+    expect(puts()).toHaveLength(0);
 
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
 
-    await waitFor(() => {
-      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
-        (c) => String(c[1]?.method) === "PUT",
-      );
-      expect(JSON.parse(String(put![1].body))).toMatchObject({ showFrom: "2026-09-09" });
-    });
+    await waitFor(() => expect(puts()[0]?.body).toMatchObject({ showFrom: "2026-09-09" }));
     // And it is gone: no Close button left behind to press separately.
     expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
   });
@@ -663,11 +604,7 @@ describe("tapping around inside the editor", () => {
     await user.click(screen.getByRole("heading", { name: baseTodo.description }));
 
     expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(
-      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (c) => String(c[1]?.method) === "PUT",
-      ),
-    ).toHaveLength(0);
+    expect(puts()).toHaveLength(0);
   });
 
   // Star and delete moved onto the title row, as icons.
@@ -696,11 +633,7 @@ describe("discarding an edit", () => {
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Tomorrow" }));
     fireEvent.keyDown(document, { key: "Escape" });
 
-    expect(
-      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (c) => String(c[1]?.method) === "PUT",
-      ),
-    ).toHaveLength(0);
+    expect(puts()).toHaveLength(0);
   });
 
   // One request for the whole screenful, rather than one per field as each
@@ -719,11 +652,8 @@ describe("discarding an edit", () => {
     await user.click(within(sheet()).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      const puts = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (c) => String(c[1]?.method) === "PUT",
-      );
-      expect(puts).toHaveLength(1);
-      const body = JSON.parse(String(puts[0][1].body));
+      expect(puts()).toHaveLength(1);
+      const body = puts()[0].body as Partial<Todo>;
       expect(body.tags).toEqual(["errand"]);
       expect(body.due).toBeTruthy();
     });
@@ -767,13 +697,10 @@ describe("the editor does not edit the description", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
-        (c) => String(c[1]?.method) === "PUT",
-      );
-      expect(put).toBeTruthy();
-      const body = JSON.parse(String(put![1].body));
-      expect(body.description).toBeUndefined();
-      expect(body.projectName).toBeUndefined();
+      const body = puts()[0]?.body as Record<string, unknown> | undefined;
+      expect(body).toBeTruthy();
+      expect(body!.description).toBeUndefined();
+      expect(body!.projectName).toBeUndefined();
     });
   });
 });
@@ -803,11 +730,7 @@ describe("nothing but Save closes the editor", () => {
     await user.type(within(sheet).getByLabelText("Tags (comma separated)"), "errand{Enter}");
 
     expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(
-      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (c) => String(c[1]?.method) === "PUT",
-      ),
-    ).toHaveLength(0);
+    expect(puts()).toHaveLength(0);
   });
 });
 
@@ -849,9 +772,9 @@ describe("choosing a context while editing", () => {
   it("filters the list and files the action under the choice", async () => {
     const user = userEvent.setup();
     contexts = [
-      { id: 1, name: "@home", state: "active", position: 1 },
-      { id: 2, name: "@calls", state: "active", position: 2 },
-      { id: 3, name: "@errands", state: "active", position: 3 },
+      aContext({ id: 1, name: "@home" }),
+      aContext({ id: 2, name: "@calls", position: 2 }),
+      aContext({ id: 3, name: "@errands", position: 3 }),
     ];
     renderItem();
 
@@ -864,12 +787,7 @@ describe("choosing a context while editing", () => {
     await user.click(screen.getByRole("button", { name: "calls" }));
     await user.click(within(sheet).getByRole("button", { name: "Save" }));
 
-    await waitFor(() => {
-      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
-        (c) => String(c[1]?.method) === "PUT",
-      );
-      expect(JSON.parse(String(put![1].body))).toMatchObject({ contextId: 2 });
-    });
+    await waitFor(() => expect(puts()[0]?.body).toMatchObject({ contextId: 2 }));
   });
 });
 
@@ -958,7 +876,7 @@ describe("one presentation per viewport", () => {
   it("shows attachments inline on a desktop, with no dialog", async () => {
     const user = userEvent.setup();
     setViewport("desktop");
-    attachments = [{ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048, createdAt: "" }];
+    attachments = [anAttachment({ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048 })];
     renderItem();
 
     await user.click(screen.getByLabelText(/attachments/i));
@@ -970,7 +888,7 @@ describe("one presentation per viewport", () => {
   it("shows attachments in a sheet on a phone", async () => {
     const user = userEvent.setup();
     setViewport("phone");
-    attachments = [{ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048, createdAt: "" }];
+    attachments = [anAttachment({ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048 })];
     renderItem();
 
     await user.click(screen.getByLabelText(/attachments/i));
@@ -987,7 +905,7 @@ describe("taking an action out of a project", () => {
   it("says so explicitly rather than sending a bare null", async () => {
     const user = userEvent.setup();
     setViewport("desktop");
-    todos = [{ ...baseTodo, projectId: 3 }];
+    todos = [aTodo({ id: 7, projectId: 3 })];
     renderItem({ ...baseTodo, projectId: 3 });
 
     await user.click(screen.getByLabelText("Edit this action"));
@@ -997,14 +915,7 @@ describe("taking an action out of a project", () => {
 
     // A missing projectId is also what "leave unchanged" looks like, so the
     // detach used to be sent and ignored.
-    await waitFor(() => {
-      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
-        (c) => (c[1] as RequestInit | undefined)?.method === "PUT",
-      );
-      expect(JSON.parse(String((put?.[1] as RequestInit).body))).toMatchObject({
-        clearProject: true,
-      });
-    });
+    await waitFor(() => expect(puts()[0]?.body).toMatchObject({ clearProject: true }));
   });
 });
 
@@ -1012,7 +923,7 @@ describe("one panel at a time", () => {
   it("replaces the open panel rather than stacking", async () => {
     const user = userEvent.setup();
     setViewport("desktop");
-    attachments = [{ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048, createdAt: "" }];
+    attachments = [anAttachment({ id: 9, todoId: 7, fileName: "invoice.pdf", size: 2048 })];
     renderItem();
 
     await user.click(screen.getByLabelText(/attachments/i));
@@ -1085,13 +996,7 @@ describe("saving and leaving from the keyboard", () => {
     await user.click(screen.getByRole("button", { name: "Tomorrow" }));
     await user.keyboard("{Control>}{Enter}{/Control}");
 
-    await waitFor(() => {
-      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
-        (c) => String(c[1]?.method) === "PUT",
-      );
-      expect(put).toBeTruthy();
-      expect(JSON.parse(String(put![1].body)).due).toBeTruthy();
-    });
+    await waitFor(() => expect((puts()[0]?.body as Partial<Todo>)?.due).toBeTruthy());
     // And it closes, as pressing Save does.
     expect(screen.queryByLabelText("Tags (comma separated)")).toBeNull();
   });
@@ -1106,11 +1011,7 @@ describe("saving and leaving from the keyboard", () => {
     await user.keyboard("{Escape}");
 
     expect(screen.queryByLabelText("Tags (comma separated)")).toBeNull();
-    expect(
-      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
-        (c) => String(c[1]?.method) === "PUT",
-      ),
-    ).toHaveLength(0);
+    expect(puts()).toHaveLength(0);
   });
 
   it("saves the defer panel with Ctrl+Enter", async () => {
@@ -1122,13 +1023,7 @@ describe("saving and leaving from the keyboard", () => {
     await user.click(screen.getByRole("button", { name: "Tomorrow" }));
     await user.keyboard("{Control>}{Enter}{/Control}");
 
-    await waitFor(() =>
-      expect(
-        (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
-          (c) => String(c[1]?.method) === "PUT",
-        ),
-      ).toHaveLength(1),
-    );
+    await waitFor(() => expect(puts()).toHaveLength(1));
   });
 
   // One press should undo one thing: closing a picker must not also close the
@@ -1136,7 +1031,7 @@ describe("saving and leaving from the keyboard", () => {
   it("keeps the panel open when Escape closes a picker", async () => {
     const user = userEvent.setup();
     setViewport("desktop");
-    contexts = [{ id: 1, name: "@home", state: "active", position: 1 }];
+    contexts = [aContext({ id: 1, name: "@home" })];
     renderItem();
 
     await user.click(screen.getByLabelText("Edit this action"));

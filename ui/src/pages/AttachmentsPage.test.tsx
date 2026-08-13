@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router";
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AttachmentsPage } from "./AttachmentsPage";
 import { useAllAttachments } from "@/hooks/useSettings";
+import { anAttachment } from "@/test/fixtures";
+import { renderWithProviders } from "@/test/render";
+import type { AttachmentWithTodo } from "@/lib/types";
 
 vi.mock("@/lib/auth", () => ({
   useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
@@ -17,20 +18,16 @@ vi.mock("@/hooks/useSettings", () => ({
   usePreferences: () => ({ data: { timeZone: "UTC", dateFormat: "2006-01-02" } }),
 }));
 
-const rows = [
-  { id: 1, todoId: 10, fileName: "z-plan.pdf", contentType: "application/pdf", size: 900, createdAt: "2026-07-20T00:00:00Z", todoDescription: "Plan renovation", todoState: "active" },
-  { id: 2, todoId: 11, fileName: "a-photo.jpg", contentType: "image/jpeg", size: 100, createdAt: "2026-07-21T00:00:00Z", todoDescription: "Inspect wall", todoState: "completed" },
+const rows: AttachmentWithTodo[] = [
+  { ...anAttachment({ id: 1, todoId: 10, fileName: "z-plan.pdf", size: 900 }), todoDescription: "Plan renovation", todoState: "active" },
+  {
+    ...anAttachment({ id: 2, todoId: 11, fileName: "a-photo.jpg", contentType: "image/jpeg", size: 100 }),
+    todoDescription: "Inspect wall",
+    todoState: "completed",
+  },
 ];
 
-function renderPage() {
-  return render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter>
-        <AttachmentsPage />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
+const renderPage = () => renderWithProviders(<AttachmentsPage />);
 
 describe("AttachmentsPage mobile list", () => {
   beforeEach(() => {

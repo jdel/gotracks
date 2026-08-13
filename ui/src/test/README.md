@@ -77,6 +77,39 @@ in this suite:
 Anything of the form `aside > div:last-child` is not a contract. It is a test
 that will fail on a day nobody changed the behaviour.
 
+## How much of the suite has moved over
+
+Migration is incremental, so the interesting number is what is left. These are
+counts, not estimates — run the command and it will tell you where things stand:
+
+```sh
+cd ui
+grep -rl 'function jsonResponse' src --include='*.test.*' | wc -l
+grep -rl 'function fakeFetch'    src --include='*.test.*' | wc -l
+grep -rc 'new QueryClient'       src --include='*.test.*' | awk -F: '{n+=$2} END {print n}'
+```
+
+| | Before the first batch | Now |
+| --- | --- | --- |
+| files defining their own `jsonResponse` | 9 | 7 |
+| files defining their own `fakeFetch` | 8 | 6 |
+| `new QueryClient` in test files | 27 | 21 |
+
+The first batch was `TodoItem`, `QuickAdd`, `AttachmentsPage` and `App`. What
+remains is `AuthProvider`, `i18n.integration`, `HomePage`, `ListPages`,
+`NotesPage`, `ProjectsPage` and `RegisterPage`, plus the smaller suites that
+build a client without a local server.
+
+Two things the migration turned up, which is the argument for doing the rest:
+
+- a QuickAdd test asserted a fallback error message that only appeared because
+  its stub left `statusText` undefined. A real 409 always carries a status line,
+  so the client showed that instead; the case with genuinely nothing to say is a
+  request that never arrives.
+- `TodoItem` was reading two different attachment endpoints — the account-wide
+  list for the paperclip, the per-action list when completing — and the stub
+  answered both with the same array, so neither call was pinned to its endpoint.
+
 ## What belongs in the browser suite instead
 
 `e2e/` drives a real browser against a real server. Things that cannot be
