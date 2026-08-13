@@ -20,6 +20,12 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   busy?: boolean;
+  /**
+   * Why the last attempt did not finish. Shown inside the dialog, because a
+   * dialog that stays open after a failure has to say what happened — and the
+   * user is still standing in front of the decision.
+   */
+  error?: ReactNode;
   onConfirm: () => void;
 }
 
@@ -37,6 +43,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   busy = false,
+  error,
   onConfirm,
 }: ConfirmDialogProps) {
   const t = useT();
@@ -54,6 +61,11 @@ export function ConfirmDialog({
             </div>
           </div>
         </DialogHeader>
+        {error && (
+          <p role="alert" className="text-sm font-medium text-danger">
+            {error}
+          </p>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} autoFocus>
             {cancel}

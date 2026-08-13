@@ -363,6 +363,38 @@ export function useDeleteAttachment() {
   });
 }
 
+/** What a bulk delete achieved: which ids refused, and why the first one did. */
+export interface BulkDeleteResult {
+  failed: number[];
+  /** The first rejection, for the caller to phrase with `apiMessage`. */
+  reason?: unknown;
+}
+
+/**
+ * Deletes several attachments, reporting what did not go.
+ *
+ * `allSettled`, not `all`: every request is sent either way — `all` rejects on
+ * the first failure but cancels nothing — so the choice is only whether the
+ * other outcomes are observable. They were not, which left a caller unable to
+ * tell "six deleted" from "five deleted and one still there".
+ *
+ * The cache is invalidated in `onSettled`, because a partial success is exactly
+ * the case where the list on screen no longer matches the server, and it was
+ * the case that never refreshed.
+ */
+export function useDeleteAttachments() {
+  const qc = useQueryClient();
+  return useMutation<BulkDeleteResult, Error, number[]>({
+    mutationFn: async (ids) => {
+      const results = await Promise.allSettled(ids.map((id) => api.del<void>(`/attachments/${id}`)));
+      const failed = ids.filter((_, i) => results[i].status === "rejected");
+      const first = results.find((r) => r.status === "rejected");
+      return { failed, reason: first?.reason };
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["attachments"] }),
+  });
+}
+
 // downloadExport fetches the export archive with auth and saves it via a blob
 // URL. The archive holds export.json alongside every uploaded file.
 export async function downloadExport(): Promise<void> {

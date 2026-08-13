@@ -168,6 +168,14 @@ list, the paperclip is tinted when that action has files — whether or not its
 panel is open. It is the one row icon phones keep: the others are gestures
 there, but no gesture reaches attachments.
 
+Deleting several at once — the prompt after completing an action, or "delete
+attachments from done actions" on the page — is not all-or-nothing. Each file is
+its own request, and if one is refused the rest still go: the list reconciles to
+what the server actually holds, the dialog stays open showing why, and the
+button becomes a retry of only what failed. Five of six deleted is the right
+outcome for five of six, and a list still showing files the server no longer has
+is the sort of wrong that looks perfectly normal.
+
 Completing an action with attachments normally prompts to delete them, with a
 note that this can be automated in Settings. Turning on "auto-delete
 attachments when done" (a per-user preference) skips the prompt: the server

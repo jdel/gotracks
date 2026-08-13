@@ -9,16 +9,15 @@ import {
   Paperclip,
   GripVertical,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { AttachmentPanel } from "@/components/AttachmentPanel";
 import { ActionEditor } from "@/components/ActionEditor";
 import { DeferPanel } from "@/components/DeferPanel";
 import { useContexts } from "@/hooks/useContexts";
 import { useProjects } from "@/hooks/useProjects";
-import { useAllAttachments, usePreferences } from "@/hooks/useSettings";
+import { useAllAttachments, useDeleteAttachments, usePreferences } from "@/hooks/useSettings";
 import { useIsDesktop } from "@/hooks/useMediaQuery";
 import { bare } from "@/lib/composer";
-import { api } from "@/lib/api";
+import { api, apiMessage } from "@/lib/api";
 import type { Attachment, Todo } from "@/lib/types";
 import {
   useCompleteTodo,
@@ -113,7 +112,7 @@ export interface TodoItemProps {
 }
 
 export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }: TodoItemProps) {
-  const qc = useQueryClient();
+  const deleteAttachments = useDeleteAttachments();
   const t = useT();
   const tn = useTn();
   const fmt = useDateFmt();
@@ -149,7 +148,10 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
   // Set right after marking an action done, when it had attachments and
   // auto-delete is off — offers to clean them up instead of doing it silently.
   const [attachmentPrompt, setAttachmentPrompt] = useState<Attachment[] | null>(null);
-  const [deletingAttachments, setDeletingAttachments] = useState(false);
+  // The prompt keeps what refused to delete, so a second press retries only
+  // those; clearing the prompt clears both.
+  const [attachmentsFailed, setAttachmentsFailed] = useState<number[] | null>(null);
+  const [attachmentsError, setAttachmentsError] = useState<string | null>(null);
   const done = todo.state === "completed";
   // While the undo window is open the row already reads as done, so the
   // checkbox and the strike-through follow the pending state too.
@@ -406,7 +408,12 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
 
       <ConfirmDialog
         open={attachmentPrompt !== null}
-        onOpenChange={(open) => !open && setAttachmentPrompt(null)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setAttachmentPrompt(null);
+          setAttachmentsFailed(null);
+          setAttachmentsError(null);
+        }}
         title={t("todo.attachmentsPromptTitle")}
         description={
           <>
@@ -415,17 +422,27 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
             {tn(attachmentPrompt?.length ?? 0, "todo.attPromptAsk")}
           </>
         }
-        confirmLabel={t("common.delete")}
+        confirmLabel={
+          attachmentsFailed
+            ? tn(attachmentsFailed.length, "attachments.bulkRetry")
+            : t("common.delete")
+        }
         cancelLabel={t("common.keep")}
-        busy={deletingAttachments}
-        onConfirm={async () => {
-          if (attachmentPrompt) {
-            setDeletingAttachments(true);
-            await Promise.all(attachmentPrompt.map((a) => api.del(`/attachments/${a.id}`)));
-            await qc.invalidateQueries({ queryKey: ["attachments"] });
-            setDeletingAttachments(false);
-          }
-          setAttachmentPrompt(null);
+        busy={deleteAttachments.isPending}
+        error={attachmentsError}
+        onConfirm={() => {
+          const ids = attachmentsFailed ?? attachmentPrompt?.map((a) => a.id) ?? [];
+          setAttachmentsError(null);
+          deleteAttachments.mutate(ids, {
+            onSuccess: ({ failed, reason }) => {
+              setAttachmentsFailed(failed.length > 0 ? failed : null);
+              // Only a clean sweep dismisses the prompt: what is left is the
+              // same question about fewer files, and closing on a failure would
+              // hide it.
+              if (failed.length === 0) setAttachmentPrompt(null);
+              else setAttachmentsError(apiMessage(reason, t("attachments.bulkFailed")));
+            },
+          });
         }}
       />
 

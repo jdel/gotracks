@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Trash2, Download, ArrowUp, ArrowDown } from "lucide-react";
-import { useAllAttachments, useDeleteAttachment } from "@/hooks/useSettings";
+import { useAllAttachments, useDeleteAttachment, useDeleteAttachments } from "@/hooks/useSettings";
 import { formatBytes } from "@/lib/usage";
-import { api } from "@/lib/api";
+import { apiMessage } from "@/lib/api";
 import { downloadAttachment, downloadErrorMessage } from "@/lib/attachments";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { IconButton } from "@/components/ui/icon-button";
@@ -101,15 +100,18 @@ export function AttachmentsPage() {
   const fmt = useDateFmt();
   const tn = useTn();
   const { user } = useAuth();
-  const qc = useQueryClient();
   const { data: attachments, isLoading } = useAllAttachments();
   const del = useDeleteAttachment();
+  const bulkDelete = useDeleteAttachments();
   const [sort, setSort] = useState<SortKey>("size");
   const [desc, setDesc] = useState(true);
   const [confirming, setConfirming] = useState<AttachmentWithTodo | null>(null);
   const [confirmingBulk, setConfirmingBulk] = useState(false);
   const [query, setQuery] = useState("");
-  const [bulkBusy, setBulkBusy] = useState(false);
+  // What a previous attempt could not delete. Holding it turns the second press
+  // into a retry of the remainder rather than a repeat of the whole batch.
+  const [bulkFailed, setBulkFailed] = useState<number[] | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const doneAttachments = attachments?.filter((a) => a.todoState === "completed") ?? [];
@@ -131,12 +133,29 @@ export function AttachmentsPage() {
     }
   }
 
-  async function handleBulkDelete() {
-    setBulkBusy(true);
-    await Promise.all(doneAttachments.map((a) => api.del(`/attachments/${a.id}`)));
-    await qc.invalidateQueries({ queryKey: ["attachments"] });
-    setBulkBusy(false);
-    setConfirmingBulk(false);
+  // Ids this press will attempt: the whole batch, or only what failed last time.
+  const bulkIds = bulkFailed ?? doneAttachments.map((a) => a.id);
+
+  function handleBulkDelete() {
+    setBulkError(null);
+    bulkDelete.mutate(bulkIds, {
+      onSuccess: ({ failed, reason }) => {
+        setBulkFailed(failed.length > 0 ? failed : null);
+        // Stays open on a partial failure: the list behind it has already
+        // refreshed, and what is left is a smaller version of the same
+        // decision.
+        if (failed.length === 0) setConfirmingBulk(false);
+        else setBulkError(apiMessage(reason, t("attachments.bulkFailed")));
+      },
+    });
+  }
+
+  function closeBulk(open: boolean) {
+    setConfirmingBulk(open);
+    if (!open) {
+      setBulkFailed(null);
+      setBulkError(null);
+    }
   }
 
   const needle = query.trim().toLowerCase();
@@ -287,7 +306,7 @@ export function AttachmentsPage() {
 
       <ConfirmDialog
         open={confirmingBulk}
-        onOpenChange={setConfirmingBulk}
+        onOpenChange={closeBulk}
         title={t("attachments.bulkTitle")}
         description={
           <>
@@ -295,8 +314,10 @@ export function AttachmentsPage() {
             {t("attachments.bulkDescBody")}
           </>
         }
-        busy={bulkBusy}
-        onConfirm={() => void handleBulkDelete()}
+        confirmLabel={bulkFailed ? tn(bulkFailed.length, "attachments.bulkRetry") : undefined}
+        busy={bulkDelete.isPending}
+        error={bulkError}
+        onConfirm={handleBulkDelete}
       />
     </Screen>
   );

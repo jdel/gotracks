@@ -13,6 +13,7 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/hooks/useSettings", () => ({
   useAllAttachments: vi.fn(),
   useDeleteAttachment: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteAttachments: () => ({ mutate: vi.fn(), isPending: false }),
   usePreferences: () => ({ data: { timeZone: "UTC", dateFormat: "2006-01-02" } }),
 }));
 

@@ -24,9 +24,24 @@ function jsonResponse(body: unknown, status = 200) {
   } as Response;
 }
 
+/** Attachment ids the fake server has been asked to delete, in order. */
+let deletedIds: number[];
+/** Ids the fake server refuses to delete, so partial failure can be tested. */
+const failDelete = new Set<number>();
+const deleted = () => deletedIds;
+
 function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = typeof input === "string" ? input : input.toString();
   const method = init?.method ?? "GET";
+
+  if (method === "DELETE" && /\/attachments\/\d+$/.test(url)) {
+    const id = Number(url.split("/attachments/")[1]);
+    deletedIds.push(id);
+    if (failDelete.has(id)) {
+      return Promise.resolve(jsonResponse({ error: "attachment in use" }, 409));
+    }
+    return Promise.resolve(jsonResponse({}, 204));
+  }
 
   if (url.includes("/contexts")) return Promise.resolve(jsonResponse(contexts));
   if (url.includes("/projects")) return Promise.resolve(jsonResponse([]));
@@ -100,6 +115,8 @@ beforeEach(() => {
   todos = [{ ...baseTodo }];
   contexts = [];
   attachments = [];
+  deletedIds = [];
+  failDelete.clear();
   localStorage.setItem("gt.access", "test-token");
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
 });
@@ -222,6 +239,70 @@ describe("completing an action", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/**
+ * Completing an action that has attachments offers to delete them. That offer
+ * used to run `Promise.all` and clear its busy flag afterwards, so one refused
+ * delete left the dialog spinning and stuck, with the successful deletions
+ * already gone from the server but still on screen.
+ */
+describe("clearing attachments after completing", () => {
+  /** Completes the action and waits out the undo window and the animation. */
+  async function completeAndWait() {
+    vi.useFakeTimers();
+    try {
+      renderItemWithUndo();
+      fireEvent.click(screen.getByRole("button", { name: "Mark this action complete" }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+        await vi.advanceTimersByTimeAsync(LEAVE_MS + 50);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  beforeEach(() => {
+    attachments = [
+      { id: 21, todoId: 7, fileName: "swatch.png", size: 10, createdAt: "" },
+      { id: 22, todoId: 7, fileName: "invoice.pdf", size: 20, createdAt: "" },
+    ];
+  });
+
+  it("closes when every attachment is deleted", async () => {
+    await completeAndWait();
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("Delete its attachments?")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(screen.queryByText("Delete its attachments?")).toBeNull());
+    expect(deleted()).toEqual([21, 22]);
+  });
+
+  it("stays open and offers to retry the ones that failed", async () => {
+    failDelete.add(22);
+    await completeAndWait();
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("Delete its attachments?")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    // Both were attempted — allSettled does not cancel the rest — and the one
+    // that refused is reported rather than swallowed as an unhandled rejection.
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("in use"));
+    expect(deleted()).toEqual([21, 22]);
+    // Not stuck: the button is live again, and now means the remainder.
+    const retry = screen.getByRole("button", { name: "Retry the 1 that failed" });
+    expect(retry.hasAttribute("disabled")).toBe(false);
+
+    failDelete.clear();
+    await user.click(retry);
+
+    await waitFor(() => expect(screen.queryByText("Delete its attachments?")).toBeNull());
+    expect(deleted()).toEqual([21, 22, 22]);
   });
 });
 
