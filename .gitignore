@@ -32,3 +32,9 @@ node_modules/
 # NOTE: internal/web/dist is deliberately NOT ignored. The built SPA is
 # committed so `go install github.com/jdel/gotracks@latest` produces a binary
 # with the web interface embedded. Rebuild with `make ui` and commit the result.
+
+# The browser suite installs its own Playwright; the browsers live in
+# ~/.cache/ms-playwright, outside the repo.
+# (no trailing slash: locally it may be a symlink to another checkout, which
+# git treats as a file rather than a directory.)
+/e2e/node_modules

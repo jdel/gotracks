@@ -33,7 +33,7 @@ UI_SRC := $(shell find ui -type f -not -path 'ui/node_modules/*' -not -path 'ui/
 # The embedded SPA entry point stands in for the whole internal/web/dist tree.
 SPA    := internal/web/dist/index.html
 
-.PHONY: all build ui dist clean test test-race vet tidy docker docker-load buildx-setup help
+.PHONY: all build ui dist clean test test-race vet e2e tidy docker docker-load buildx-setup help
 
 all: build
 
@@ -61,6 +61,13 @@ test:
 
 test-race:
 	go test -race . ./cmd/... ./internal/...
+
+# Browser checks, against a real server and a throwaway database. Deliberately
+# not part of `test`: they need Chromium and take seconds rather than
+# milliseconds. One-time setup:
+#     npm install --prefix e2e && npx --prefix e2e playwright install chromium
+e2e: gotracks
+	cd e2e && node --test
 
 vet:
 	go vet . ./cmd/... ./internal/...
