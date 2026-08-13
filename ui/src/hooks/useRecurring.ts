@@ -23,8 +23,8 @@ export interface RecurringInput {
   dayOfMonth?: number;
   monthOfYear?: number;
   showFromDays?: number;
+  /** "" clears either end, the same convention the action dates use. */
   startFrom?: string;
-  /** "" clears it, the same convention the action dates use. */
   endDate?: string;
   /** Detaches from the project: a missing projectId means "leave unchanged". */
   clearProject?: boolean;

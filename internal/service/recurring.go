@@ -61,7 +61,10 @@ type RecurringInput struct {
 	ShowFromDays *int
 	StartFrom    *time.Time
 	EndDate      *time.Time
-	ClearEndDate bool
+	// The two ends of the window clear the same way a nil pointer cannot: it is
+	// also what "leave unchanged" looks like on update.
+	ClearStartFrom bool
+	ClearEndDate   bool
 	// ClearProject detaches a pattern from its project. A nil ProjectID cannot
 	// mean that: it is also what "leave unchanged" looks like on update.
 	ClearProject bool
@@ -308,7 +311,9 @@ func (s *RecurringService) update(ctx context.Context, userID, id int64, in Recu
 	if in.ShowFromDays != nil {
 		rec.ShowFromDays = *in.ShowFromDays
 	}
-	if in.StartFrom != nil {
+	if in.ClearStartFrom {
+		rec.StartFrom = nil
+	} else if in.StartFrom != nil {
 		rec.StartFrom = in.StartFrom
 	}
 	if in.ClearEndDate {

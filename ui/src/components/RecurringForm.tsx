@@ -122,9 +122,9 @@ export function RecurringForm({
       monthOfYear: period === "yearly" ? monthOfYear : undefined,
       showFromDays,
       tags: allTags,
-      startFrom: startFrom || undefined,
-      // "" clears the end date, which is the same convention the action dates
-      // use; undefined would leave it alone.
+      // "" clears either end of the window, which is the same convention the
+      // action dates use; undefined would leave it alone.
+      startFrom: editing ? startFrom : startFrom || undefined,
       endDate: editing ? endDate : endDate || undefined,
     };
   }
@@ -334,15 +334,26 @@ export function RecurringForm({
         {/* The window the pattern runs in. The server has always stored both;
             nothing rendered them, so a pattern could not be given an end. */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className={fieldLabel}>
-            {t("recurring.startFrom")}
-            <Input
-              type="date"
-              className="mt-1"
-              value={startFrom}
-              onChange={(e) => setStartFrom(e.target.value)}
-            />
-          </label>
+          <div className="flex items-end gap-2">
+            <label className={`flex-1 ${fieldLabel}`}>
+              {t("recurring.startFrom")}
+              <Input
+                type="date"
+                className="mt-1"
+                value={startFrom}
+                onChange={(e) => setStartFrom(e.target.value)}
+              />
+            </label>
+            {startFrom && (
+              <IconButton
+                className="mb-0.5 size-8"
+                label={t("recurring.clearStartFrom")}
+                onClick={() => setStartFrom("")}
+              >
+                <X className="size-3.5 text-ink-4" />
+              </IconButton>
+            )}
+          </div>
           <div className="flex items-end gap-2">
             <label className={`flex-1 ${fieldLabel}`}>
               {t("recurring.endDate")}

@@ -325,11 +325,14 @@ wherever it was created, and its schedule controls were a second copy of the
 same eighty lines. There is no second form to fall behind now.
 
 **Starts** and **Ends** are the window. The server has always stored both;
-nothing rendered them, so a pattern could not be given an end. Clearing the end
-sends an empty value, the same convention the action dates use, because leaving
-the field out means "don't touch it". An end before the start is refused by the
-form and by the server: such a pattern can never occur, and a rule with no
-occurrences is not worth storing.
+nothing rendered them, so a pattern could not be given an end. Either end is
+cleared by sending an empty value, the same convention the action dates use,
+because leaving the field out means "don't touch it" — so each has a control to
+clear it, and neither is sticky once set. An end before the start is refused by
+the form and by the server: such a pattern can never occur, and a rule with no
+occurrences is not worth storing. The server checks that against the pattern as
+it will be stored, not against the request alone: moving one end on its own can
+invert a window whose other end it was never sent.
 
 Where the editor opens follows the action rules exactly: expanded inside the
 card on a desktop, a sheet on a phone, and it is opened by **holding the row**

@@ -175,6 +175,18 @@ describe("editing a pattern", () => {
     await waitFor(() => expect(lastBody()).toMatchObject({ endDate: "" }));
   });
 
+  it("clears the start date the same way, not by omitting it", async () => {
+    patterns = [pattern({ startFrom: "2026-01-01T00:00:00Z" })];
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("edit", user);
+
+    await user.click(within(form).getByRole("button", { name: "Clear the start date" }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(lastBody()).toMatchObject({ startFrom: "" }));
+  });
+
   it("detaches from a project out loud", async () => {
     patterns = [pattern({ projectId: 5 })];
     const user = userEvent.setup();

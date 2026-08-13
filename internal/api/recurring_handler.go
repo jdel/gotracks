@@ -54,12 +54,16 @@ func (r *recurringRequest) toInput() (service.RecurringInput, bool) {
 		in.Tags = *r.Tags
 		in.HasTags = true
 	}
-	if r.StartFrom != nil && *r.StartFrom != "" {
-		t, err := parseDate(*r.StartFrom)
-		if err != nil {
-			return in, false
+	if r.StartFrom != nil {
+		if *r.StartFrom == "" {
+			in.ClearStartFrom = true
+		} else {
+			t, err := parseDate(*r.StartFrom)
+			if err != nil {
+				return in, false
+			}
+			in.StartFrom = &t
 		}
-		in.StartFrom = &t
 	}
 	if r.EndDate != nil {
 		if *r.EndDate == "" {

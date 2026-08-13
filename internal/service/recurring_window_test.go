@@ -63,6 +63,74 @@ func TestUpdateRefusesEndBeforeStoredStart(t *testing.T) {
 	}
 }
 
+// The mirror image of the test above: the start moves and the end is the stored
+// one. Validating only the incoming input would let this through, since the
+// input on its own carries no end date to be before.
+func TestUpdateRefusesStartAfterStoredEnd(t *testing.T) {
+	_, store, ctxID := newTodoService(t)
+	rec := newRecurringService(t, store)
+	ctx := context.Background()
+
+	end := time.Now().AddDate(0, 1, 0)
+	pattern, err := rec.Create(ctx, 1, service.RecurringInput{
+		ContextID:   &ctxID,
+		Description: strPtr("water the plants"),
+		Period:      strPtr(domain.PeriodDaily),
+		EndDate:     &end,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	after := end.AddDate(0, 1, 0)
+	if _, err := rec.Update(ctx, 1, pattern.ID, service.RecurringInput{StartFrom: &after}); !errors.Is(err, service.ErrValidation) {
+		t.Fatalf("want ErrValidation, got %v", err)
+	}
+
+	before := end.AddDate(0, -1, 0)
+	if _, err := rec.Update(ctx, 1, pattern.ID, service.RecurringInput{StartFrom: &before}); err != nil {
+		t.Fatalf("a start before the stored end should be accepted: %v", err)
+	}
+}
+
+// Clearing the start needs saying out loud for the same reason clearing the end
+// does: a nil StartFrom is what "leave this alone" looks like on update, so
+// without ClearStartFrom a pattern could be given a start but never lose one.
+func TestUpdateClearsStartFrom(t *testing.T) {
+	_, store, ctxID := newTodoService(t)
+	rec := newRecurringService(t, store)
+	ctx := context.Background()
+
+	start := time.Now().AddDate(0, 1, 0)
+	pattern, err := rec.Create(ctx, 1, service.RecurringInput{
+		ContextID:   &ctxID,
+		Description: strPtr("water the plants"),
+		Period:      strPtr(domain.PeriodDaily),
+		StartFrom:   &start,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// Sending nothing leaves it where it is …
+	updated, err := rec.Update(ctx, 1, pattern.ID, service.RecurringInput{Description: strPtr("water the plants twice")})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if updated.StartFrom == nil {
+		t.Fatal("an update that says nothing about the start must not clear it")
+	}
+
+	// … and only ClearStartFrom removes it.
+	updated, err = rec.Update(ctx, 1, pattern.ID, service.RecurringInput{ClearStartFrom: true})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if updated.StartFrom != nil {
+		t.Fatalf("want the start cleared, still %v", *updated.StartFrom)
+	}
+}
+
 // Detaching a pattern from its project needs saying out loud: a nil ProjectID
 // is also what "leave this alone" looks like, so without ClearProject a pattern
 // could be moved between projects but never out of one.
