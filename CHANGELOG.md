@@ -2,6 +2,65 @@
 
 All notable changes to this project are documented here.
 
+## v0.6.0 - 2026-08-14
+
+### Breaking changes
+
+- Actions and recurrences no longer carry a `notes` field. Reference material
+  belongs on the Notes page, which is independent of any action; the field was a
+  second, invisible place for the same thing. `notes` is gone from the action and
+  recurrence request and response bodies.
+
+### Added
+
+- **One form for adding and editing**, for actions and for recurrences alike.
+  The editor that used to be a separate dialog had fallen behind the composer —
+  a recurrence could not change its context or project at all — and there is no
+  second form left to fall behind.
+- A recurrence has a **window**: a start and an end, both editable and both
+  clearable. A window that closes before it opens is refused by the form and by
+  the server, checked against the pattern as it will be stored rather than
+  against the request alone.
+- **Tags on a recurrence**, inherited by every action it spawns — typed as
+  `!tag` or in the tags field, normalised and counted like an action's.
+- An action's fields and both dates are **edited in place**, wherever the action
+  is shown: expanded inside the card on a desktop, a sheet on a phone, with
+  exactly one of the two ever mounted. Nothing is written until Save;
+  `Ctrl`/`Cmd + Enter` saves, `Escape` discards.
+- Quick-sets for both dates, and a **default show-from** for a new action with a
+  due date, from the per-user "show actions this many days before they are due"
+  setting.
+- Attachments are reachable **from a phone**, tickler and contexts moved into
+  the mobile tab bar, a sheet can be **pulled down** to dismiss it, a project
+  opens from anywhere on its card, and settings open from the header initials.
+
+### Fixed
+
+- A session survives a server that is still starting: a failed refresh on boot
+  no longer signs the user out, and expiry mid-session refreshes once and
+  carries on.
+- Admin routes are **guarded**, not merely hidden — a non-administrator reaching
+  one by URL lands on home without the page ever mounting or querying.
+- A bulk attachment delete reports the ones that refused and offers to retry
+  them, instead of leaving the dialog spinning.
+- Editing a due date no longer wipes the show-from, dates are saved on apply or
+  blur rather than half-typed, the page behind a sheet is frozen, and the action
+  sheet is no longer clipped inside the swipe row.
+
+### Internal
+
+- One shared fake server and one render helper for the frontend tests, replacing
+  per-file `fetch` stubs that matched on substrings — which had answered the
+  wrong endpoint in tests that passed anyway. Three tests that passed against
+  unfixed code were found and fixed.
+- A browser suite (`make e2e`) for what jsdom cannot model: a media query at a
+  real pixel width, touch pointers, a session refresh end to end. Pinned by its
+  own lockfile.
+- The bundle was measured against route-level code splitting, which moved 10 kB
+  gzipped and was not adopted; the entry chunk now has a ceiling that fails the
+  build instead of a warning nobody reads.
+- Go 1.26.6, clearing seven standard-library advisories.
+
 ## v0.5.0 - 2026-08-10
 
 ### Added
