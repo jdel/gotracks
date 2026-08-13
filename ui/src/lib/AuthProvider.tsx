@@ -21,7 +21,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api
         .get<User>("/me")
         .then(setUser)
-        .catch(() => tokenStore.clear())
+        // Deliberately does not clear the tokens. A session the server has
+        // actually refused is cleared by the transport, which is the one place
+        // that knows what a 401 means and has already tried the refresh. What
+        // reaches here instead is a 500, a proxy restarting mid-deploy, or no
+        // network at all — none of which say anything about the credentials.
+        // Throwing them away for those meant a five-second outage, or a reload
+        // while offline, signed the user out for good: the tokens live only in
+        // this browser, so deleting them loses a session the server would still
+        // have honoured.
+        .catch(() => {})
         .finally(() => setReady(true));
     }
   }, []);

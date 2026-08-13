@@ -131,21 +131,36 @@ describe("restoring a session on boot", () => {
 });
 
 describe("a server that is merely unwell", () => {
-  it("currently signs the user out when /me fails for any reason", async () => {
+  it("keeps the session when /me fails for a reason that is not the session", async () => {
     tokenStore.set({ accessToken: "access", refreshToken: "refresh", expiresAt: "" });
     fetchStub({ "/me": [jsonResponse({ error: "database unavailable" }, 500)] });
     renderApp();
 
     await waitFor(() => expect(screen.getByText("ready")).toBeTruthy());
+    // Nothing to show, so this load is signed out …
     expect(screen.getByText("signed out")).toBeTruthy();
+    // … but the credentials survive it. The tokens live only in this browser,
+    // so deleting them on a 500 lost a session the server would still have
+    // honoured: a five-second outage, or a reload with no network, signed the
+    // user out for good rather than for a minute. A session the server really
+    // has refused is cleared by the transport instead — see the case above.
+    expect(tokenStore.refresh).toBe("refresh");
+  });
 
-    // Recorded rather than endorsed. A 401 is already handled by the transport,
-    // which clears the tokens and fires onLogout; the provider's own catch only
-    // ever fires for something else — a 500, a dropped connection — and it
-    // throws away a refresh token the server never rejected. Reloading during a
-    // brief outage therefore signs you out for good rather than for a minute.
-    // Changing it is an auth-behaviour decision, not a test fix.
-    expect(tokenStore.refresh).toBeNull();
+  it("recovers on the next load, once the server is answering again", async () => {
+    tokenStore.set({ accessToken: "access", refreshToken: "refresh", expiresAt: "" });
+    fetchStub({ "/me": [jsonResponse({ error: "gateway" }, 502)] });
+    const first = renderApp();
+    await waitFor(() => expect(screen.getByText("ready")).toBeTruthy());
+    first.unmount();
+
+    // The reload a user would do a minute later: same stored session, healthy
+    // server, straight back in without typing a password.
+    vi.unstubAllGlobals();
+    fetchStub({ "/me": [jsonResponse(user)] });
+    renderApp();
+
+    expect(await screen.findByText("signed in as alice@example.com")).toBeTruthy();
   });
 });
 
