@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AttachmentsPage } from "./AttachmentsPage";
+import { mockApi, reply } from "@/test/api";
+import { renderWithProviders } from "@/test/render";
+import { anAttachment } from "@/test/fixtures";
+import type { AttachmentWithTodo } from "@/lib/types";
 
 /**
  * Deleting the attachments of every completed action, against a server that
@@ -18,51 +20,39 @@ vi.mock("@/lib/auth", () => ({
   useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
 }));
 
-let files: Record<string, unknown>[];
+let files: AttachmentWithTodo[];
 let deletedIds: number[];
 const failDelete = new Set<number>();
 
-function jsonResponse(body: unknown, status = 200) {
-  return { ok: status < 400, status, json: async () => body } as Response;
-}
-
-function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const url = String(input);
-  const method = init?.method ?? "GET";
-
-  if (method === "DELETE" && /\/attachments\/\d+$/.test(url)) {
-    const id = Number(url.split("/attachments/")[1]);
-    deletedIds.push(id);
-    if (failDelete.has(id)) {
-      return Promise.resolve(jsonResponse({ error: "attachment is in use" }, 409));
-    }
-    // The server really did delete it, which is why a partial failure has to
-    // reconcile the list rather than leave it as it was.
-    files = files.filter((f) => f.id !== id);
-    return Promise.resolve(jsonResponse({}, 204));
-  }
-  if (url.includes("/preferences")) return Promise.resolve(jsonResponse({}));
-  if (url.includes("/attachments")) return Promise.resolve(jsonResponse(files));
-  return Promise.resolve(jsonResponse({}, 404));
-}
-
-const done = (id: number, fileName: string) => ({
-  id,
-  todoId: 10 + id,
-  fileName,
-  contentType: "application/pdf",
-  size: 100,
-  createdAt: "2026-08-01T00:00:00Z",
+const done = (id: number, fileName: string): AttachmentWithTodo => ({
+  ...anAttachment({ id, todoId: 10 + id, fileName, size: 100 }),
   todoDescription: `action ${id}`,
   todoState: "completed",
 });
+
+/** The fake server, with a delete that can be made to refuse a chosen file. */
+function server() {
+  return mockApi({
+    "GET /attachments": () => files,
+    "GET /preferences": {},
+    "DELETE /attachments/:id": ({ params }) => {
+      const id = Number(params.id);
+      deletedIds.push(id);
+      if (failDelete.has(id)) return reply(409, { error: "attachment is in use" });
+      // The server really did delete it, which is why a partial failure has to
+      // reconcile the list rather than leave it as it was.
+      files = files.filter((f) => f.id !== id);
+      return reply(204);
+    },
+  });
+}
 
 beforeEach(() => {
   files = [done(1, "one.pdf"), done(2, "two.pdf")];
   deletedIds = [];
   failDelete.clear();
   localStorage.setItem("gt.access", "test-token");
-  vi.stubGlobal("fetch", vi.fn(fakeFetch));
+  server();
 });
 
 afterEach(() => {
@@ -70,15 +60,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-function renderPage() {
-  return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter>
-        <AttachmentsPage />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
+const renderPage = () => renderWithProviders(<AttachmentsPage />);
 
 async function openBulkDialog(user: ReturnType<typeof userEvent.setup>) {
   // Both presentations are in the document (cards and table), hence the *All*

@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RecurringPage } from "./RecurringPage";
-import { UndoProvider } from "@/lib/undoable";
-import { setViewport } from "@/test/viewport";
+import { mockApi, type MockApi } from "@/test/api";
+import { renderWithProviders } from "@/test/render";
+import { aContext, aProject, aRecurrence } from "@/test/fixtures";
 import type { RecurringTodo } from "@/lib/types";
 
 /**
@@ -20,67 +19,20 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 let patterns: RecurringTodo[];
-/** Bodies sent to the API, in order, with the method and path that carried them. */
-let sent: { method: string; url: string; body: Record<string, unknown> }[];
+let api: MockApi;
 
-const pattern = (over: Partial<RecurringTodo> = {}): RecurringTodo => ({
-  id: 1,
-  contextId: 1,
-  description: "water the plants",
-  state: "active",
-  period: "weekly",
-  everyN: 1,
-  weekdays: "1",
-  dayOfMonth: 0,
-  monthOfYear: 0,
-  showFromDays: 0,
-  tags: [],
-  createdAt: "2026-08-01T00:00:00Z",
-  updatedAt: "2026-08-01T00:00:00Z",
-  ...over,
-});
-
-function jsonResponse(body: unknown, status = 200) {
-  return { ok: status < 400, status, json: async () => body } as Response;
-}
-
-function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const url = String(input);
-  const method = init?.method ?? "GET";
-  if (init?.body) {
-    sent.push({ method, url, body: JSON.parse(String(init.body)) as Record<string, unknown> });
-  }
-
-  if (url.includes("/contexts")) {
-    return Promise.resolve(
-      jsonResponse([
-        { id: 1, name: "home", state: "active", position: 1 },
-        { id: 2, name: "office", state: "active", position: 2 },
-      ]),
-    );
-  }
-  if (url.includes("/projects")) {
-    return Promise.resolve(
-      jsonResponse([
-        { id: 5, name: "garden", state: "active", position: 1 },
-        { id: 6, name: "taxes", state: "active", position: 2 },
-      ]),
-    );
-  }
-  if (url.includes("/recurring")) {
-    if (method === "POST") return Promise.resolve(jsonResponse(pattern({ id: 99 })));
-    if (method === "PUT") return Promise.resolve(jsonResponse(patterns[0]));
-    return Promise.resolve(jsonResponse(patterns));
-  }
-  return Promise.resolve(jsonResponse({}, 404));
-}
+const pattern = aRecurrence;
 
 beforeEach(() => {
-  patterns = [pattern()];
-  sent = [];
+  patterns = [aRecurrence()];
   localStorage.setItem("gt.access", "test-token");
-  vi.stubGlobal("fetch", vi.fn(fakeFetch));
-  setViewport("desktop");
+  api = mockApi({
+    "GET /contexts": [aContext({ id: 1, name: "home" }), aContext({ id: 2, name: "office" })],
+    "GET /projects": [aProject({ id: 5, name: "garden" }), aProject({ id: 6, name: "taxes" })],
+    "GET /recurring": () => patterns,
+    "POST /recurring": () => aRecurrence({ id: 99 }),
+    "PUT /recurring/:id": () => patterns[0],
+  });
 });
 
 afterEach(() => {
@@ -88,17 +40,8 @@ afterEach(() => {
   localStorage.clear();
 });
 
-function renderPage() {
-  return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter>
-        <UndoProvider>
-          <RecurringPage />
-        </UndoProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
+const renderPage = (viewport: "phone" | "desktop" = "desktop") =>
+  renderWithProviders(<RecurringPage />, { viewport, undo: true });
 
 /** The add form at the top of the page, and the editor opened on the pattern. */
 async function openForm(kind: "add" | "edit", user: ReturnType<typeof userEvent.setup>) {
@@ -112,7 +55,7 @@ async function openForm(kind: "add" | "edit", user: ReturnType<typeof userEvent.
   return screen.getByRole("listitem");
 }
 
-const lastBody = () => sent[sent.length - 1].body;
+const lastBody = () => api.lastBody() as Record<string, unknown>;
 
 describe.each(["add", "edit"] as const)("the %s form", (kind) => {
   const creating = kind === "add";
@@ -132,9 +75,9 @@ describe.each(["add", "edit"] as const)("the %s form", (kind) => {
     });
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(sent.length).toBeGreaterThan(0));
+    await waitFor(() => expect(api.writes().length).toBeGreaterThan(0));
     expect(lastBody()).toMatchObject({ period: "monthly", everyN: 3 });
-    expect(sent[sent.length - 1].method).toBe(creating ? "POST" : "PUT");
+    expect(api.writes().at(-1)!.method).toBe(creating ? "POST" : "PUT");
   });
 
   it("files it under the chosen context and project", async () => {
@@ -181,7 +124,7 @@ describe.each(["add", "edit"] as const)("the %s form", (kind) => {
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
     expect(within(form).getByText(/cannot be before/)).toBeTruthy();
-    expect(sent.filter((s) => s.method !== "GET")).toEqual([]);
+    expect(api.writes()).toEqual([]);
 
     fireEvent.change(within(form).getByLabelText("Ends"), { target: { value: "2026-10-01" } });
     await user.click(within(form).getByRole("button", { name: "Save" }));
@@ -201,7 +144,7 @@ describe("editing a pattern", () => {
     await user.clear(within(form).getByLabelText(/Recurring action/i));
     await user.type(within(form).getByLabelText(/Recurring action/i), "water them twice");
 
-    expect(sent.filter((s) => s.method !== "GET")).toEqual([]);
+    expect(api.writes()).toEqual([]);
   });
 
   it("discards the draft when the editor is closed", async () => {
@@ -213,7 +156,7 @@ describe("editing a pattern", () => {
     await user.type(within(form).getByLabelText(/Recurring action/i), "water them twice");
     await user.click(screen.getByRole("button", { name: "Edit this recurrence" }));
 
-    expect(sent.filter((s) => s.method !== "GET")).toEqual([]);
+    expect(api.writes()).toEqual([]);
     expect(screen.queryByRole("button", { name: "Save" })).toBeTruthy(); // the add form's
     expect(screen.getByText("water the plants")).toBeTruthy();
   });
@@ -324,8 +267,7 @@ describe("where the editor opens", () => {
   });
 
   it("opens as a sheet on a phone, held rather than tapped", async () => {
-    setViewport("phone");
-    renderPage();
+    renderPage("phone");
     await screen.findByText("water the plants");
 
     // No pencil on a phone: there is no hover, and the row is held instead.
