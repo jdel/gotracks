@@ -65,7 +65,7 @@ test-race:
 # Browser checks, against a real server and a throwaway database. Deliberately
 # not part of `test`: they need Chromium and take seconds rather than
 # milliseconds. One-time setup:
-#     npm install --prefix e2e && npx --prefix e2e playwright install chromium
+#     npm ci --prefix e2e && npx --prefix e2e playwright install chromium
 e2e: gotracks
 	cd e2e && node --test
 

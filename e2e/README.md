@@ -25,9 +25,16 @@ every change.
 One-time setup — Playwright and the browser it drives are not in the repo:
 
 ```sh
-npm install --prefix e2e
+npm ci --prefix e2e                              # the version in e2e/package-lock.json
 npx --prefix e2e playwright install chromium     # ~150 MB, into ~/.cache/ms-playwright
 ```
+
+`ci` rather than `install`, and `--prefix e2e` rather than a bare `npx`: this
+directory is its own package, and the browser driver it runs is whichever
+version its lockfile names. It used to resolve `^1.62.1` afresh on each install,
+against a `node_modules` symlinked into an ignored scratch directory — so the
+suite ran on a version nothing in the repository recorded, and on a fresh clone
+it had nothing to run at all.
 
 Then, from the repo root:
 
