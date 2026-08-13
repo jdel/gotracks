@@ -9,13 +9,11 @@ import {
 import { formatBytes } from "@/lib/usage";
 import { Pagination } from "@/components/Pagination";
 import { nextTriState, type TriState } from "@/lib/adminFilter";
-import { Input } from "@/components/ui/input";
 import { TimezonePicker } from "@/components/TimezonePicker";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Button, HeaderBlock, Panel, Screen } from "@/components/primitives";
+import { Button, HeaderBlock, Input, Panel, Screen } from "@/components/primitives";
 import { inputClass } from "@/components/primitive-styles";
-import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/SearchInput";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -213,7 +211,7 @@ export function ReportsPage() {
       <Panel className="mt-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="report-at" className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">{t("reports.dailyRebuild")}</Label>
+              <label htmlFor="report-at" className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">{t("reports.dailyRebuild")}</label>
               <div className="flex items-center gap-2">
                 <Input
                   id="report-at"

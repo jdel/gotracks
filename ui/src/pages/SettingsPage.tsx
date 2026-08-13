@@ -10,12 +10,10 @@ import {
 } from "@/hooks/useSettings";
 import { apiMessage } from "@/lib/api";
 import { availableLocales, useLocale, useT } from "@/lib/i18n";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { TimezonePicker } from "@/components/TimezonePicker";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Button, HeaderBlock, Panel, Screen, Toggle } from "@/components/primitives";
+import { Button, HeaderBlock, Input, Panel, Screen, Toggle } from "@/components/primitives";
 import { inputClass } from "@/components/primitive-styles";
 import { cn } from "@/lib/utils";
 import { PasswordSection } from "@/components/PasswordSection";
@@ -33,6 +31,9 @@ const DATE_FORMATS = [
   { value: "02 Jan 2006", label: "18 Jul 2026" },
 ];
 
+// A quieter caption than the shared `fieldLabel`, used by the settings and
+// admin screens. Two caption styles is one more than the app needs, but that is
+// a separate decision from unifying the fields.
 const fieldLabel = "text-[11px] font-bold text-ink-3 dark:text-ink-4-dark";
 
 export function SettingsPage() {
@@ -206,9 +207,9 @@ export function SettingsPage() {
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-line-3 pt-4 dark:border-line-dark">
             <div>
-              <Label htmlFor="auto-delete-attachments" className="cursor-pointer text-sm font-medium text-ink dark:text-ink-dark">
+              <label htmlFor="auto-delete-attachments" className="cursor-pointer text-sm font-medium text-ink dark:text-ink-dark">
                 {t("settings.autoDeleteAttachments")}
-              </Label>
+              </label>
               <p className="text-xs font-medium text-ink-3 dark:text-ink-4-dark">
                 {t("settings.autoDeleteAttachmentsHelp")}
               </p>

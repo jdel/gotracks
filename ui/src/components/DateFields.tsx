@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/primitives";
 import { IconButton } from "@/components/IconButton";
 import {
   DUE_PRESETS,

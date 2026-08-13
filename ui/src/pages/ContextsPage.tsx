@@ -8,11 +8,10 @@ import {
 } from "@/hooks/useContexts";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { IconButton } from "@/components/IconButton";
-import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/SearchInput";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Button, EmptyState, Fab, HeaderBlock, Screen, Sheet, SkeletonList } from "@/components/primitives";
+import { Button, EmptyState, Fab, HeaderBlock, Input, Screen, Sheet, SkeletonList } from "@/components/primitives";
 import { rowActions, inlineEdit } from "@/components/primitive-styles";
 import { ApiError, apiMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";

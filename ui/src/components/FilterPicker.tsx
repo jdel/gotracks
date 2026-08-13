@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/primitives";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 

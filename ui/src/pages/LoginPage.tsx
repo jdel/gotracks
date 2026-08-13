@@ -6,9 +6,8 @@ import { ApiError } from "@/lib/api";
 import { useForgotPassword, useServerConfig } from "@/hooks/useSettings";
 import { isPasskeySupported } from "@/lib/passkeys";
 import { availableLocales, useLocale, useT } from "@/lib/i18n";
-import { Button } from "@/components/primitives";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button, Input } from "@/components/primitives";
+import { fieldLabel } from "@/components/primitive-styles";
 import { AuthLayout } from "@/components/AuthLayout";
 import type { TwoFactorChallenge } from "@/lib/types";
 
@@ -130,7 +129,7 @@ export function LoginPage() {
                   : t("auth.twoFactorCodeHelp")}
               </p>
               <div className="space-y-2">
-                <Label htmlFor="code">{useRecovery ? t("auth.recoveryCode") : t("auth.code")}</Label>
+                <label htmlFor="code" className={fieldLabel}>{useRecovery ? t("auth.recoveryCode") : t("auth.code")}</label>
                 <Input
                   id="code"
                   value={code}
@@ -169,7 +168,7 @@ export function LoginPage() {
           ) : (
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">{t("auth.email")}</Label>
+              <label htmlFor="email" className={fieldLabel}>{t("auth.email")}</label>
               <Input
                 id="email"
                 type="email"
@@ -180,7 +179,7 @@ export function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">{t("auth.password")}</Label>
+              <label htmlFor="password" className={fieldLabel}>{t("auth.password")}</label>
               <Input
                 id="password"
                 type="password"

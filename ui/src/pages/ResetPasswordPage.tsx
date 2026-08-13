@@ -5,9 +5,8 @@ import { useAcceptInvitation, useResetPassword } from "@/hooks/useSettings";
 import { ApiError } from "@/lib/api";
 import { PasswordRules } from "@/components/PasswordRules";
 import { isPasswordValid } from "@/lib/password";
-import { Button } from "@/components/primitives";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button, Input } from "@/components/primitives";
+import { fieldLabel } from "@/components/primitive-styles";
 import { useT } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { AuthLayout } from "@/components/AuthLayout";
@@ -86,7 +85,7 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
           ) : (
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="password">{t("password.new")}</Label>
+                <label htmlFor="password" className={fieldLabel}>{t("password.new")}</label>
                 <Input
                   id="password"
                   type="password"
@@ -98,7 +97,7 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
                 <PasswordRules password={password} className="pt-1" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm">{t("password.confirm")}</Label>
+                <label htmlFor="confirm" className={fieldLabel}>{t("password.confirm")}</label>
                 <Input
                   id="confirm"
                   type="password"

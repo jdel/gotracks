@@ -1,9 +1,17 @@
-import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type Ref,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router";
 import { usePullToDismiss } from "@/hooks/usePullToDismiss";
 import { Dialog, DialogTitle, SheetSurface } from "@/components/ui/dialog";
 import { ArrowLeft, Plus } from "lucide-react";
 import { Slot } from "@radix-ui/react-slot";
+import { inputClass } from "@/components/primitive-styles";
 import { cn } from "@/lib/utils";
 
 /* gotracks — the shared UI primitives every screen is built from.
@@ -380,6 +388,18 @@ export function Button({
       {children}
     </Comp>
   );
+}
+
+/* Input — the one text field. A thin wrapper over <input> wearing the shared
+ * class, so a caller writes <Input /> rather than remembering `inputClass`, and
+ * a raw <input className={inputClass}> stays legitimate where the element needs
+ * to be something else (a select, a textarea). */
+export function Input({
+  className,
+  ref,
+  ...rest
+}: InputHTMLAttributes<HTMLInputElement> & { ref?: Ref<HTMLInputElement> }) {
+  return <input ref={ref} {...rest} className={cn(inputClass, className)} />;
 }
 
 /* Field — a labelled control. The label wraps the control, so clicking it

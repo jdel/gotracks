@@ -26,10 +26,9 @@ import {
   useUpdateTodo,
 } from "@/hooks/useTodos";
 import { IconButton } from "@/components/IconButton";
-import { Chip, DueChip, Sheet } from "@/components/primitives";
+import { Chip, DueChip, Input, Sheet } from "@/components/primitives";
 import { rowActions, inlineEdit } from "@/components/primitive-styles";
 import { SwipeRow } from "@/components/SwipeRow";
-import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useUndo } from "@/lib/undo";
 import { LEAVE_MS, prefersReducedMotion } from "@/lib/motion";

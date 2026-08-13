@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useLegalEditor, useResetLegalDocument, useSaveLegalDocument } from "@/hooks/useLegal";
-import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
 import { Button, Chip, HeaderBlock, Panel, Screen } from "@/components/primitives";
@@ -95,9 +94,9 @@ function DocumentEditor({ locale, kind }: { locale: string; kind: LegalKind }) {
   return (
     <Panel>
       <div className="flex items-center justify-between">
-        <Label htmlFor={`legal-${locale}-${kind}`} className="text-[17px] font-extrabold tracking-[-0.02em] text-ink dark:text-ink-dark">
+        <label htmlFor={`legal-${locale}-${kind}`} className="text-[17px] font-extrabold tracking-[-0.02em] text-ink dark:text-ink-dark">
           {t(labelKeys[kind])}
-        </Label>
+        </label>
         <Chip tone="neutral">{customised ? t("legal.admin.customised") : t("legal.admin.shipped")}</Chip>
       </div>
       <textarea

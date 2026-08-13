@@ -2,9 +2,8 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { useAuth } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
-import { Button } from "@/components/primitives";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button, Input } from "@/components/primitives";
+import { fieldLabel } from "@/components/primitive-styles";
 import { useLocale, useT } from "@/lib/i18n";
 import { AuthLayout } from "@/components/AuthLayout";
 
@@ -45,7 +44,7 @@ export function RegisterPage() {
           ) : (
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">{t("auth.email")}</Label>
+                <label htmlFor="email" className={fieldLabel}>{t("auth.email")}</label>
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}

@@ -17,16 +17,7 @@ import { TodoItem } from "@/components/TodoItem";
 import { QuickAdd } from "@/components/QuickAdd";
 import { QuickAddSheet } from "@/components/QuickAddSheet";
 import { IconButton } from "@/components/IconButton";
-import { Input } from "@/components/ui/input";
-import {
-  Screen,
-  HeaderBlock,
-  Fab,
-  GroupHeader,
-  List,
-  Button,
-  type Metric,
-} from "@/components/primitives";
+import { Button, Fab, GroupHeader, HeaderBlock, Input, List, Screen, type Metric } from "@/components/primitives";
 import { rowActions, inlineEdit, inputClass } from "@/components/primitive-styles";
 import { useT } from "@/lib/i18n";
 import { useUndo } from "@/lib/undo";

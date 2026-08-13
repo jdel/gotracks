@@ -4,11 +4,9 @@ import { useT } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Button, HeaderBlock, Panel, Screen, Toggle } from "@/components/primitives";
+import { Button, HeaderBlock, Input, Panel, Screen, Toggle } from "@/components/primitives";
 import { inputClass } from "@/components/primitive-styles";
 import { cn } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 
 const LEVELS = ["trace", "debug", "info", "warn", "error"];
 
@@ -53,9 +51,9 @@ export function ServerPage() {
                 onChange={(checked) => updateSettings.mutate({ allowRegister: checked })}
                 label={t("admin.allowRegister")}
               />
-              <Label htmlFor="allow-register" className="cursor-pointer text-ink dark:text-ink-dark">
+              <label htmlFor="allow-register" className="cursor-pointer text-ink dark:text-ink-dark">
                 {settings?.allowRegister ? t("common.on") : t("common.off")}
-              </Label>
+              </label>
             </div>
           </div>
         </Panel>
@@ -79,9 +77,9 @@ export function ServerPage() {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="log-level" className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">
+              <label htmlFor="log-level" className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">
                 {t("server.logLevelSelect")}
-              </Label>
+              </label>
               <select
                 id="log-level"
                 className={cn(inputClass, "sm:w-40")}
@@ -96,9 +94,9 @@ export function ServerPage() {
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="log-duration" className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">
+              <label htmlFor="log-duration" className="text-[11px] font-bold text-ink-3 dark:text-ink-4-dark">
                 {t("server.logLevelDuration")}
-              </Label>
+              </label>
               <Input
                 id="log-duration"
                 type="number"

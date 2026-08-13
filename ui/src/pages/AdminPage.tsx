@@ -17,11 +17,9 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UserUsageDialog } from "@/components/UserUsageDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Pagination } from "@/components/Pagination";
-import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/SearchInput";
-import { Label } from "@/components/ui/label";
 import { initials } from "@/lib/initials";
-import { Button, Chip, DataTable, EmptyState, Fab, HeaderBlock, Screen, Sheet, SkeletonList, Toggle } from "@/components/primitives";
+import { Button, Chip, DataTable, EmptyState, Fab, HeaderBlock, Input, Screen, Sheet, SkeletonList, Toggle } from "@/components/primitives";
 import { ApiError } from "@/lib/api";
 import { nextTriState, type TriState } from "@/lib/adminFilter";
 import { cn } from "@/lib/utils";
@@ -151,9 +149,9 @@ export function AdminPage() {
       />
       <div className="flex items-center gap-2 text-sm">
         <Toggle id="new-user-admin" checked={isAdmin} onChange={setIsAdmin} label={t("admin.isAdmin")} />
-        <Label htmlFor="new-user-admin" className="cursor-pointer text-ink dark:text-ink-dark">
+        <label htmlFor="new-user-admin" className="cursor-pointer text-ink dark:text-ink-dark">
           {t("admin.isAdmin")}
-        </Label>
+        </label>
       </div>
       <Button type="submit" disabled={create.isPending}>
         <Plus /> {t("admin.newUser")}
