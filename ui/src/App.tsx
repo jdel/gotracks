@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Outlet, Route, Routes } from "react-router";
 import { useAuth } from "@/lib/auth";
 import { Layout } from "@/components/Layout";
 import { LoginPage } from "@/pages/LoginPage";
@@ -24,6 +24,7 @@ import { TermsPage, PrivacyPage, CookiesPage } from "@/pages/LegalPage";
 import { LegalAdminPage } from "@/pages/LegalAdminPage";
 import { AuditPage } from "@/pages/AuditPage";
 import { RequireLegal } from "@/components/RequireLegal";
+import { RequireAdmin } from "@/components/RequireAdmin";
 import type { ReactNode } from "react";
 
 
@@ -78,11 +79,17 @@ export function App() {
         <Route path="/attachments" element={<AttachmentsPage />} />
         <Route path="/notes" element={<NotesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="/admin/settings" element={<ServerPage />} />
-        <Route path="/legal" element={<RequireLegal><LegalAdminPage /></RequireLegal>} />
-        <Route path="/reports" element={<ReportsPage />} />
-        <Route path="/audit" element={<AuditPage />} />
+        {/* Guarded as a layout route rather than page by page, so a sixth
+            admin section cannot be added without the guard. */}
+        <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/settings" element={<ServerPage />} />
+          {/* Both conditions: the instance serves legal pages, and the viewer
+              administers it. */}
+          <Route path="/legal" element={<RequireLegal><LegalAdminPage /></RequireLegal>} />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/audit" element={<AuditPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
