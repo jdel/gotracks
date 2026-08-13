@@ -41,6 +41,11 @@ export default defineConfig({
     // headroom: enough that ordinary work does not trip it, little enough that
     // a new dependency of any size does. A warning that fires on every build is
     // worse than no warning, which is what 600 had become.
+    //
+    // This one still only warns, though — Vite has no size option that fails a
+    // build. The ceiling that does is `scripts/bundle-budget.mjs`, on the gzip
+    // figure, run at the end of `npm run build`. Without it the measurement
+    // above ages into a comment that confidently states last year's number.
     chunkSizeWarningLimit: 800,
   },
   server: {
