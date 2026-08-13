@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 // A destructive icon button wired the way the real pages wire theirs.

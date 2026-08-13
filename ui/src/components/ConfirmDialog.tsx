@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives";
 import {
   Dialog,
   DialogContent,
@@ -67,10 +67,10 @@ export function ConfirmDialog({
           </p>
         )}
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} autoFocus>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} autoFocus>
             {cancel}
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={busy}>
+          <Button variant="danger" onClick={onConfirm} disabled={busy}>
             {busy ? t("common.working") : confirm}
           </Button>
         </DialogFooter>

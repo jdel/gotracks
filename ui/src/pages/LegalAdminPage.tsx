@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useLegalEditor, useResetLegalDocument, useSaveLegalDocument } from "@/hooks/useLegal";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Screen, HeaderBlock, Panel, Chip } from "@/components/primitives";
+import { Button, Chip, HeaderBlock, Panel, Screen } from "@/components/primitives";
 import { inputClass } from "@/components/primitive-styles";
 import { cn } from "@/lib/utils";
 import { apiMessage } from "@/lib/api";

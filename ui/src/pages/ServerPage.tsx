@@ -4,12 +4,11 @@ import { useT } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Screen, HeaderBlock, Panel, Toggle } from "@/components/primitives";
+import { Button, HeaderBlock, Panel, Screen, Toggle } from "@/components/primitives";
 import { inputClass } from "@/components/primitive-styles";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 
 const LEVELS = ["trace", "debug", "info", "warn", "error"];
 
@@ -118,7 +117,7 @@ export function ServerPage() {
             </Button>
             {overridden && (
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() =>
                   setLogLevel.mutate({ level: logState?.baseline ?? "info", durationMinutes: 0 })
                 }

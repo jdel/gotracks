@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { usePullToDismiss } from "@/hooks/usePullToDismiss";
 import { Dialog, DialogTitle, SheetSurface } from "@/components/ui/dialog";
 import { ArrowLeft, Plus } from "lucide-react";
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 /* gotracks — the shared UI primitives every screen is built from.
@@ -307,32 +308,77 @@ const BTN = {
   primary: "bg-brand text-white font-bold dark:bg-brand-dark dark:text-ink",
   secondary:
     "bg-brand-soft text-brand font-bold dark:bg-brand-pill-dark dark:text-brand-ink-dark",
-  ghost: "border border-line-2 text-ink-2 font-semibold dark:border-line-2-dark dark:text-ink-2-dark",
+  // Bordered. Secondary actions that still have to read as buttons: Cancel
+  // beside a destructive confirm, "Export my data", the quick-add chevron.
+  ghost: "border-line-2 text-ink-2 font-semibold dark:border-line-2-dark dark:text-ink-2-dark",
+  // Borderless, tinting only on hover. For controls that live inside something
+  // that already draws an edge — a card's row icons, the clear button inside a
+  // date field — where a second box is a box inside a box. Deliberately not
+  // called "ghost": the shadcn layer this replaces used that name for exactly
+  // the opposite thing, and one word meaning two things is what made the two
+  // button systems dangerous to merge.
+  quiet:
+    "text-ink-3 font-semibold hover:bg-brand-soft hover:text-brand dark:text-ink-4-dark dark:hover:bg-brand-pill-dark dark:hover:text-brand-ink-dark",
   danger: "bg-danger text-white font-bold",
+} as const;
+
+const BTN_SIZE = {
+  // 36px and a 10px radius, which is exactly what the text fields beside them
+  // are: the Save in the add bar sits next to the composer, the buttons in a
+  // form sit under its inputs, and a button standing 8px taller than the field
+  // it belongs to reads as a mistake. This is below the 44px touch guideline —
+  // a deliberate call, taken because the alternative looks wrong on every
+  // screen the buttons actually appear on.
+  md: "h-9 gap-2 rounded-[10px] px-4 text-sm",
+  // Compact controls: the weekday picker, a Cancel inside an editing row.
+  sm: "h-8 gap-1.5 rounded-[10px] px-3 text-xs",
+  // Square, and the same 36px as the default — the shape, not a floor: icon
+  // buttons shrink further at their call sites (`size-7` in a list row).
+  icon: "size-9 rounded-[10px]",
 } as const;
 
 export function Button({
   variant = "primary",
+  size = "md",
   full,
   className,
   children,
+  asChild = false,
+  type = "button",
   ...rest
 }: {
   variant?: keyof typeof BTN;
+  size?: keyof typeof BTN_SIZE;
   full?: boolean;
+  /** Render as the child element — a Link that should look like a button. */
+  asChild?: boolean;
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
+  const Comp = asChild ? Slot : "button";
   return (
-    <button
+    <Comp
+      // A bare <button> inside a <form> submits it. That default has caught
+      // this app out: the clear-date button in the action editor submitted the
+      // form, which saves and closes the sheet, so tapping it looked like the
+      // drawer dismissing itself. Every button that really does submit says so;
+      // the rest do not want it. asChild renders somebody else's element, which
+      // may not be a button at all.
+      {...(asChild ? {} : { type })}
       {...rest}
       className={cn(
-        "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-control px-4 py-3 text-sm disabled:opacity-50",
+        "inline-flex items-center justify-center border border-transparent transition-colors",
+        // Icons inherit one size unless a call site says otherwise, and never
+        // shrink when the label is long.
+        "[&_svg]:size-4 [&_svg]:shrink-0",
+        "focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none",
+        "disabled:pointer-events-none disabled:opacity-50",
+        BTN_SIZE[size],
         BTN[variant],
         full && "w-full",
         className,
       )}
     >
       {children}
-    </button>
+    </Comp>
   );
 }
 

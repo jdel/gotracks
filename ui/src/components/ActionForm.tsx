@@ -6,8 +6,8 @@ import { DateFields } from "@/components/DateFields";
 import { ContextProjectFields, IdentityPills } from "@/components/IdentityFields";
 import { fieldLabel } from "@/components/primitive-styles";
 import { useIdentity } from "@/hooks/useIdentity";
-import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
+import { Button } from "@/components/primitives";
+import { IconButton } from "@/components/IconButton";
 import { Input } from "@/components/ui/input";
 import { useContexts } from "@/hooks/useContexts";
 import { useProjects, useTags } from "@/hooks/useProjects";
@@ -259,7 +259,6 @@ export function ActionForm({
           {compact && (
             <IconButton
               type="button"
-              variant="outline"
               label={expanded ? t("quickadd.collapse") : t("quickadd.expand")}
               onClick={() => setExpanded((v) => !v)}
             >
@@ -273,8 +272,7 @@ export function ActionForm({
               type="submit"
               disabled={create.isPending}
               aria-keyshortcuts="Control+Enter Meta+Enter"
-              title={t("common.saveShortcut")}
-            >
+              title={t("common.saveShortcut")}>
               {t("common.save")}
             </Button>
           )}
@@ -326,8 +324,7 @@ export function ActionForm({
           className="ml-auto"
           disabled={create.isPending || (editing && !dirty)}
           aria-keyshortcuts="Control+Enter Meta+Enter"
-          title={t("common.saveShortcut")}
-        >
+          title={t("common.saveShortcut")}>
           {t("common.save")}
         </Button>
       </div>

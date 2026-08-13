@@ -25,7 +25,7 @@ import {
   useReactivateTodo,
   useUpdateTodo,
 } from "@/hooks/useTodos";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { Chip, DueChip, Sheet } from "@/components/primitives";
 import { rowActions, inlineEdit } from "@/components/primitive-styles";
 import { SwipeRow } from "@/components/SwipeRow";
@@ -258,7 +258,6 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
             the title occupied. */}
         <div className={cn(rowActions, "float-right ml-2.5 flex", editing && "hidden")}>
         <IconButton
-          variant="ghost"
           className="size-7"
           label={
             showFiles
@@ -283,7 +282,6 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
           />
         </IconButton>
         <IconButton
-          variant="ghost"
           className="hidden size-7 md:inline-flex"
           label={t("todo.defer")}
           onClick={() => toggle("defer")}
@@ -293,7 +291,6 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
           />
         </IconButton>
         <IconButton
-          variant="ghost"
           className="hidden size-7 md:inline-flex"
           label={t("todo.editAction")}
           onClick={() => toggle("editor")}
@@ -301,7 +298,6 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
           <Pencil className={cn("size-3.5", editorOpen ? "text-foreground" : "text-ink-4")} />
         </IconButton>
         <IconButton
-          variant="ghost"
           className="hidden size-7 md:inline-flex"
           label={todo.starred ? t("todo.removeStar") : t("todo.star")}
           onClick={() => update.mutate({ id: todo.id, starred: !todo.starred })}
@@ -309,7 +305,6 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
           <Star className={cn("size-3.5", todo.starred ? "fill-done text-done" : "text-ink-4")} />
         </IconButton>
         <IconButton
-          variant="ghost"
           className="hidden size-7 md:inline-flex"
           label={t("todo.delete")}
           onClick={() => schedule(deleteKey, t("todo.deleted"), () => del.mutate(todo.id))}
@@ -476,7 +471,6 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
             actions={
               <>
                 <IconButton
-                  variant="ghost"
                   className="size-8"
                   label={todo.starred ? t("todo.removeStar") : t("todo.star")}
                   onClick={() => update.mutate({ id: todo.id, starred: !todo.starred })}
@@ -486,7 +480,6 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
                   />
                 </IconButton>
                 <IconButton
-                  variant="ghost"
                   className="size-8"
                   label={t("todo.delete")}
                   onClick={() => {

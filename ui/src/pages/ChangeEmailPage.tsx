@@ -4,7 +4,7 @@ import { useConfirmEmailChange } from "@/hooks/useSettings";
 import { useAuth } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives";
 import { AuthLayout } from "@/components/AuthLayout";
 
 /** Landing page that proves ownership of a requested new email address. */

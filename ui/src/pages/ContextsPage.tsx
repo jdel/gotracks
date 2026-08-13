@@ -6,14 +6,13 @@ import {
   useDeleteContext,
   useUpdateContext,
 } from "@/hooks/useContexts";
-import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/SearchInput";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Screen, HeaderBlock, Fab, Sheet, SkeletonList, EmptyState } from "@/components/primitives";
+import { Button, EmptyState, Fab, HeaderBlock, Screen, Sheet, SkeletonList } from "@/components/primitives";
 import { rowActions, inlineEdit } from "@/components/primitive-styles";
 import { ApiError, apiMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -198,7 +197,6 @@ export function ContextsPage() {
               )}
               <div className={rowActions}>
                 <IconButton
-                  variant="ghost"
                   className="size-7"
                   label={c.state === "hidden" ? t("contexts.show") : t("contexts.hide")}
                   onClick={() =>
@@ -208,7 +206,6 @@ export function ContextsPage() {
                   {c.state === "hidden" ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
                 </IconButton>
                 <IconButton
-                  variant="ghost"
                   className="size-7"
                   label={t("contexts.deleteLabel", { name: c.name })}
                   onClick={() => onDelete(c.id, c.name)}

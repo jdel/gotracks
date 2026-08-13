@@ -3,8 +3,8 @@ import { X } from "lucide-react";
 import { ActionInput } from "@/components/ActionInput";
 import { ContextProjectFields, IdentityPills } from "@/components/IdentityFields";
 import { fieldLabel } from "@/components/primitive-styles";
-import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
+import { Button } from "@/components/primitives";
+import { IconButton } from "@/components/IconButton";
 import { Input } from "@/components/ui/input";
 import { useCreateRecurring, useUpdateRecurring, type RecurringInput } from "@/hooks/useRecurring";
 import { useFocusFirstField } from "@/hooks/useFocusFirstField";
@@ -284,7 +284,7 @@ export function RecurringForm({
                 key={i}
                 type="button"
                 size="sm"
-                variant={weekdays.includes(i) ? "default" : "outline"}
+                variant={weekdays.includes(i) ? "primary" : "ghost"}
                 onClick={() => toggleWeekday(i)}
               >
                 {weekdayShort(t, i)}
@@ -361,7 +361,6 @@ export function RecurringForm({
             </label>
             {endDate && (
               <IconButton
-                variant="ghost"
                 className="mb-0.5 size-8"
                 label={t("recurring.clearEndDate")}
                 onClick={() => setEndDate("")}
@@ -382,8 +381,7 @@ export function RecurringForm({
           className="ml-auto"
           disabled={create.isPending || update.isPending}
           aria-keyshortcuts="Control+Enter Meta+Enter"
-          title={t("common.saveShortcut")}
-        >
+          title={t("common.saveShortcut")}>
           {t("common.save")}
         </Button>
       </div>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import {
   DUE_PRESETS,
   SHOW_FROM_PRESETS,
@@ -134,7 +134,6 @@ export function DateFields({
           </label>
           {shown.due && (
             <IconButton
-              variant="ghost"
               className="mb-0.5 size-8"
               label={t("dates.clearDue")}
               onClick={() => setDue("")}
@@ -178,7 +177,6 @@ export function DateFields({
           </label>
           {shown.showFrom && (
             <IconButton
-              variant="ghost"
               className="mb-0.5 size-8"
               label={t("dates.clearShowFrom")}
               onClick={() => setShowFrom("")}

@@ -16,7 +16,7 @@ import { formatBytes } from "@/lib/usage";
 import { TodoItem } from "@/components/TodoItem";
 import { QuickAdd } from "@/components/QuickAdd";
 import { QuickAddSheet } from "@/components/QuickAddSheet";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { Input } from "@/components/ui/input";
 import {
   Screen,
@@ -230,7 +230,6 @@ export function ProjectDetailPage() {
                   >
                     <div className={cn(rowActions, "float-right ml-2.5")}>
                       <IconButton
-                        variant="ghost"
                         className="size-7"
                         label={t("notes.delete")}
                         onClick={() =>
@@ -265,7 +264,6 @@ export function ProjectDetailPage() {
                   >
                     <div className={cn(rowActions, "float-right ml-2.5")}>
                       <IconButton
-                        variant="ghost"
                         className="size-7"
                         label={t("attachments.download", { name: a.fileName })}
                         onClick={() => void onDownload(a)}

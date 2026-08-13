@@ -9,12 +9,11 @@ import {
 import { formatBytes } from "@/lib/usage";
 import { Pagination } from "@/components/Pagination";
 import { nextTriState, type TriState } from "@/lib/adminFilter";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TimezonePicker } from "@/components/TimezonePicker";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Screen, HeaderBlock, Panel } from "@/components/primitives";
+import { Button, HeaderBlock, Panel, Screen } from "@/components/primitives";
 import { inputClass } from "@/components/primitive-styles";
 import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/SearchInput";
@@ -228,7 +227,7 @@ export function ReportsPage() {
                 <TimezonePicker value={settings?.usageReportTimeZone || "UTC"} onChange={(zone) => update.mutate({ usageReportTimeZone: zone })} ariaLabel="Report time zone" />
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => run.mutate()} disabled={run.isPending}>
+            <Button variant="ghost" size="sm" onClick={() => run.mutate()} disabled={run.isPending}>
               <RefreshCw className={cn(run.isPending && "animate-spin")} />
               {run.isPending ? t("reports.rebuilding") : t("reports.rebuildNow")}
             </Button>
@@ -248,7 +247,7 @@ export function ReportsPage() {
             />
             <div className="flex gap-2">
               <Button
-                variant={admin === "all" ? "outline" : "default"}
+                variant={admin === "all" ? "ghost" : "primary"}
                 size="sm"
                 className="flex-1 sm:flex-none"
                 onClick={() => {
@@ -259,7 +258,7 @@ export function ReportsPage() {
                 <Shield /> {t("reports.adminFilter", { state: t(`filter.${admin === "all" ? "all" : admin}` as Parameters<TFunc>[0]) })}
               </Button>
               <Button
-                variant={twoFactor === "all" ? "outline" : "default"}
+                variant={twoFactor === "all" ? "ghost" : "primary"}
                 size="sm"
                 className="flex-1 sm:flex-none"
                 onClick={() => {

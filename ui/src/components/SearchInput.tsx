@@ -1,6 +1,6 @@
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +38,6 @@ export function SearchInput({
       {value && (
         <IconButton
           type="button"
-          variant="ghost"
           className="absolute right-0.5 top-1/2 size-7 -translate-y-1/2"
           label={t("common.clearSearch")}
           onClick={() => onChange("")}

@@ -3,7 +3,7 @@ import { KeyRound, Plus, Trash2 } from "lucide-react";
 import { useDeletePasskey, usePasskeys, useServerConfig, type Passkey } from "@/hooks/useSettings";
 import { enrolPasskey, isPasskeySupported } from "@/lib/passkeys";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { Button, Panel } from "@/components/primitives";
 import { inputClass } from "@/components/primitive-styles";
 import { useQueryClient } from "@tanstack/react-query";
@@ -92,7 +92,6 @@ export function PasskeySection() {
                 </p>
               </div>
               <IconButton
-                variant="ghost"
                 label={t("passkey.removeLabel", { name: k.name })}
                 onClick={() => setConfirming(k)}
               >

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Download, Info, Paperclip, Search } from "lucide-react";
 import { useAuditActions, useAuditLog, downloadAuditExport } from "@/hooks/useAudit";
 import { Pagination } from "@/components/Pagination";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
@@ -101,7 +101,6 @@ export function AuditPage() {
 
   const detailsButton = (event: AuditEvent) => (
     <IconButton
-      variant="ghost"
       className="size-7"
       label={t("audit.details")}
       onClick={() => setShowing(event)}

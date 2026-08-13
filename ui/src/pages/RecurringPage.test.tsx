@@ -248,6 +248,30 @@ describe("editing a pattern", () => {
   });
 });
 
+describe("the weekday picker", () => {
+  it("keeps a selected day the same size as an unselected one", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("add", user);
+
+    // Asserting on classes, which this suite otherwise avoids: the defect is
+    // two pixels of width, jsdom has no layout engine to measure it with, and
+    // no browser runner is installed here. The border is what moves — a filled
+    // button had none and an outlined one did, so a day changed width as it was
+    // clicked.
+    const monday = within(form).getByRole("button", { name: "Mon" });
+    const tuesday = within(form).getByRole("button", { name: "Tue" });
+    const borderWidth = (el: HTMLElement) =>
+      [...el.classList].filter((c) => c === "border" || c.startsWith("border-[")).join(" ");
+
+    expect(borderWidth(monday)).toBe(borderWidth(tuesday));
+    await user.click(tuesday);
+    expect(borderWidth(within(form).getByRole("button", { name: "Tue" }))).toBe(
+      borderWidth(within(form).getByRole("button", { name: "Mon" })),
+    );
+  });
+});
+
 describe("tags on a pattern", () => {
   it("shows the pattern's own tags in the list and in the editor", async () => {
     patterns = [pattern({ tags: ["garden", "weekly"] })];

@@ -5,7 +5,7 @@ import { useAcceptInvitation, useResetPassword } from "@/hooks/useSettings";
 import { ApiError } from "@/lib/api";
 import { PasswordRules } from "@/components/PasswordRules";
 import { isPasswordValid } from "@/lib/password";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useT } from "@/lib/i18n";
@@ -120,8 +120,7 @@ function PasswordFromMailPage({ invitation }: { invitation: boolean }) {
                   !isPasswordValid(password) ||
                   !confirm ||
                   (consentRequired && !consentGiven)
-                }
-              >
+                }>
                 <KeyRound />
                 {reset.isPending || accept.isPending
                   ? t("reset.saving")

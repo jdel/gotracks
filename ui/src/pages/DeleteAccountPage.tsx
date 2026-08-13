@@ -5,7 +5,7 @@ import { useConfirmAccountDeletion } from "@/hooks/useSettings";
 import { useAuth } from "@/lib/auth";
 import { apiMessage } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives";
 import { AuthLayout } from "@/components/AuthLayout";
 
 /** Final, emailed confirmation page for permanent account deletion. */
@@ -49,8 +49,7 @@ export function DeleteAccountPage() {
 
           {error && <p className="text-sm font-medium text-danger">{error}</p>}
           <Button
-            variant="destructive"
-            size="lg"
+            variant="danger"
             className="w-full"
             disabled={confirmDeletion.isPending}
             onClick={() => void deleteAccount()}

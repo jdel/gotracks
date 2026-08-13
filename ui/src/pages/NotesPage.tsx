@@ -14,19 +14,11 @@ import { bare, parseAction } from "@/lib/composer";
 import { apiMessage } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { SearchInput } from "@/components/SearchInput";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import {
-  Screen,
-  HeaderBlock,
-  Fab,
-  Sheet,
-  SkeletonList,
-  EmptyState,
-} from "@/components/primitives";
+import { Button, EmptyState, Fab, HeaderBlock, Screen, Sheet, SkeletonList } from "@/components/primitives";
 import { rowActions, inlineEdit } from "@/components/primitive-styles";
 import { useUndo } from "@/lib/undo";
 import { cn } from "@/lib/utils";
@@ -221,7 +213,6 @@ export function NotesPage() {
                   />
                   <div className={cn(rowActions, "ml-auto")}>
                     <IconButton
-                      variant="ghost"
                       className="size-7"
                       label={t("notes.turnIntoAction")}
                       onClick={() => setConverting(n)}
@@ -229,7 +220,6 @@ export function NotesPage() {
                       <CheckSquare className="size-3.5" />
                     </IconButton>
                     <IconButton
-                      variant="ghost"
                       className="size-7"
                       label={t("notes.delete")}
                       onClick={() =>
@@ -423,7 +413,7 @@ function ProjectEditor({
       <Button type="button" size="sm" onClick={apply}>
         {t("common.apply")}
       </Button>
-      <Button type="button" size="sm" variant="outline" onClick={onCancel}>
+      <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
         {t("common.cancel")}
       </Button>
     </div>

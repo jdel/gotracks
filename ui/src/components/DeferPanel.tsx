@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
 import { DateFields, type ActionDates } from "@/components/DateFields";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives";
 import { useUpdateTodo } from "@/hooks/useTodos";
 import { changedDates, dayValue } from "@/lib/actionDates";
 import { useDateFmt } from "@/lib/datefmt";
@@ -65,8 +65,7 @@ export function DeferPanel({ todo, onSaved }: { todo: Todo; onSaved: () => void 
           disabled={!dirty}
           onClick={save}
           aria-keyshortcuts="Control+Enter Meta+Enter"
-          title={t("common.saveShortcut")}
-        >
+          title={t("common.saveShortcut")}>
           {t("common.save")}
         </Button>
       </div>

@@ -10,7 +10,7 @@ import { weekdayShort } from "@/lib/recurrence";
 import { useUndo } from "@/lib/undo";
 import { useT, useTn, type TFunc, type TnFunc } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import type { Context, Project, RecurringTodo } from "@/lib/types";
 import { SearchInput } from "@/components/SearchInput";
 import { useAuth } from "@/lib/auth";
@@ -117,16 +117,13 @@ function PatternRow({
           {/* The pencil is a desktop affordance; the phone holds the row. */}
           {isDesktop && (
             <IconButton
-              variant="ghost"
               className="size-7"
               label={t("recurring.editLabel")}
-              onClick={editing ? onCloseEditor : onEdit}
-            >
+              onClick={editing ? onCloseEditor : onEdit}>
               <Pencil className="size-3.5" />
             </IconButton>
           )}
           <IconButton
-            variant="ghost"
             className="size-7"
             label={pattern.state === "completed" ? t("recurring.resume") : t("recurring.pause")}
             onClick={() =>
@@ -143,7 +140,6 @@ function PatternRow({
             )}
           </IconButton>
           <IconButton
-            variant="ghost"
             className="size-7"
             label={t("recurring.deleteLabel", { description: pattern.description })}
             onClick={() =>

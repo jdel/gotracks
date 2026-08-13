@@ -4,8 +4,8 @@ import { useAttachments, useDeleteAttachment, useUploadAttachment } from "@/hook
 import { downloadAttachment, downloadErrorMessage } from "@/lib/attachments";
 import type { Attachment } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
+import { Button } from "@/components/primitives";
+import { IconButton } from "@/components/IconButton";
 import { useT } from "@/lib/i18n";
 
 function humanSize(bytes: number): string {
@@ -44,7 +44,7 @@ export function AttachmentPanel({ todoId }: { todoId: number }) {
         <input ref={inputRef} type="file" className="hidden" onChange={onPick} />
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={() => inputRef.current?.click()}
           disabled={upload.isPending}
@@ -66,7 +66,6 @@ export function AttachmentPanel({ todoId }: { todoId: number }) {
             </span>
             <span className="mono shrink-0 text-ink-4 dark:text-ink-4-dark">{humanSize(a.size)}</span>
             <IconButton
-              variant="ghost"
               className="size-7"
               label={t("attach.download", { name: a.fileName })}
               onClick={() => void handleDownload(a)}
@@ -74,7 +73,6 @@ export function AttachmentPanel({ todoId }: { todoId: number }) {
               <Download className="size-3" />
             </IconButton>
             <IconButton
-              variant="ghost"
               className="size-7"
               label={t("attach.deleteLabel", { name: a.fileName })}
               onClick={() => setConfirming(a)}

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { useAuth } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLocale, useT } from "@/lib/i18n";
@@ -52,8 +52,7 @@ export function RegisterPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={busy || !email.trim()}
-              >
+                disabled={busy || !email.trim()}>
                 {busy ? t("auth.creating") : t("auth.createAccount")}
               </Button>
               <p className="text-center text-sm text-muted-foreground">

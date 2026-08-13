@@ -12,8 +12,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { useDateFmt } from "@/lib/datefmt";
 import { useT, useTn, type TFunc } from "@/lib/i18n";
-import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UserUsageDialog } from "@/components/UserUsageDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,17 +21,7 @@ import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/SearchInput";
 import { Label } from "@/components/ui/label";
 import { initials } from "@/lib/initials";
-import {
-  Screen,
-  HeaderBlock,
-  Fab,
-  Sheet,
-  SkeletonList,
-  EmptyState,
-  Toggle,
-  Chip,
-  DataTable,
-} from "@/components/primitives";
+import { Button, Chip, DataTable, EmptyState, Fab, HeaderBlock, Screen, Sheet, SkeletonList, Toggle } from "@/components/primitives";
 import { ApiError } from "@/lib/api";
 import { nextTriState, type TriState } from "@/lib/adminFilter";
 import { cn } from "@/lib/utils";
@@ -215,7 +204,7 @@ export function AdminPage() {
   }
 
   const usageBtn = (u: AdminUser) => (
-    <IconButton variant="ghost" className="size-7" label={t("admin.showUsage", { email: u.email })} onClick={() => setShowingUsage(u)}>
+    <IconButton  className="size-7" label={t("admin.showUsage", { email: u.email })} onClick={() => setShowingUsage(u)}>
       <Gauge className="size-3.5 text-ink-4" />
     </IconButton>
   );
@@ -224,7 +213,6 @@ export function AdminPage() {
   // Your own row can't be demoted (the server refuses), so it's read-only.
   const adminBtn = (u: AdminUser) => (
     <IconButton
-      variant="ghost"
       className="size-7"
       disabled={u.id === user?.id}
       label={u.isAdmin ? t("admin.menuRevokeAdmin") : t("admin.menuMakeAdmin")}
@@ -235,25 +223,25 @@ export function AdminPage() {
   );
 
   const deleteBtn = (u: AdminUser) => (
-    <IconButton variant="ghost" className="size-7" label={t("admin.menuDelete")} onClick={() => setConfirmingDelete(u)}>
+    <IconButton  className="size-7" label={t("admin.menuDelete")} onClick={() => setConfirmingDelete(u)}>
       <Trash2 className="size-3.5 text-danger" />
     </IconButton>
   );
 
   const resetBtn = (u: AdminUser) => (
-    <IconButton variant="ghost" className="size-7" label={t("admin.menuResetTwoFactor")} onClick={() => setConfirmingReset(u)}>
+    <IconButton  className="size-7" label={t("admin.menuResetTwoFactor")} onClick={() => setConfirmingReset(u)}>
       <ShieldOff className="size-3.5 text-ink-4" />
     </IconButton>
   );
 
   const resendBtn = (u: AdminUser) => (
-    <IconButton variant="ghost" className="size-7" label={t("admin.menuResendInvitation")} onClick={() => resend(u)}>
+    <IconButton  className="size-7" label={t("admin.menuResendInvitation")} onClick={() => resend(u)}>
       <Mail className="size-3.5 text-ink-4" />
     </IconButton>
   );
 
   const detailsBtn = (u: AdminUser) => (
-    <IconButton variant="ghost" className="size-7" label={t("admin.details")} onClick={() => setShowingDetails(u)}>
+    <IconButton  className="size-7" label={t("admin.details")} onClick={() => setShowingDetails(u)}>
       <Info className="size-3.5 text-ink-4" />
     </IconButton>
   );
@@ -452,7 +440,7 @@ export function AdminPage() {
                 <div className="flex flex-wrap gap-2 border-t border-line-3 pt-3 dark:border-line-dark">
                   {showingDetails.twoFactorEnabled && (
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => {
                         setConfirmingReset(showingDetails);
@@ -464,7 +452,7 @@ export function AdminPage() {
                   )}
                   {!showingDetails.emailVerifiedAt && (
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => {
                         resend(showingDetails);

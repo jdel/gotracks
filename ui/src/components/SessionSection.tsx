@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Monitor, Trash2 } from "lucide-react";
 import { useSessions, useRevokeSession, useRevokeOtherSessions } from "@/hooks/useSessions";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button, Panel, Chip } from "@/components/primitives";
 import { apiMessage } from "@/lib/api";
@@ -62,7 +62,6 @@ export function SessionSection() {
               </div>
               {!s.current && (
                 <IconButton
-                  variant="ghost"
                   label={t("sessions.revoke")}
                   onClick={() => end(s.id)}
                   disabled={revoke.isPending}

@@ -5,7 +5,7 @@ import { formatBytes } from "@/lib/usage";
 import { apiMessage } from "@/lib/api";
 import { downloadAttachment, downloadErrorMessage } from "@/lib/attachments";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { cn } from "@/lib/utils";
 import type { AttachmentWithTodo } from "@/lib/types";
 import { SearchInput } from "@/components/SearchInput";
@@ -59,7 +59,6 @@ function AttachmentActions({
   return (
     <div className="flex shrink-0 justify-end gap-1">
       <IconButton
-        variant="ghost"
         className={mobile ? "size-9" : "size-7"}
         label={t("attachments.download", { name: attachment.fileName })}
         onClick={() => onDownload(attachment)}
@@ -67,7 +66,6 @@ function AttachmentActions({
         <Download className={mobile ? "size-4" : "size-3.5"} />
       </IconButton>
       <IconButton
-        variant="ghost"
         className={mobile ? "size-9" : "size-7"}
         label={t("attachments.deleteLabel", { name: attachment.fileName })}
         onClick={() => onDelete(attachment)}
@@ -212,7 +210,6 @@ export function AttachmentsPage() {
               </select>
             </label>
             <IconButton
-              variant="outline"
               className="size-[42px]"
               label={t(desc ? "attachments.sortDescending" : "attachments.sortAscending")}
               onClick={() => setDesc((c) => !c)}

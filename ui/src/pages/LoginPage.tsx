@@ -6,7 +6,7 @@ import { ApiError } from "@/lib/api";
 import { useForgotPassword, useServerConfig } from "@/hooks/useSettings";
 import { isPasskeySupported } from "@/lib/passkeys";
 import { availableLocales, useLocale, useT } from "@/lib/i18n";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthLayout } from "@/components/AuthLayout";
@@ -210,11 +210,10 @@ export function LoginPage() {
             {config?.passkeys && isPasskeySupported() && (
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 className="w-full"
                 disabled={busy}
-                onClick={onPasskey}
-              >
+                onClick={onPasskey}>
                 <Fingerprint /> {t("auth.passkeySignIn")}
               </Button>
             )}

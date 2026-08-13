@@ -2,14 +2,13 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { Plus, Trash2, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { useCreateProject, useDeleteProject, useProjects, useUpdateProject } from "@/hooks/useProjects";
-import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/components/IconButton";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/SearchInput";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Screen, HeaderBlock, Segmented, Fab, Sheet, SkeletonList, EmptyState, Meter } from "@/components/primitives";
+import { Button, EmptyState, Fab, HeaderBlock, Meter, Screen, Segmented, Sheet, SkeletonList } from "@/components/primitives";
 import { rowActions } from "@/components/primitive-styles";
 import { ApiError, apiMessage } from "@/lib/api";
 import { useT, useTn, type TFunc, type TnFunc } from "@/lib/i18n";
@@ -178,7 +177,6 @@ export function ProjectsPage() {
                     clickable rather than navigating. */}
                 <div className={cn(rowActions, "relative z-10 float-right ml-2.5")}>
                     <IconButton
-                      variant="ghost"
                       className="size-7"
                       label={p.state === "hidden" ? t("projects.makeActive") : t("projects.moveSomeday")}
                       onClick={() =>
@@ -188,7 +186,6 @@ export function ProjectsPage() {
                       {p.state === "hidden" ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
                     </IconButton>
                     <IconButton
-                      variant="ghost"
                       className="size-7"
                       label={p.state === "completed" ? t("projects.reopen") : t("projects.markComplete")}
                       onClick={() =>
@@ -198,7 +195,6 @@ export function ProjectsPage() {
                       <CheckCircle2 className={cn("size-3.5", p.state === "completed" && "text-done")} />
                     </IconButton>
                     <IconButton
-                      variant="ghost"
                       className="size-7"
                       label={t("projects.deleteLabel", { name: p.name })}
                       onClick={() => setConfirming(p)}

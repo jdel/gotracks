@@ -10,13 +10,12 @@ import {
 } from "@/hooks/useSettings";
 import { apiMessage } from "@/lib/api";
 import { availableLocales, useLocale, useT } from "@/lib/i18n";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TimezonePicker } from "@/components/TimezonePicker";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Screen, HeaderBlock, Panel, Toggle } from "@/components/primitives";
+import { Button, HeaderBlock, Panel, Screen, Toggle } from "@/components/primitives";
 import { inputClass } from "@/components/primitive-styles";
 import { cn } from "@/lib/utils";
 import { PasswordSection } from "@/components/PasswordSection";
@@ -240,7 +239,7 @@ export function SettingsPage() {
             </label>
             {emailChangeSent && <p className="text-sm font-medium text-done-text dark:text-done-dark">{t("emailChange.sent")}</p>}
             {emailChangeError && <p className="text-sm font-medium text-danger">{emailChangeError}</p>}
-            <Button type="submit" variant="outline" disabled={!newEmail || requestEmailChange.isPending}>
+            <Button type="submit" variant="ghost" disabled={!newEmail || requestEmailChange.isPending}>
               {requestEmailChange.isPending ? t("common.working") : t("emailChange.send")}
             </Button>
           </form>
@@ -261,7 +260,7 @@ export function SettingsPage() {
         </Panel>
 
         <Panel title={t("settings.export")}>
-          <Button variant="outline" size="sm" onClick={() => void downloadExport()}>
+          <Button variant="ghost" size="sm" onClick={() => void downloadExport()}>
             <Download /> JSON
           </Button>
         </Panel>
@@ -271,8 +270,7 @@ export function SettingsPage() {
           {deletionSent && <p className="text-sm font-medium text-done-text dark:text-done-dark">{t("accountDeletion.emailSent")}</p>}
           {deletionError && <p className="text-sm font-medium text-danger">{deletionError}</p>}
           <Button
-            variant="destructive"
-            size="lg"
+            variant="danger"
             className="w-full sm:w-auto"
             onClick={() => {
               setDeletionError("");

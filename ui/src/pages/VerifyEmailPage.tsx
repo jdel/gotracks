@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useVerifyEmail } from "@/hooks/useSettings";
 import { ApiError } from "@/lib/api";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/primitives";
 import { AuthLayout } from "@/components/AuthLayout";
 import { useT } from "@/lib/i18n";
 
