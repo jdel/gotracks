@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, tokenStore } from "@/lib/api";
+import { datedName, saveBlob } from "@/lib/download";
 import type {
   AdminUserPage,
   AuthResponse,
@@ -341,17 +342,14 @@ export function useAllAttachments() {
 export function useUploadAttachment(todoId: number) {
   const qc = useQueryClient();
   return useMutation({
-    // Multipart uploads bypass the JSON helper: the browser must set the boundary.
-    mutationFn: async (file: File) => {
+    mutationFn: (file: File) => {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch(`/api/v1/todos/${todoId}/attachments`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${tokenStore.access ?? ""}` },
-        body: form,
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "upload failed");
-      return (await res.json()) as Attachment;
+      // api.upload, not a bare fetch: upload is the operation most likely to be
+      // refused for quota, and it was the one that could not say so — a bare
+      // Error is not an ApiError, so apiMessage() dropped the server's message
+      // and showed the local fallback instead.
+      return api.upload<Attachment>(`/todos/${todoId}/attachments`, form);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["attachments"] }),
   });
@@ -368,19 +366,7 @@ export function useDeleteAttachment() {
 // downloadExport fetches the export archive with auth and saves it via a blob
 // URL. The archive holds export.json alongside every uploaded file.
 export async function downloadExport(): Promise<void> {
-	const res = await fetch("/api/v1/export", {
-    headers: { Authorization: `Bearer ${tokenStore.access ?? ""}` },
-  });
-  if (!res.ok) throw new Error("export failed");
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `gotracks-${new Date().toISOString().slice(0, 10)}.zip`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  saveBlob(await api.blob("/export"), `${datedName("gotracks")}.zip`);
 }
 
 // Account deletion is requested from an authenticated session, then completed

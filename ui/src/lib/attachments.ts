@@ -1,31 +1,11 @@
-import { ApiError, tokenStore } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+import { saveBlob } from "@/lib/download";
 
-// Fetches with the bearer token and saves via a blob URL, because a plain
-// <a href> cannot carry the Authorization header. Throws ApiError on failure
-// so callers can tell the user why the download didn't happen, rather than
-// have it fail silently.
+// Goes through the shared authed transport, so an expired access token is
+// refreshed and the download retried rather than failed, and a refusal arrives
+// as an ApiError carrying the server's wording.
 export async function downloadAttachment(id: number, fileName: string): Promise<void> {
-  const res = await fetch(`/api/v1/attachments/${id}`, {
-    headers: { Authorization: `Bearer ${tokenStore.access ?? ""}` },
-  });
-  if (!res.ok) {
-    let msg = res.statusText;
-    try {
-      const data = await res.json();
-      if (data?.error) msg = data.error;
-    } catch {
-      /* ignore */
-    }
-    throw new ApiError(res.status, msg);
-  }
-  const url = URL.createObjectURL(await res.blob());
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  saveBlob(await api.blob(`/attachments/${id}`), fileName);
 }
 
 /** A short, user-facing reason a download failed. */

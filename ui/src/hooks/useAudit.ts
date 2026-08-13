@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, tokenStore } from "@/lib/api";
+import { datedName, saveBlob } from "@/lib/download";
 import type { AuditFilter, AuditPage } from "@/lib/types";
 
 /** The filter as query parameters, dropping anything empty. */
@@ -42,17 +43,5 @@ export async function downloadAuditExport(
   format: "json" | "csv",
 ): Promise<void> {
   const query = auditQuery(filter, { format });
-  const res = await fetch(`/api/v1/admin/audit/export?${query}`, {
-    headers: { Authorization: `Bearer ${tokenStore.access ?? ""}` },
-  });
-  if (!res.ok) throw new Error("export failed");
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `gotracks-audit-${new Date().toISOString().slice(0, 10)}.${format}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  saveBlob(await api.blob(`/admin/audit/export?${query}`), `${datedName("gotracks-audit")}.${format}`);
 }
