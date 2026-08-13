@@ -58,6 +58,8 @@ function useTodoMutation<TData, TVars>(
 export interface TodoInput {
   contextId?: number;
   projectId?: number | null;
+  /** Detaches from the project: a missing projectId means "leave unchanged". */
+  clearProject?: boolean;
   /** Names create the context/project server-side when they do not exist yet. */
   contextName?: string;
   projectName?: string;

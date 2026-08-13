@@ -3,7 +3,9 @@ import { Link } from "react-router";
 import { ChevronDown } from "lucide-react";
 import { ActionInput } from "@/components/ActionInput";
 import { DateFields } from "@/components/DateFields";
-import { FilterPicker } from "@/components/FilterPicker";
+import { ContextProjectFields, IdentityPills } from "@/components/IdentityFields";
+import { fieldLabel } from "@/components/primitive-styles";
+import { useIdentity } from "@/hooks/useIdentity";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +14,13 @@ import { useProjects, useTags } from "@/hooks/useProjects";
 import { useCreateTodo, useUpdateTodo, type TodoInput } from "@/hooks/useTodos";
 import { apiMessage } from "@/lib/api";
 import { dayValue } from "@/lib/actionDates";
-import { bare, parseAction, ALL_SIGILS, type Sigil } from "@/lib/composer";
+import { ALL_SIGILS, type Sigil } from "@/lib/composer";
 import { useDateFmt } from "@/lib/datefmt";
 import { useT } from "@/lib/i18n";
 import { useFocusFirstField } from "@/hooks/useFocusFirstField";
 import { lastUsed } from "@/lib/lastUsed";
 import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-const fieldLabel = "text-xs font-bold text-ink-2 dark:text-ink-2-dark";
 
 function tagList(tags: string): string[] {
   return tags
@@ -109,37 +109,18 @@ export function ActionForm({
   const activeProjects = useMemo(() => projects ?? [], [projects]);
   const knownTagList = useMemo(() => knownTags ?? [], [knownTags]);
   // Editing takes the description literally; creating reads the shortcuts.
-  const parseOpts = useMemo(() => ({ sigils: editing ? [] : sigils }), [editing, sigils]);
-  const parsed = useMemo(
-    () => parseAction(text, activeContexts, activeProjects, knownTagList, parseOpts),
-    [text, activeContexts, activeProjects, knownTagList, parseOpts],
-  );
-
-  // Precedence: a typed token wins, then the select, then the page's own
-  // context, then whatever the previous action used, then the first context as
-  // a last resort. A token naming something new carries no id — the server
-  // creates it by name.
-  const rememberedContext = activeContexts.some((c) => c.id === lastUsed.contextId)
-    ? lastUsed.contextId
-    : undefined;
-  const effectiveContextId = parsed.contextIsNew
-    ? undefined
-    : parsed.contextId ??
-      pickedContext ??
-      defaultContextId ??
-      rememberedContext ??
-      activeContexts[0]?.id;
-  // No fallback to the previous action's project: an action lives outside a
-  // project unless one is named with "#", chosen here, or inherited from the
-  // project page it is being added from.
-  const effectiveProjectId = parsed.projectIsNew
-    ? undefined
-    : parsed.projectId ?? pickedProject ?? defaultProjectId ?? null;
-
-  const contextLabel =
-    parsed.contextName ?? activeContexts.find((c) => c.id === effectiveContextId)?.name;
-  const projectLabel =
-    parsed.projectName ?? activeProjects.find((p) => p.id === effectiveProjectId)?.name;
+  const identity = useIdentity({
+    text,
+    contexts: activeContexts,
+    projects: activeProjects,
+    knownTags: knownTagList,
+    sigils: editing ? [] : sigils,
+    pickedContext,
+    pickedProject,
+    defaultContextId,
+    defaultProjectId,
+  });
+  const { parsed, effectiveContextId, effectiveProjectId } = identity;
 
   // Tags typed as "!tag" plus any from the tags field, de-duplicated.
   const allTags = useMemo(
@@ -156,7 +137,13 @@ export function ActionForm({
     if (effectiveContextId && effectiveContextId !== todo.contextId) {
       out.contextId = effectiveContextId;
     }
-    if (effectiveProjectId !== (todo.projectId ?? null)) out.projectId = effectiveProjectId;
+    if (effectiveProjectId !== (todo.projectId ?? null)) {
+      out.projectId = effectiveProjectId ?? undefined;
+      // Taking an action out of a project has to be said out loud: a missing
+      // projectId is also what "leave unchanged" looks like on the wire, so
+      // sending null alone left the action where it was.
+      if (effectiveProjectId === null) out.clearProject = true;
+    }
     if (allTags.join(",") !== [...todo.tags].map((s) => s.toLowerCase()).join(",")) {
       out.tags = allTags;
     }
@@ -296,86 +283,17 @@ export function ActionForm({
 
       {/* Where this action will land. Only worth showing while the shortcuts
           are live — editing has the controls below and nothing to preview. */}
-      {!editing && (
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          {contextLabel && (
-            <span
-              className={cn(
-                "rounded-full px-2 py-[3px] text-[10px] font-bold text-brand dark:text-brand-ink-dark",
-                parsed.contextIsNew
-                  ? "border border-dashed border-brand dark:border-brand-ink-dark"
-                  : "bg-brand-soft dark:bg-brand-pill-dark",
-              )}
-            >
-              @{bare(contextLabel, "@")}
-              {parsed.contextIsNew && ` · ${t("quickadd.new")}`}
-            </span>
-          )}
-          {projectLabel && (
-            <span
-              className={cn(
-                "rounded-full px-2 py-[3px] text-[10px] font-bold text-done-text dark:text-done-dark",
-                parsed.projectIsNew
-                  ? "border border-dashed border-done dark:border-done-dark"
-                  : "bg-done-soft dark:bg-done-fill-dark",
-              )}
-            >
-              #{bare(projectLabel, "#")}
-              {parsed.projectIsNew && ` · ${t("quickadd.new")}`}
-            </span>
-          )}
-          {allTags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border border-line bg-surface px-2 py-[3px] text-[10px] font-bold text-ink-2 dark:border-line-dark dark:bg-card-dark dark:text-ink-2-dark"
-            >
-              !{tag}
-            </span>
-          ))}
-        </div>
-      )}
+      {!editing && <IdentityPills identity={identity} tags={allTags} />}
 
       {(!compact || expanded) && (
       <div className="grid gap-3" ref={fields}>
-        <div className="grid grid-cols-2 gap-3">
-          {/* Typed into rather than scrolled: a native select is fine for four
-              contexts and useless for forty. */}
-          <label className={fieldLabel}>
-            {t("todo.context")}
-            <FilterPicker
-              className="mt-1"
-              value={parsed.contextIsNew ? "" : String(effectiveContextId ?? "")}
-              options={
-                parsed.contextIsNew
-                  ? [{ value: "", label: `@${parsed.contextName}` }]
-                  : activeContexts.map((c) => ({ value: String(c.id), label: bare(c.name, "@") }))
-              }
-              onChange={(v) => setPickedContext(v ? Number(v) : undefined)}
-              ariaLabel={t("todo.context")}
-              filterLabel={t("picker.filterContexts")}
-              noMatchLabel={t("picker.noMatch")}
-            />
-          </label>
-
-          <label className={fieldLabel}>
-            {t("todo.project")}
-            <FilterPicker
-              className="mt-1"
-              value={parsed.projectIsNew ? "" : String(effectiveProjectId ?? "")}
-              options={[
-                {
-                  value: "",
-                  label: parsed.projectIsNew ? `#${parsed.projectName}` : t("todo.noProject"),
-                },
-                ...activeProjects.map((p) => ({ value: String(p.id), label: bare(p.name, "#") })),
-              ]}
-              onChange={(v) => setPickedProject(v ? Number(v) : null)}
-              ariaLabel={t("todo.project")}
-              filterLabel={t("picker.filterProjects")}
-              noMatchLabel={t("picker.noMatch")}
-            />
-          </label>
-        </div>
+        <ContextProjectFields
+          identity={identity}
+          contexts={activeContexts}
+          projects={activeProjects}
+          onContextChange={setPickedContext}
+          onProjectChange={setPickedProject}
+        />
 
         {/* Leaving Show from blank is what lets the server apply the user's
             default when a due date is set. */}

@@ -32,7 +32,11 @@ func (s *RecurringService) SetProjects(p repo.ProjectRepo) { s.projects = p }
 // applyNames fills ContextID/ProjectID from names, creating what is missing.
 func (s *RecurringService) applyNames(ctx context.Context, userID int64, in *RecurringInput) error {
 	resolver := nameResolver{contexts: s.contexts, projects: s.projects, quotas: s.quotas}
-	return resolver.Apply(ctx, userID, &in.ContextID, in.ContextName, &in.ProjectID, in.ProjectName)
+	projectName := in.ProjectName
+	if in.ClearProject {
+		projectName = nil
+	}
+	return resolver.Apply(ctx, userID, &in.ContextID, in.ContextName, &in.ProjectID, projectName)
 }
 
 // RecurringInput carries create/update fields; nil means "leave unchanged".
@@ -53,6 +57,9 @@ type RecurringInput struct {
 	StartFrom    *time.Time
 	EndDate      *time.Time
 	ClearEndDate bool
+	// ClearProject detaches a pattern from its project. A nil ProjectID cannot
+	// mean that: it is also what "leave unchanged" looks like on update.
+	ClearProject bool
 }
 
 // List returns recurrence patterns for a user.
@@ -134,6 +141,9 @@ func (s *RecurringService) create(ctx context.Context, userID int64, in Recurrin
 	}
 	rec.StartFrom = in.StartFrom
 	rec.EndDate = in.EndDate
+	if endsBeforeStart(rec.StartFrom, rec.EndDate) {
+		return nil, ErrValidation
+	}
 
 	// A pattern whose end date is already behind its first occurrence stores
 	// no action, so it does not need an action slot. Every other new pattern
@@ -186,7 +196,9 @@ func (s *RecurringService) update(ctx context.Context, userID, id int64, in Recu
 		}
 		rec.ContextID = *in.ContextID
 	}
-	if in.ProjectID != nil {
+	if in.ClearProject {
+		rec.ProjectID = nil
+	} else if in.ProjectID != nil {
 		if err := checkProject(ctx, s.projects, userID, in.ProjectID); err != nil {
 			return nil, err
 		}
@@ -238,6 +250,11 @@ func (s *RecurringService) update(ctx context.Context, userID, id int64, in Recu
 		rec.EndDate = nil
 	} else if in.EndDate != nil {
 		rec.EndDate = in.EndDate
+	}
+	// Checked on the merged pattern, not on the input: moving either end alone
+	// can invert a window whose other end was already stored.
+	if endsBeforeStart(rec.StartFrom, rec.EndDate) {
+		return nil, ErrValidation
 	}
 	rec.UpdatedAt = time.Now()
 
@@ -383,6 +400,14 @@ func validateRecurringInput(in RecurringInput, creating bool) error {
 		return ErrValidation
 	}
 	return nil
+}
+
+// endsBeforeStart reports a window that closes before it opens. Such a pattern
+// can never spawn anything, so it is refused rather than stored as a rule with
+// no occurrences — the client checks the same thing so the dates never snap
+// back after a round-trip, and a client is not a place to enforce anything.
+func endsBeforeStart(start, end *time.Time) bool {
+	return start != nil && end != nil && end.Before(*start)
 }
 
 func validWeekdays(value string) bool {

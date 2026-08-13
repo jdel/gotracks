@@ -7,6 +7,9 @@
 // read as a bad interaction.)
 export const rowActions = "flex shrink-0 items-center gap-0.5";
 
+// The small bold caption above a form control, on every form.
+export const fieldLabel = "text-xs font-bold text-ink-2 dark:text-ink-2-dark";
+
 // In-place edit fields (rename an action/context/project, edit a note) strip all
 // the input chrome so the field occupies exactly the space the displayed text
 // did — editing never resizes the card. Callers add the matching text classes.

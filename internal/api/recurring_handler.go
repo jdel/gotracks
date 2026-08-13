@@ -26,6 +26,9 @@ type recurringRequest struct {
 	ShowFromDays *int    `json:"showFromDays"`
 	StartFrom    *string `json:"startFrom"`
 	EndDate      *string `json:"endDate"`
+	// ClearProject detaches the pattern from its project. A nil projectId
+	// cannot say that: it is also what "leave unchanged" looks like.
+	ClearProject bool `json:"clearProject"`
 }
 
 func (r *recurringRequest) toInput() (service.RecurringInput, bool) {
@@ -42,6 +45,7 @@ func (r *recurringRequest) toInput() (service.RecurringInput, bool) {
 		DayOfMonth:   r.DayOfMonth,
 		MonthOfYear:  r.MonthOfYear,
 		ShowFromDays: r.ShowFromDays,
+		ClearProject: r.ClearProject,
 	}
 	if r.StartFrom != nil && *r.StartFrom != "" {
 		t, err := parseDate(*r.StartFrom)

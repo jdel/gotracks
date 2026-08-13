@@ -983,6 +983,31 @@ describe("one presentation per viewport", () => {
 // Attachments, defer and the editor were three independent flags, so opening
 // each in turn left all three stacked down the row. Only one of them can be the
 // thing being worked on.
+describe("taking an action out of a project", () => {
+  it("says so explicitly rather than sending a bare null", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    todos = [{ ...baseTodo, projectId: 3 }];
+    renderItem({ ...baseTodo, projectId: 3 });
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.click(screen.getByLabelText("Project"));
+    await user.click(await screen.findByRole("button", { name: "No project" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // A missing projectId is also what "leave unchanged" looks like, so the
+    // detach used to be sent and ignored.
+    await waitFor(() => {
+      const put = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c) => (c[1] as RequestInit | undefined)?.method === "PUT",
+      );
+      expect(JSON.parse(String((put?.[1] as RequestInit).body))).toMatchObject({
+        clearProject: true,
+      });
+    });
+  });
+});
+
 describe("one panel at a time", () => {
   it("replaces the open panel rather than stacking", async () => {
     const user = userEvent.setup();

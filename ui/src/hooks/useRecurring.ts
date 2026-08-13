@@ -24,10 +24,13 @@ export interface RecurringInput {
   monthOfYear?: number;
   showFromDays?: number;
   startFrom?: string;
+  /** "" clears it, the same convention the action dates use. */
   endDate?: string;
+  /** Detaches from the project: a missing projectId means "leave unchanged". */
+  clearProject?: boolean;
 }
 
-function useRecurringMutation<TVars>(fn: (vars: TVars) => Promise<unknown>) {
+function useRecurringMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,

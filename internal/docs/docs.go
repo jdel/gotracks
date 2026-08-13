@@ -3460,6 +3460,10 @@ const docTemplate = `{
         "api.recurringRequest": {
             "type": "object",
             "properties": {
+                "clearProject": {
+                    "description": "ClearProject detaches the pattern from its project. A nil projectId\ncannot say that: it is also what \"leave unchanged\" looks like.",
+                    "type": "boolean"
+                },
                 "contextId": {
                     "type": "integer"
                 },
@@ -3550,6 +3554,10 @@ const docTemplate = `{
         "api.todoRequest": {
             "type": "object",
             "properties": {
+                "clearProject": {
+                    "description": "ClearProject detaches the action from its project. A nil projectId cannot\nsay that: it is also what \"leave unchanged\" looks like, so an action could\nbe moved between projects but never out of one.",
+                    "type": "boolean"
+                },
                 "contextId": {
                     "type": "integer"
                 },

@@ -19,6 +19,10 @@ type todoHandler struct {
 type todoRequest struct {
 	ContextID *int64 `json:"contextId"`
 	ProjectID *int64 `json:"projectId"`
+	// ClearProject detaches the action from its project. A nil projectId cannot
+	// say that: it is also what "leave unchanged" looks like, so an action could
+	// be moved between projects but never out of one.
+	ClearProject bool `json:"clearProject"`
 	// Names are an alternative to ids: an unknown name is created automatically.
 	ContextName *string   `json:"contextName"`
 	ProjectName *string   `json:"projectName"`
@@ -30,15 +34,17 @@ type todoRequest struct {
 }
 
 // toInput converts the request into a service input, parsing dates.
-// An explicit JSON null on due/showFrom/projectId clears the field.
+// An explicit JSON null on due/showFrom clears the field; a project is detached
+// with clearProject, since nil projectId already means "leave unchanged".
 func (r *todoRequest) toInput() (service.TodoInput, bool) {
 	in := service.TodoInput{
-		ContextID:   r.ContextID,
-		ProjectID:   r.ProjectID,
-		ContextName: r.ContextName,
-		ProjectName: r.ProjectName,
-		Description: r.Description,
-		Starred:     r.Starred,
+		ContextID:    r.ContextID,
+		ProjectID:    r.ProjectID,
+		ContextName:  r.ContextName,
+		ProjectName:  r.ProjectName,
+		Description:  r.Description,
+		Starred:      r.Starred,
+		ClearProject: r.ClearProject,
 	}
 	if r.Due != nil {
 		if *r.Due == "" {

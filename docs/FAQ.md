@@ -309,6 +309,39 @@ show-from along and drops the action back into the tickler. A quick-defer
 surface offers just those two fields, one gesture away: the Defer button on a
 desktop row, a left swipe on a phone.
 
+## Recurring actions
+
+A recurrence is not an action with an extra field. It shares the top half —
+description, context, project, and the same `@`/`#` shortcuts when you type it —
+and then diverges: where an action has two dates, a pattern has a repeating rule
+(period, every N, weekdays, day of the month, month of the year), a **window**
+it runs inside, and a lead time in days from which it works out the dates of the
+actions it spawns.
+
+**Adding and editing use one form**, as actions do. They used to be two — a
+capture bar and a centred dialog — and the dialog had fallen behind: it could
+not change a pattern's context or project at all, so a recurrence was stuck
+wherever it was created, and its schedule controls were a second copy of the
+same eighty lines. There is no second form to fall behind now.
+
+**Starts** and **Ends** are the window. The server has always stored both;
+nothing rendered them, so a pattern could not be given an end. Clearing the end
+sends an empty value, the same convention the action dates use, because leaving
+the field out means "don't touch it". An end before the start is refused by the
+form and by the server: such a pattern can never occur, and a rule with no
+occurrences is not worth storing.
+
+Where the editor opens follows the action rules exactly: expanded inside the
+card on a desktop, a sheet on a phone, and it is opened by **holding the row**
+there rather than by an icon — there is no hover on a phone. There are no
+swipes: left-defer and right-star mean nothing for a pattern. Nothing is written
+until Save, and dismissing discards.
+
+Tags are not on patterns yet. Actions have them; recurrences have no tag support
+in the database at all, so that is a schema change with a form on top rather
+than a form change — including making a spawned action inherit them, without
+which tagging a pattern would be decorative.
+
 ## Gestures on a phone
 
 - **Swipe right** — star.

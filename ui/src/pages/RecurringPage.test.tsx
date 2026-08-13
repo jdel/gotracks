@@ -1,0 +1,267 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { RecurringPage } from "./RecurringPage";
+import { UndoProvider } from "@/lib/undoable";
+import { setViewport } from "@/test/viewport";
+import type { RecurringTodo } from "@/lib/types";
+
+/**
+ * The recurrence page had no tests and two forms — an add bar and an edit
+ * dialog — which is how editing came to be unable to change a context or a
+ * project at all. Every case here runs against **both** ways into the one form
+ * that replaced them, so they cannot drift apart again.
+ */
+
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
+}));
+
+let patterns: RecurringTodo[];
+/** Bodies sent to the API, in order, with the method and path that carried them. */
+let sent: { method: string; url: string; body: Record<string, unknown> }[];
+
+const pattern = (over: Partial<RecurringTodo> = {}): RecurringTodo => ({
+  id: 1,
+  contextId: 1,
+  description: "water the plants",
+  state: "active",
+  period: "weekly",
+  everyN: 1,
+  weekdays: "1",
+  dayOfMonth: 0,
+  monthOfYear: 0,
+  showFromDays: 0,
+  createdAt: "2026-08-01T00:00:00Z",
+  updatedAt: "2026-08-01T00:00:00Z",
+  ...over,
+});
+
+function jsonResponse(body: unknown, status = 200) {
+  return { ok: status < 400, status, json: async () => body } as Response;
+}
+
+function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const url = String(input);
+  const method = init?.method ?? "GET";
+  if (init?.body) {
+    sent.push({ method, url, body: JSON.parse(String(init.body)) as Record<string, unknown> });
+  }
+
+  if (url.includes("/contexts")) {
+    return Promise.resolve(
+      jsonResponse([
+        { id: 1, name: "home", state: "active", position: 1 },
+        { id: 2, name: "office", state: "active", position: 2 },
+      ]),
+    );
+  }
+  if (url.includes("/projects")) {
+    return Promise.resolve(
+      jsonResponse([
+        { id: 5, name: "garden", state: "active", position: 1 },
+        { id: 6, name: "taxes", state: "active", position: 2 },
+      ]),
+    );
+  }
+  if (url.includes("/recurring")) {
+    if (method === "POST") return Promise.resolve(jsonResponse(pattern({ id: 99 })));
+    if (method === "PUT") return Promise.resolve(jsonResponse(patterns[0]));
+    return Promise.resolve(jsonResponse(patterns));
+  }
+  return Promise.resolve(jsonResponse({}, 404));
+}
+
+beforeEach(() => {
+  patterns = [pattern()];
+  sent = [];
+  localStorage.setItem("gt.access", "test-token");
+  vi.stubGlobal("fetch", vi.fn(fakeFetch));
+  setViewport("desktop");
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  localStorage.clear();
+});
+
+function renderPage() {
+  return render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>
+        <UndoProvider>
+          <RecurringPage />
+        </UndoProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+/** The add form at the top of the page, and the editor opened on the pattern. */
+async function openForm(kind: "add" | "edit", user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByText("water the plants");
+  // The composer has no placeholder attribute — the text is drawn by the
+  // highlight mirror behind the field — so the field is labelled with it.
+  if (kind === "add") return document.querySelector<HTMLElement>("form.space-y-3")!;
+  await user.click(screen.getByRole("button", { name: "Edit this recurrence" }));
+  // The editor is not a <form> — a stray submit would dismiss it — so the row
+  // it expands inside is the container to scope queries to.
+  return screen.getByRole("listitem");
+}
+
+const lastBody = () => sent[sent.length - 1].body;
+
+describe.each(["add", "edit"] as const)("the %s form", (kind) => {
+  const creating = kind === "add";
+
+  it("sends the schedule it shows", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm(kind, user);
+
+    if (creating) await user.type(within(form).getByLabelText(/Recurring action/i), "call the vet");
+    await user.selectOptions(within(form).getByLabelText("Repeats"), "monthly");
+    // Selecting the digit rather than clearing it: the field floors itself at
+    // 1, so an empty box immediately becomes "1" and typing would append.
+    await user.type(within(form).getByLabelText("Every"), "3", {
+      initialSelectionStart: 0,
+      initialSelectionEnd: 1,
+    });
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(sent.length).toBeGreaterThan(0));
+    expect(lastBody()).toMatchObject({ period: "monthly", everyN: 3 });
+    expect(sent[sent.length - 1].method).toBe(creating ? "POST" : "PUT");
+  });
+
+  it("files it under the chosen context and project", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm(kind, user);
+
+    if (creating) await user.type(within(form).getByLabelText(/Recurring action/i), "call the vet");
+    // Both pickers are typed into: type to filter, arrow, Enter.
+    await user.click(within(form).getByLabelText("Context"));
+    await user.click(await screen.findByRole("button", { name: "office" }));
+    await user.click(within(form).getByLabelText("Project"));
+    await user.click(await screen.findByRole("button", { name: "taxes" }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    // Editing could not do this at all before: the dialog had no context or
+    // project control, so a pattern was stuck wherever it was created.
+    await waitFor(() => expect(lastBody()).toMatchObject({ contextId: 2, projectId: 6 }));
+  });
+
+  it("round-trips the window and refuses one that closes before it opens", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm(kind, user);
+
+    if (creating) await user.type(within(form).getByLabelText(/Recurring action/i), "call the vet");
+    // A date input is filled, not typed into: jsdom takes the value whole.
+    fireEvent.change(within(form).getByLabelText("Starts"), { target: { value: "2026-09-01" } });
+    fireEvent.change(within(form).getByLabelText("Ends"), { target: { value: "2026-08-01" } });
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    expect(within(form).getByText(/cannot be before/)).toBeTruthy();
+    expect(sent.filter((s) => s.method !== "GET")).toEqual([]);
+
+    fireEvent.change(within(form).getByLabelText("Ends"), { target: { value: "2026-10-01" } });
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(lastBody()).toMatchObject({ startFrom: "2026-09-01", endDate: "2026-10-01" }),
+    );
+  });
+});
+
+describe("editing a pattern", () => {
+  it("writes nothing until Save", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("edit", user);
+
+    await user.clear(within(form).getByLabelText(/Recurring action/i));
+    await user.type(within(form).getByLabelText(/Recurring action/i), "water them twice");
+
+    expect(sent.filter((s) => s.method !== "GET")).toEqual([]);
+  });
+
+  it("discards the draft when the editor is closed", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("edit", user);
+
+    await user.clear(within(form).getByLabelText(/Recurring action/i));
+    await user.type(within(form).getByLabelText(/Recurring action/i), "water them twice");
+    await user.click(screen.getByRole("button", { name: "Edit this recurrence" }));
+
+    expect(sent.filter((s) => s.method !== "GET")).toEqual([]);
+    expect(screen.queryByRole("button", { name: "Save" })).toBeTruthy(); // the add form's
+    expect(screen.getByText("water the plants")).toBeTruthy();
+  });
+
+  it("clears the end date with an empty string rather than leaving it alone", async () => {
+    patterns = [pattern({ endDate: "2026-12-01T00:00:00Z" })];
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("edit", user);
+
+    await user.click(within(form).getByRole("button", { name: "Clear the end date" }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    // "" is the clear; undefined would mean "leave unchanged" and the end date
+    // would quietly survive being removed.
+    await waitFor(() => expect(lastBody()).toMatchObject({ endDate: "" }));
+  });
+
+  it("detaches from a project out loud", async () => {
+    patterns = [pattern({ projectId: 5 })];
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("edit", user);
+
+    await user.click(within(form).getByLabelText("Project"));
+    await user.click(await screen.findByRole("button", { name: "No project" }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    // A missing projectId reads as "leave unchanged" on the wire, so removing
+    // one has to be said explicitly or nothing happens.
+    await waitFor(() => expect(lastBody()).toMatchObject({ clearProject: true }));
+  });
+});
+
+describe("where the editor opens", () => {
+  it("expands inside the card on a desktop", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await openForm("edit", user);
+
+    expect(document.querySelector("[role='dialog']")).toBeNull();
+    expect(screen.getAllByLabelText("Context").length).toBe(2); // add form + editor
+  });
+
+  it("opens as a sheet on a phone, held rather than tapped", async () => {
+    setViewport("phone");
+    renderPage();
+    await screen.findByText("water the plants");
+
+    // No pencil on a phone: there is no hover, and the row is held instead.
+    expect(screen.queryByRole("button", { name: "Edit this recurrence" })).toBeNull();
+
+    const row = screen.getByText("water the plants").closest("li")!;
+    vi.useFakeTimers();
+    try {
+      row.dispatchEvent(
+        new PointerEvent("pointerdown", { pointerType: "touch", bubbles: true, clientX: 50, clientY: 50 }),
+      );
+      await vi.advanceTimersByTimeAsync(600);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    await waitFor(() => expect(document.querySelector("[role='dialog']")).not.toBeNull());
+  });
+});
