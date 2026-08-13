@@ -337,10 +337,18 @@ there rather than by an icon — there is no hover on a phone. There are no
 swipes: left-defer and right-star mean nothing for a pattern. Nothing is written
 until Save, and dismissing discards.
 
-Tags are not on patterns yet. Actions have them; recurrences have no tag support
-in the database at all, so that is a schema change with a form on top rather
-than a form change — including making a spawned action inherit them, without
-which tagging a pattern would be decorative.
+**Tags belong to the pattern, and the actions it spawns inherit them.** That
+inheritance is the point: a tag that stayed on the rule would never reach a list
+anybody reads. They are typed the same way as an action's — `!tag` in the
+description, or the tags field — normalised the same way, and counted against
+the same per-action tag limit.
+
+They live in their own `recurring_taggings` table rather than in `taggings`,
+whose `todo_id` is `NOT NULL` and whose every query assumes an action is on the
+other end; widening that would have meant revisiting all of them to save one
+table. Deleting a pattern drops its links, and an export carries them, since an
+export that dropped them would lose the tags of every action the pattern has not
+spawned yet.
 
 ## Gestures on a phone
 

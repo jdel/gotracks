@@ -15,6 +15,7 @@ type RecurringService struct {
 	todos     repo.TodoRepo
 	contexts  repo.ContextRepo
 	projects  repo.ProjectRepo
+	tags      repo.TagRepo
 	quotas    *QuotaService
 }
 
@@ -22,6 +23,10 @@ type RecurringService struct {
 func NewRecurringService(rec repo.RecurringTodoRepo, todos repo.TodoRepo, contexts repo.ContextRepo) *RecurringService {
 	return &RecurringService{recurring: rec, todos: todos, contexts: contexts}
 }
+
+// SetTags wires the tag repo. Without it a pattern simply has no tags — the
+// spawn path checks, so an instance still gets created either way.
+func (s *RecurringService) SetTags(t repo.TagRepo) { s.tags = t }
 
 // SetQuotas enables the per-account recurrence limit.
 func (s *RecurringService) SetQuotas(q *QuotaService) { s.quotas = q }
@@ -60,16 +65,69 @@ type RecurringInput struct {
 	// ClearProject detaches a pattern from its project. A nil ProjectID cannot
 	// mean that: it is also what "leave unchanged" looks like on update.
 	ClearProject bool
+	// Tags replaces the whole set when HasTags is true, matching how an action
+	// carries them: an absent field leaves them alone, an empty one clears them.
+	Tags    []string
+	HasTags bool
 }
 
 // List returns recurrence patterns for a user.
 func (s *RecurringService) List(ctx context.Context, userID int64, state string) ([]*domain.RecurringTodo, error) {
-	return s.recurring.List(ctx, userID, state)
+	recs, err := s.recurring.List(ctx, userID, state)
+	if err != nil {
+		return nil, err
+	}
+	return recs, s.attachTags(ctx, userID, recs)
 }
 
 // Get returns one pattern.
 func (s *RecurringService) Get(ctx context.Context, userID, id int64) (*domain.RecurringTodo, error) {
-	return s.recurring.ByID(ctx, userID, id)
+	rec, err := s.recurring.ByID(ctx, userID, id)
+	if err != nil {
+		return nil, err
+	}
+	return rec, s.attachTags(ctx, userID, []*domain.RecurringTodo{rec})
+}
+
+// attachTags fills in the Tags of patterns already read, in one query.
+func (s *RecurringService) attachTags(ctx context.Context, userID int64, recs []*domain.RecurringTodo) error {
+	for _, rec := range recs {
+		rec.Tags = []string{}
+	}
+	if s.tags == nil || len(recs) == 0 {
+		return nil
+	}
+	ids := make([]int64, 0, len(recs))
+	for _, rec := range recs {
+		ids = append(ids, rec.ID)
+	}
+	byPattern, err := s.tags.ForRecurring(ctx, userID, ids)
+	if err != nil {
+		return err
+	}
+	for _, rec := range recs {
+		if names, ok := byPattern[rec.ID]; ok {
+			rec.Tags = names
+		}
+	}
+	return nil
+}
+
+// saveTags replaces a pattern's tag set, under the same per-action tag quota an
+// action's tags are checked against.
+func (s *RecurringService) saveTags(ctx context.Context, userID int64, rec *domain.RecurringTodo, names []string) error {
+	if s.tags == nil {
+		return nil
+	}
+	clean := normalizeTags(names)
+	if err := s.quotas.CheckTags(ctx, userID, clean); err != nil {
+		return err
+	}
+	if err := s.tags.SetForRecurring(ctx, userID, rec.ID, clean); err != nil {
+		return err
+	}
+	rec.Tags = clean
+	return nil
 }
 
 // Create adds a pattern and immediately spawns its first todo if one is due.
@@ -157,6 +215,13 @@ func (s *RecurringService) create(ctx context.Context, userID int64, in Recurrin
 
 	if err := s.recurring.Create(ctx, rec); err != nil {
 		return nil, err
+	}
+	// After the insert, which is where the id comes from, and before the first
+	// spawn, which copies them onto the action it creates.
+	if in.HasTags {
+		if err := s.saveTags(ctx, userID, rec, in.Tags); err != nil {
+			return nil, err
+		}
 	}
 	if _, err := s.spawnIfDue(ctx, rec, now); err != nil {
 		return nil, err
@@ -261,12 +326,26 @@ func (s *RecurringService) update(ctx context.Context, userID, id int64, in Recu
 	if err := s.recurring.Update(ctx, rec); err != nil {
 		return nil, err
 	}
-	return rec, nil
+	if in.HasTags {
+		if err := s.saveTags(ctx, userID, rec, in.Tags); err != nil {
+			return nil, err
+		}
+		return rec, nil
+	}
+	return rec, s.attachTags(ctx, userID, []*domain.RecurringTodo{rec})
 }
 
 // Delete removes a pattern. Already-spawned todos are left alone.
 func (s *RecurringService) Delete(ctx context.Context, userID, id int64) error {
-	return s.recurring.Delete(ctx, userID, id)
+	if err := s.recurring.Delete(ctx, userID, id); err != nil {
+		return err
+	}
+	// The links go with it, or the next pattern to be given this id inherits
+	// somebody else's tags.
+	if s.tags == nil {
+		return nil
+	}
+	return s.tags.DeleteForRecurring(ctx, userID, id)
 }
 
 // Sweep spawns the next todo for every active pattern that has no open instance.
@@ -369,6 +448,21 @@ func (s *RecurringService) spawnIfDue(ctx context.Context, rec *domain.Recurring
 	}
 	if err := s.todos.Create(ctx, todo); err != nil {
 		return false, err
+	}
+	// The instance inherits the pattern's tags. Without this, tagging a
+	// recurrence would be decorative: the tag would live on the rule and never
+	// reach anything that appears in a list.
+	if s.tags != nil {
+		names, err := s.tags.ForRecurring(ctx, rec.UserID, []int64{rec.ID})
+		if err != nil {
+			return false, err
+		}
+		if len(names[rec.ID]) > 0 {
+			if err := s.tags.SetForTodo(ctx, rec.UserID, todo.ID, names[rec.ID]); err != nil {
+				return false, err
+			}
+			todo.Tags = names[rec.ID]
+		}
 	}
 
 	rec.LastSpawnedAt = &dueCopy

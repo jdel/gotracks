@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input";
 import { useCreateRecurring, useUpdateRecurring, type RecurringInput } from "@/hooks/useRecurring";
 import { useFocusFirstField } from "@/hooks/useFocusFirstField";
 import { useIdentity } from "@/hooks/useIdentity";
+import { useTags } from "@/hooks/useProjects";
 import { apiMessage } from "@/lib/api";
 import { lastUsed } from "@/lib/lastUsed";
 import { useT } from "@/lib/i18n";
 import { weekdayShort } from "@/lib/recurrence";
+import { ALL_SIGILS } from "@/lib/composer";
 import type { Context, Project, RecurrencePeriod, RecurringTodo } from "@/lib/types";
 
 const WEEKDAY_INDEXES = [0, 1, 2, 3, 4, 5, 6];
@@ -72,10 +74,13 @@ export function RecurringForm({
   const [dayOfMonth, setDayOfMonth] = useState(pattern?.dayOfMonth || 1);
   const [monthOfYear, setMonthOfYear] = useState(pattern?.monthOfYear || 1);
   const [showFromDays, setShowFromDays] = useState(pattern?.showFromDays ?? 0);
+  const [tags, setTags] = useState(pattern ? pattern.tags.join(", ") : "");
   const [startFrom, setStartFrom] = useState(dayValue(pattern?.startFrom));
   const [endDate, setEndDate] = useState(dayValue(pattern?.endDate));
   const [error, setError] = useState("");
 
+  const { data: knownTags } = useTags();
+  const knownTagList = useMemo(() => knownTags ?? [], [knownTags]);
   const activeContexts = useMemo(() => contexts.filter((c) => c.state === "active"), [contexts]);
   // Editing reads the stored description literally: re-parsing it would give
   // "review #7741 quarterly" a project the first time anybody touched it.
@@ -83,11 +88,26 @@ export function RecurringForm({
     text,
     contexts: activeContexts,
     projects,
-    sigils: editing ? [] : ["@", "#"],
+    knownTags: knownTagList,
+    sigils: editing ? [] : ALL_SIGILS,
     pickedContext,
     pickedProject,
   });
   const { parsed, effectiveContextId, effectiveProjectId } = identity;
+
+  // Tags typed as "!tag" plus any from the field, de-duplicated — the same
+  // rule the action form uses, so a tag means the same thing in both.
+  const allTags = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [...parsed.tags, ...tags.split(",").map((s) => s.trim())]
+            .filter(Boolean)
+            .map((s) => s.toLowerCase()),
+        ),
+      ),
+    [parsed.tags, tags],
+  );
 
   function toggleWeekday(d: number) {
     setWeekdays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d].sort()));
@@ -102,6 +122,7 @@ export function RecurringForm({
       dayOfMonth: period === "monthly" || period === "yearly" ? dayOfMonth : undefined,
       monthOfYear: period === "yearly" ? monthOfYear : undefined,
       showFromDays,
+      tags: allTags,
       startFrom: startFrom || undefined,
       // "" clears the end date, which is the same convention the action dates
       // use; undefined would leave it alone.
@@ -158,6 +179,7 @@ export function RecurringForm({
         onSuccess: (created) => {
           lastUsed.remember(created.contextId);
           setText("");
+          setTags("");
           setPickedProject(undefined);
           onDone?.();
         },
@@ -206,7 +228,7 @@ export function RecurringForm({
       />
 
       {/* Where the actions it spawns will land. */}
-      {!editing && <IdentityPills identity={identity} />}
+      {!editing && <IdentityPills identity={identity} tags={allTags} />}
 
       <div className="grid gap-3" ref={fields}>
         <ContextProjectFields
@@ -299,6 +321,16 @@ export function RecurringForm({
             </label>
           </div>
         )}
+
+        <label className={fieldLabel}>
+          {t("quickadd.tags")}
+          <Input
+            className="mt-1"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder={t("quickadd.tagsPlaceholder")}
+          />
+        </label>
 
         {/* The window the pattern runs in. The server has always stored both;
             nothing rendered them, so a pattern could not be given an end. */}

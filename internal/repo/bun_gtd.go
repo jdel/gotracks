@@ -292,10 +292,68 @@ func (r *tagRepo) DeleteForTodo(ctx context.Context, userID, todoID int64) error
 	return err
 }
 
+// SetForRecurring replaces the tag set of a recurrence pattern.
+func (r *tagRepo) SetForRecurring(ctx context.Context, userID, recurringID int64, names []string) error {
+	if err := r.DeleteForRecurring(ctx, userID, recurringID); err != nil {
+		return err
+	}
+	tags, err := r.EnsureAll(ctx, userID, names)
+	if err != nil {
+		return err
+	}
+	if len(tags) == 0 {
+		return nil
+	}
+	taggings := make([]domain.RecurringTagging, 0, len(tags))
+	for _, t := range tags {
+		taggings = append(taggings, domain.RecurringTagging{
+			TagID: t.ID, RecurringTodoID: recurringID, UserID: userID,
+		})
+	}
+	_, err = r.db.NewInsert().Model(&taggings).Exec(ctx)
+	return err
+}
+
+// ForRecurring returns tag names keyed by pattern id.
+func (r *tagRepo) ForRecurring(ctx context.Context, userID int64, recurringIDs []int64) (map[int64][]string, error) {
+	out := map[int64][]string{}
+	if len(recurringIDs) == 0 {
+		return out, nil
+	}
+	var rows []struct {
+		RecurringTodoID int64  `bun:"recurring_todo_id"`
+		Name            string `bun:"name"`
+	}
+	err := r.db.NewSelect().
+		TableExpr("recurring_taggings AS rtgg").
+		ColumnExpr("rtgg.recurring_todo_id AS recurring_todo_id").ColumnExpr("tg.name AS name").
+		Join("JOIN tags AS tg ON tg.id = rtgg.tag_id").
+		Where("rtgg.user_id = ? AND rtgg.recurring_todo_id IN (?)", userID, bun.List(recurringIDs)).
+		Order("tg.name ASC").
+		Scan(ctx, &rows)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		out[row.RecurringTodoID] = append(out[row.RecurringTodoID], row.Name)
+	}
+	return out, nil
+}
+
+func (r *tagRepo) DeleteForRecurring(ctx context.Context, userID, recurringID int64) error {
+	_, err := r.db.NewDelete().Model((*domain.RecurringTagging)(nil)).
+		Where("user_id = ? AND recurring_todo_id = ?", userID, recurringID).Exec(ctx)
+	return err
+}
+
 // DeleteForUser drops the taggings first, so no row is ever left pointing at a
 // tag that no longer exists.
 func (r *tagRepo) DeleteForUser(ctx context.Context, userID int64) error {
 	if _, err := r.db.NewDelete().Model((*domain.Tagging)(nil)).
+		Where("user_id = ?", userID).Exec(ctx); err != nil {
+		return err
+	}
+	if _, err := r.db.NewDelete().Model((*domain.RecurringTagging)(nil)).
 		Where("user_id = ?", userID).Exec(ctx); err != nil {
 		return err
 	}

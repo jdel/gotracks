@@ -34,6 +34,7 @@ const pattern = (over: Partial<RecurringTodo> = {}): RecurringTodo => ({
   dayOfMonth: 0,
   monthOfYear: 0,
   showFromDays: 0,
+  tags: [],
   createdAt: "2026-08-01T00:00:00Z",
   updatedAt: "2026-08-01T00:00:00Z",
   ...over,
@@ -154,6 +155,20 @@ describe.each(["add", "edit"] as const)("the %s form", (kind) => {
     await waitFor(() => expect(lastBody()).toMatchObject({ contextId: 2, projectId: 6 }));
   });
 
+  it("sends the tags the actions it spawns will inherit", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm(kind, user);
+
+    if (creating) await user.type(within(form).getByLabelText(/Recurring action/i), "call the vet");
+    await user.type(within(form).getByLabelText("Tags (comma separated)"), "pets, Vet");
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    // Normalised the same way an action's are, so a tag means one thing in
+    // both places.
+    await waitFor(() => expect(lastBody()).toMatchObject({ tags: ["pets", "vet"] }));
+  });
+
   it("round-trips the window and refuses one that closes before it opens", async () => {
     const user = userEvent.setup();
     renderPage();
@@ -230,6 +245,47 @@ describe("editing a pattern", () => {
     // A missing projectId reads as "leave unchanged" on the wire, so removing
     // one has to be said explicitly or nothing happens.
     await waitFor(() => expect(lastBody()).toMatchObject({ clearProject: true }));
+  });
+});
+
+describe("tags on a pattern", () => {
+  it("shows the pattern's own tags in the list and in the editor", async () => {
+    patterns = [pattern({ tags: ["garden", "weekly"] })];
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("!garden")).toBeTruthy();
+    const form = await openForm("edit", user);
+    expect((within(form).getByLabelText("Tags (comma separated)") as HTMLInputElement).value).toBe(
+      "garden, weekly",
+    );
+  });
+
+  it("clears them with an empty set rather than by saying nothing", async () => {
+    patterns = [pattern({ tags: ["garden"] })];
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("edit", user);
+
+    await user.clear(within(form).getByLabelText("Tags (comma separated)"));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    // An absent field means "leave them alone", so removing the last tag has
+    // to be an empty array rather than silence.
+    await waitFor(() => expect(lastBody()).toMatchObject({ tags: [] }));
+  });
+
+  it("reads a !tag typed into the composer when adding", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("add", user);
+
+    await user.type(within(form).getByLabelText(/Recurring action/i), "call the vet !pets");
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(lastBody()).toMatchObject({ description: "call the vet", tags: ["pets"] }),
+    );
   });
 });
 

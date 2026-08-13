@@ -15,7 +15,7 @@ import type { Context, Project, RecurringTodo } from "@/lib/types";
 import { SearchInput } from "@/components/SearchInput";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Screen, HeaderBlock, Fab, Sheet, SkeletonList, EmptyState } from "@/components/primitives";
+import { Chip, Screen, HeaderBlock, Fab, Sheet, SkeletonList, EmptyState } from "@/components/primitives";
 import { rowActions } from "@/components/primitive-styles";
 import { cn } from "@/lib/utils";
 
@@ -90,7 +90,18 @@ function PatternRow({
           >
             {pattern.description}
           </p>
-          <p className="text-xs font-medium text-ink-3 dark:text-ink-4-dark">
+          {pattern.tags.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 overflow-hidden">
+              {/* Shown on the pattern because every action it spawns will
+                  carry them. */}
+              {pattern.tags.map((tag) => (
+                <Chip key={tag} tone="neutral">
+                  !{tag}
+                </Chip>
+              ))}
+            </div>
+          )}
+          <p className="mt-1 text-xs font-medium text-ink-3 dark:text-ink-4-dark">
             {describe(t, tn, pattern)}
             {pattern.lastSpawnedAt && (
               <>

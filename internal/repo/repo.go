@@ -345,6 +345,12 @@ type TagRepo interface {
 	SetForTodo(ctx context.Context, userID, todoID int64, names []string) error
 	ForTodos(ctx context.Context, userID int64, todoIDs []int64) (map[int64][]string, error)
 	DeleteForTodo(ctx context.Context, userID, todoID int64) error
+	// The same three for recurrence patterns, which link through their own
+	// table: taggings.todo_id is NOT NULL and every query over it assumes a
+	// todo, so patterns do not share it.
+	SetForRecurring(ctx context.Context, userID, recurringID int64, names []string) error
+	ForRecurring(ctx context.Context, userID int64, recurringIDs []int64) (map[int64][]string, error)
+	DeleteForRecurring(ctx context.Context, userID, recurringID int64) error
 	// DeleteForUser removes a user's tags along with their taggings.
 	DeleteForUser(ctx context.Context, userID int64) error
 }

@@ -38,6 +38,7 @@ func newTodoService(t *testing.T) (*service.TodoService, *repo.Store, int64) {
 		t.Fatal(err)
 	}
 	recurring := service.NewRecurringService(store.Recurring, store.Todos, store.Contexts)
+	recurring.SetTags(store.Tags)
 	svc := service.NewTodoService(store.Todos, store.Tags, store.Contexts, recurring)
 	return svc, store, c.ID
 }
@@ -45,7 +46,9 @@ func newTodoService(t *testing.T) (*service.TodoService, *repo.Store, int64) {
 // newRecurringService builds a RecurringService sharing the same store.
 func newRecurringService(t *testing.T, store *repo.Store) *service.RecurringService {
 	t.Helper()
-	return service.NewRecurringService(store.Recurring, store.Todos, store.Contexts)
+	rec := service.NewRecurringService(store.Recurring, store.Todos, store.Contexts)
+	rec.SetTags(store.Tags)
+	return rec
 }
 
 func strPtr(s string) *string { return &s }

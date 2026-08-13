@@ -167,6 +167,7 @@ func serve(ctx context.Context) error {
 
 	recurring := service.NewRecurringService(store.Recurring, store.Todos, store.Contexts)
 	recurring.SetProjects(store.Projects)
+	recurring.SetTags(store.Tags)
 	blobs, err := storage.New(storage.Config{
 		Type:   cfg.StorageType,
 		Dir:    cfg.UploadDir,

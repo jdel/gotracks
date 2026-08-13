@@ -185,6 +185,8 @@ export interface RecurringTodo {
   showFromDays: number;
   startFrom?: string;
   endDate?: string;
+  /** Inherited by every action the pattern spawns. */
+  tags: string[];
   lastSpawnedAt?: string;
   completedAt?: string;
   createdAt: string;

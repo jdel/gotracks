@@ -91,6 +91,7 @@ type ExportRecurring struct {
 	DayOfMonth    int        `json:"dayOfMonth"`
 	MonthOfYear   int        `json:"monthOfYear"`
 	ShowFromDays  int        `json:"showFromDays"`
+	Tags          []string   `json:"tags"`
 	StartFrom     *time.Time `json:"startFrom,omitempty"`
 	EndDate       *time.Time `json:"endDate,omitempty"`
 	LastSpawnedAt *time.Time `json:"lastSpawnedAt,omitempty"`
@@ -109,12 +110,15 @@ type ExportNote struct {
 type TransferService struct {
 	store       *repo.Store
 	todos       *TodoService
+	recurring   *RecurringService
 	attachments *AttachmentService
 }
 
 // NewTransferService builds a TransferService.
 func NewTransferService(store *repo.Store, todos *TodoService) *TransferService {
-	return &TransferService{store: store, todos: todos}
+	rec := NewRecurringService(store.Recurring, store.Todos, store.Contexts)
+	rec.SetTags(store.Tags)
+	return &TransferService{store: store, todos: todos, recurring: rec}
 }
 
 // SetAttachments wires the attachment service so an export can carry the files
@@ -141,6 +145,11 @@ func (s *TransferService) Gather(ctx context.Context, userID int64) (*Export, er
 	}
 	recurring, err := s.store.Recurring.List(ctx, userID, "")
 	if err != nil {
+		return nil, err
+	}
+	// Patterns carry tags too, and an export that dropped them would lose the
+	// tags of every action the pattern has yet to spawn.
+	if err := s.recurring.attachTags(ctx, userID, recurring); err != nil {
 		return nil, err
 	}
 	notes, err := s.store.Notes.List(ctx, userID, nil)
@@ -181,7 +190,7 @@ func (s *TransferService) Gather(ctx context.Context, userID int64) (*Export, er
 	}
 	outRecurring := make([]ExportRecurring, 0, len(recurring))
 	for _, r := range recurring {
-		out := ExportRecurring{Description: r.Description, Context: contextNames[r.ContextID], State: r.State, Period: r.Period, EveryN: r.EveryN, Weekdays: r.Weekdays, DayOfMonth: r.DayOfMonth, MonthOfYear: r.MonthOfYear, ShowFromDays: r.ShowFromDays, StartFrom: r.StartFrom, EndDate: r.EndDate, LastSpawnedAt: r.LastSpawnedAt, CompletedAt: r.CompletedAt, CreatedAt: r.CreatedAt}
+		out := ExportRecurring{Description: r.Description, Context: contextNames[r.ContextID], State: r.State, Period: r.Period, EveryN: r.EveryN, Weekdays: r.Weekdays, DayOfMonth: r.DayOfMonth, MonthOfYear: r.MonthOfYear, ShowFromDays: r.ShowFromDays, Tags: r.Tags, StartFrom: r.StartFrom, EndDate: r.EndDate, LastSpawnedAt: r.LastSpawnedAt, CompletedAt: r.CompletedAt, CreatedAt: r.CreatedAt}
 		if r.ProjectID != nil {
 			out.Project = projectNames[*r.ProjectID]
 		}

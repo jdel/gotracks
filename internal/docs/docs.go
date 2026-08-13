@@ -3503,6 +3503,13 @@ const docTemplate = `{
                 "state": {
                     "type": "string"
                 },
+                "tags": {
+                    "description": "Tags replaces the whole set; an absent field leaves it alone, an empty\narray clears it. The actions the pattern spawns inherit them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "weekdays": {
                     "type": "string"
                 }
@@ -3935,6 +3942,13 @@ const docTemplate = `{
                 },
                 "state": {
                     "type": "string"
+                },
+                "tags": {
+                    "description": "Tags are stored in recurring_taggings, not on the row; they are loaded\nalongside it the same way a todo's are, so a pattern reads as one thing.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "updatedAt": {
                     "type": "string"

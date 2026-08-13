@@ -147,6 +147,10 @@ type RecurringTodo struct {
 	CompletedAt   *time.Time `bun:"completed_at" json:"completedAt,omitempty"`
 	CreatedAt     time.Time  `bun:"created_at,notnull" json:"createdAt"`
 	UpdatedAt     time.Time  `bun:"updated_at,notnull" json:"updatedAt"`
+
+	// Tags are stored in recurring_taggings, not on the row; they are loaded
+	// alongside it the same way a todo's are, so a pattern reads as one thing.
+	Tags []string `bun:"-" json:"tags"`
 }
 
 // Tag is a free-form label owned by a user.
@@ -166,6 +170,21 @@ type Tagging struct {
 	TagID  int64 `bun:"tag_id,notnull" json:"-"`
 	TodoID int64 `bun:"todo_id,notnull" json:"-"`
 	UserID int64 `bun:"user_id,notnull" json:"-"`
+}
+
+// RecurringTagging links a tag to a recurrence pattern.
+//
+// A separate table rather than a nullable todo_id on taggings: that column is
+// NOT NULL and every query over it assumes a todo is there, so widening it
+// would mean revisiting all of them to gain nothing. The cost is one more
+// near-identical repo method, which is the cheaper half of the trade.
+type RecurringTagging struct {
+	bun.BaseModel `bun:"table:recurring_taggings,alias:rtgg"`
+
+	ID              int64 `bun:"id,pk,autoincrement" json:"-"`
+	TagID           int64 `bun:"tag_id,notnull" json:"-"`
+	RecurringTodoID int64 `bun:"recurring_todo_id,notnull" json:"-"`
+	UserID          int64 `bun:"user_id,notnull" json:"-"`
 }
 
 // Note is a free-form note attached to a project.

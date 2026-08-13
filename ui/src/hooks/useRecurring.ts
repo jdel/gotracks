@@ -28,6 +28,8 @@ export interface RecurringInput {
   endDate?: string;
   /** Detaches from the project: a missing projectId means "leave unchanged". */
   clearProject?: boolean;
+  /** Replaces the whole set; absent leaves it alone, empty clears it. */
+  tags?: string[];
 }
 
 function useRecurringMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>) {

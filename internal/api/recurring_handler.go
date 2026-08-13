@@ -29,6 +29,9 @@ type recurringRequest struct {
 	// ClearProject detaches the pattern from its project. A nil projectId
 	// cannot say that: it is also what "leave unchanged" looks like.
 	ClearProject bool `json:"clearProject"`
+	// Tags replaces the whole set; an absent field leaves it alone, an empty
+	// array clears it. The actions the pattern spawns inherit them.
+	Tags *[]string `json:"tags"`
 }
 
 func (r *recurringRequest) toInput() (service.RecurringInput, bool) {
@@ -46,6 +49,10 @@ func (r *recurringRequest) toInput() (service.RecurringInput, bool) {
 		MonthOfYear:  r.MonthOfYear,
 		ShowFromDays: r.ShowFromDays,
 		ClearProject: r.ClearProject,
+	}
+	if r.Tags != nil {
+		in.Tags = *r.Tags
+		in.HasTags = true
 	}
 	if r.StartFrom != nil && *r.StartFrom != "" {
 		t, err := parseDate(*r.StartFrom)
