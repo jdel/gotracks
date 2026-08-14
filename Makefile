@@ -60,7 +60,7 @@ test:
 	cd ui && npm test
 
 test-race:
-	go test -race . ./cmd/... ./internal/...
+	CGO_ENABLED=1 go test -race . ./cmd/... ./internal/...
 
 # Browser checks, against a real server and a throwaway database. Deliberately
 # not part of `test`: they need Chromium and take seconds rather than
