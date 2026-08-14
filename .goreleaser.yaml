@@ -61,7 +61,7 @@ release:
     owner: jdel
     name: gotracks
   name_template: "Release {{ .Version }}"
-  draft: true
+  draft: false
   prerelease: auto
 
 dockers_v2:
