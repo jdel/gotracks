@@ -205,10 +205,9 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
       expanded={isDesktop && panel !== null}
       // Swipe left defers rather than deletes: deleting an action with one
       // horizontal drag on a list scrolled by thumb is too easy to do by
-      // accident. Delete lives in the editor, behind a long press and a tap.
+      // accident. Delete lives in the editor, two taps away.
       onSwipeLeft={() => setPanel("defer")}
       onSwipeRight={() => update.mutate({ id: todo.id, starred: !todo.starred })}
-      onLongPress={() => setPanel("editor")}
     >
       {/* items-start, so the handle, the checkbox and the row actions stay on
           the first line of a title that wraps instead of drifting to its
@@ -243,10 +242,12 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
       </button>
 
       <div className="min-w-0 flex-1">
-        {/* Row actions. Defer, edit, star and delete are desktop-only: on a
-            phone they are the swipe and long-press gestures, so the icons would
-            be a second, redundant affordance. The paperclip is the exception —
-            no gesture reaches attachments, so it shows on both.
+        {/* Row actions. Defer, star and delete are desktop-only: on a phone
+            they are the swipe gestures, so the icons would be a second,
+            redundant affordance. The paperclip and the pencil are the
+            exceptions — no gesture reaches attachments, and editing stopped
+            being a gesture when the browser claimed the long press for its own
+            text selection, so both show at every width.
             Floated rather than a flex sibling: the title's first line runs
             beside these, and its later lines run underneath them instead of
             being squeezed into a permanently narrower column. */}
@@ -290,7 +291,7 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
           />
         </IconButton>
         <IconButton
-          className="hidden size-7 md:inline-flex"
+          className="size-7"
           label={t("todo.editAction")}
           onClick={() => toggle("editor")}
         >
@@ -440,9 +441,9 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
         }}
       />
 
-      {/* One editor, two presentations. On the web it expands inside the card so
-          the list around it stays readable; on a phone a long press opens it as
-          a sheet, which is the only way to reach it there. */}
+      {/* One editor, two presentations, opened by the same pencil. On the web
+          it expands inside the card so the list around it stays readable; on a
+          phone it arrives as a sheet, where there is no room to expand. */}
       {isDesktop && (
         <>
           {editorOpen && (

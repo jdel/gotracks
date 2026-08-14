@@ -266,8 +266,8 @@ editor wherever the action is shown, including the tickler. Its description is
 not in that editor: clicking the title in the row edits it in place, where the
 result reads exactly as it will afterwards.
 
-On a desktop the card expands beneath the row; on a phone a long press opens the
-same editor as a sheet. Exactly one of the two is ever mounted — a sheet renders
+On a desktop the card expands beneath the row; on a phone the same pencil opens
+the same editor as a sheet. Exactly one of the two is ever mounted — a sheet renders
 through a portal, so hiding it with a stylesheet rule does not stop it appearing
 over the desktop layout.
 
@@ -335,9 +335,9 @@ it will be stored, not against the request alone: moving one end on its own can
 invert a window whose other end it was never sent.
 
 Where the editor opens follows the action rules exactly: expanded inside the
-card on a desktop, a sheet on a phone, and it is opened by **holding the row**
-there rather than by an icon — there is no hover on a phone. There are no
-swipes: left-defer and right-star mean nothing for a pattern. Nothing is written
+card on a desktop, a sheet on a phone, opened by the same pencil at either
+width. There are no swipes: left-defer and right-star mean nothing for a
+pattern. Nothing is written
 until Save, and dismissing discards.
 
 **Tags belong to the pattern, and the actions it spawns inherit them.** That
@@ -358,10 +358,10 @@ spawned yet.
 - **Swipe right** — star.
 - **Swipe left** — defer. This used to delete; deleting an action with one
   horizontal drag on a list scrolled by thumb was too easy to do by accident.
-- **Long press** — the editor. Star and delete sit on its title row, which is
-  where deleting an action lives now.
 - **Tap the paperclip** — attachments, opened as a sheet with a delete button
   per file.
+- **Tap the pencil** — the editor. Star and delete sit on its title row, which
+  is where deleting an action lives now.
 - **Pull a sheet down** — dismiss it. Sheets can also be closed with the
   backdrop or Escape.
 

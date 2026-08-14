@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 // Past this many px on release, a swipe fires; below it, the card springs back.
 const THRESHOLD = 96;
 
-// Gestures starting this close to a screen edge are left to the browser.
+// Swipes starting this close to a screen edge are left to the browser.
 //
 // iOS Safari reads an edge swipe as back/forward, and that cannot be reliably
 // cancelled from JavaScript — a row that claimed the gesture would fight the
@@ -16,10 +16,14 @@ const THRESHOLD = 96;
 const EDGE_ZONE = 24;
 
 /**
- * A list row with touch gestures: swipe left to defer, swipe right to star,
- * long-press to open the editor. Touch only — a mouse pointer is ignored so
- * the desktop drag-and-drop and hover actions keep working. The drag handle is
- * excluded (marked `data-drag-handle`) so reordering isn't hijacked.
+ * A list row with touch gestures: swipe left to defer, swipe right to star.
+ * Touch only — a mouse pointer is ignored so the desktop drag-and-drop and
+ * hover actions keep working. The drag handle is excluded (marked
+ * `data-drag-handle`) so reordering isn't hijacked.
+ *
+ * Editing is not a gesture. It was a long press, which the browser reads first
+ * as a request to select text: the row put its editor up underneath iOS's own
+ * selection handles. The pencil in the row does it now, at every width.
  */
 export function SwipeRow({
   lifted,
@@ -27,7 +31,6 @@ export function SwipeRow({
   expanded,
   onSwipeLeft,
   onSwipeRight,
-  onLongPress,
   children,
 }: {
   lifted?: boolean;
@@ -37,17 +40,16 @@ export function SwipeRow({
   expanded?: boolean;
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
-  onLongPress: () => void;
   children: ReactNode;
 }) {
   const [dx, setDx] = useState(0);
-  // Mirrored as state as well as a ref: the ref is what the long-press timer and
-  // the pointer handlers read synchronously, but the render needs it too, and
-  // reading a ref during render is not allowed.
+  // Mirrored as state as well as a ref: the ref is what the pointer handlers
+  // read synchronously, but the render needs it too, and reading a ref during
+  // render is not allowed.
   const [dragging, setDragging] = useState(false);
   const swiping = useRef(false);
-  // Set once a gesture (swipe or long-press) has happened, so the tap-through
-  // click that follows is swallowed instead of, say, opening the title editor.
+  // Set once a swipe has happened, so the tap-through click that follows is
+  // swallowed instead of, say, opening the title editor.
   const gestured = useRef(false);
   // Set when the gesture was refused as it started — a drag handle, or a screen
   // edge. Without it only the pointerdown was refused: the moves that followed
@@ -56,34 +58,18 @@ export function SwipeRow({
   // edges to the browser.
   const declined = useRef(false);
   const start = useRef({ x: 0, y: 0 });
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function clearTimer() {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-  }
 
   function onPointerDown(e: PointerEvent) {
     if (e.pointerType !== "touch") return;
     declined.current = true;
     if ((e.target as HTMLElement).closest("[data-drag-handle]")) return;
     // Started at a screen edge: the browser's navigation gesture, not ours.
-    // Long-press is skipped too, since the finger is already on its way out.
     if (e.clientX < EDGE_ZONE || window.innerWidth - e.clientX < EDGE_ZONE) return;
     declined.current = false;
     swiping.current = false;
     setDragging(false);
     gestured.current = false;
     start.current = { x: e.clientX, y: e.clientY };
-    clearTimer();
-    timer.current = setTimeout(() => {
-      if (!swiping.current) {
-        gestured.current = true;
-        onLongPress();
-      }
-    }, 500);
   }
 
   function onPointerMove(e: PointerEvent) {
@@ -95,7 +81,6 @@ export function SwipeRow({
         swiping.current = true;
         setDragging(true);
         gestured.current = true;
-        clearTimer();
         try {
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         } catch {
@@ -103,7 +88,6 @@ export function SwipeRow({
         }
       } else if (Math.abs(dyNow) > 10) {
         // A vertical drag is a scroll, not a swipe.
-        clearTimer();
         return;
       }
     }
@@ -112,7 +96,6 @@ export function SwipeRow({
 
   function finish(e: PointerEvent) {
     if (e.pointerType !== "touch" || declined.current) return;
-    clearTimer();
     if (swiping.current) {
       swiping.current = false;
       setDragging(false);

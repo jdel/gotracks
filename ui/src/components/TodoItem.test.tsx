@@ -304,36 +304,25 @@ describe("a long title flowing around the row actions", () => {
   });
 });
 
-// A long press opens the action sheet. The sheet is position:fixed, which is
-// only viewport-relative while no ancestor is transformed — and the swipeable
-// row is a transform away from becoming the containing block for it. Rendered
-// in place it was laid out against the card and clipped by the row's
-// overflow-hidden, so it appeared as a small panel scrolling inside the card.
-describe("the long-press sheet escapes the row", () => {
-  function longPress(row: Element) {
-    fireEvent.pointerDown(row, { pointerType: "touch", clientX: 120, clientY: 10 });
-    act(() => {
-      vi.advanceTimersByTime(600);
-    });
-  }
+// The sheet is position:fixed, which is only viewport-relative while no
+// ancestor is transformed — and the swipeable row is a transform away from
+// becoming the containing block for it. Rendered in place it was laid out
+// against the card and clipped by the row's overflow-hidden, so it appeared as
+// a small panel scrolling inside the card.
+describe("the editor's sheet escapes the row", () => {
+  it("renders the sheet outside the row that opened it", async () => {
+    const user = userEvent.setup();
+    const { container } = renderItem();
+    const row = container.querySelector("li");
+    expect(row).not.toBeNull();
 
-  it("renders the sheet outside the row that opened it", () => {
-    vi.useFakeTimers();
-    try {
-      const { container } = renderItem();
-      const row = container.querySelector("li");
-      expect(row).not.toBeNull();
+    await user.click(screen.getByLabelText("Edit this action"));
 
-      longPress(row!);
-
-      const sheet = document.body.querySelector('[role="dialog"]');
-      expect(sheet).not.toBeNull();
-      // The whole point: not a descendant of the row, so nothing the row does
-      // to its own transform or overflow can clip it.
-      expect(row!.contains(sheet!)).toBe(false);
-    } finally {
-      vi.useRealTimers();
-    }
+    const sheet = document.body.querySelector('[role="dialog"]');
+    expect(sheet).not.toBeNull();
+    // The whole point: not a descendant of the row, so nothing the row does
+    // to its own transform or overflow can clip it.
+    expect(row!.contains(sheet!)).toBe(false);
   });
 
   // The row must not carry an identity transform at rest either: that alone
@@ -347,7 +336,7 @@ describe("the long-press sheet escapes the row", () => {
 
 // Deleting used to be a left swipe: one horizontal drag on a list scrolled by
 // thumb, and the action was gone. It defers now, and delete moved into the
-// editor behind a long press and a deliberate tap.
+// editor, two deliberate taps away.
 describe("the mobile gestures", () => {
   function swipeLeft(row: Element) {
     fireEvent.pointerDown(row, { pointerType: "touch", clientX: 200, clientY: 10 });
@@ -367,7 +356,9 @@ describe("the mobile gestures", () => {
     expect(api.writes().filter((c) => c.method === "DELETE")).toHaveLength(0);
   });
 
-  it("opens the editor on a long press", () => {
+  // Editing is not a gesture. A hold is the browser's own "select this text",
+  // and it put iOS's selection handles over the editor the row had just opened.
+  it("does not open the editor on a long press", () => {
     vi.useFakeTimers();
     try {
       const { container } = renderItem();
@@ -378,12 +369,34 @@ describe("the mobile gestures", () => {
         vi.advanceTimersByTime(600);
       });
 
-      // The editor, not the old three-button menu: it carries the fields.
-      expect(screen.getByLabelText("Show from")).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Delete this action" })).toBeTruthy();
+      expect(screen.queryByRole("dialog")).toBeNull();
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("opens the editor from the pencil", async () => {
+    const user = userEvent.setup();
+    setViewport("phone");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+
+    // The editor, not the old three-button menu: it carries the fields.
+    expect(screen.getByLabelText("Show from")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Delete this action" })).toBeTruthy();
+  });
+
+  // A class assertion, and it has to be: whether the pencil is *visible* on a
+  // phone is decided by `hidden md:inline-flex`, which jsdom does not apply —
+  // clicking it in a test succeeds either way, so the click above would pass
+  // against a pencil no phone user can see.
+  it("shows the pencil at a phone width, not only on a desktop", () => {
+    renderItem();
+
+    const pencil = screen.getByLabelText("Edit this action");
+    expect(pencil.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+    expect(pencil.className).not.toContain("md:inline-flex");
   });
 });
 
@@ -421,16 +434,14 @@ describe("the screen edges belong to the browser", () => {
     fireEvent.pointerUp(row, { pointerType: "touch", clientX: x - 140, clientY: 10 });
   }
 
-  // Swiped, not held. The rule is about swipes — Safari reads an edge swipe as
-  // back/forward and will not let the page cancel it — but the only test for it
-  // pressed and waited, which the edge check happened to refuse for its own
-  // reasons. It passed while an edge swipe still deferred the action.
   it("ignores a swipe that starts at the edge", () => {
     const { container } = renderItemWithUndo();
     const row = container.querySelector("li")!;
 
     swipeLeftFrom(row, 4);
 
+    // No defer sheet: the gesture was never ours to act on. Safari reads an
+    // edge swipe as back/forward and will not let the page cancel it.
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -471,12 +482,10 @@ describe("attachments on a phone", () => {
 // rather than leaving the sheet sitting half-open.
 describe("pulling a sheet down", () => {
   function openSheet() {
-    const { container } = renderItem();
-    const row = container.querySelector("li")!;
-    fireEvent.pointerDown(row, { pointerType: "touch", clientX: 120, clientY: 10 });
-    act(() => {
-      vi.advanceTimersByTime(600);
-    });
+    renderItem();
+    // fireEvent, not userEvent: these tests run on fake timers for the leave
+    // animation, and userEvent's own delay does not interleave with them.
+    fireEvent.click(screen.getByLabelText("Edit this action"));
     return screen.getByRole("dialog");
   }
 
@@ -793,7 +802,7 @@ describe("gestures inside a sheet stay inside it", () => {
   function Harness({ onSwipeLeft, onSwipeRight }: { onSwipeLeft: () => void; onSwipeRight: () => void }) {
     return (
       <ul>
-        <SwipeRow onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} onLongPress={() => {}}>
+        <SwipeRow onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight}>
           <Sheet open onClose={() => {}} title="editor">
             <button type="button">field</button>
           </Sheet>

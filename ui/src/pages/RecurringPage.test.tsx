@@ -278,23 +278,24 @@ describe("where the editor opens", () => {
     expect(screen.getAllByLabelText("Context").length).toBe(2); // add form + editor
   });
 
-  it("opens as a sheet on a phone, held rather than tapped", async () => {
+  // The class, not the click: `isDesktop` used to decide whether the pencil
+  // rendered at all, and jsdom answers media queries only when a test says so —
+  // so a click test would pass against a pencil no phone user is given.
+  it("renders the pencil at a phone width", async () => {
     renderPage("phone");
     await screen.findByText("water the plants");
 
-    // No pencil on a phone: there is no hover, and the row is held instead.
-    expect(screen.queryByRole("button", { name: "Edit this recurrence" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Edit this recurrence" })).toBeTruthy();
+  });
 
-    const row = screen.getByText("water the plants").closest("li")!;
-    vi.useFakeTimers();
-    try {
-      row.dispatchEvent(
-        new PointerEvent("pointerdown", { pointerType: "touch", bubbles: true, clientX: 50, clientY: 50 }),
-      );
-      await vi.advanceTimersByTimeAsync(600);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("opens as a sheet on a phone, from the same pencil", async () => {
+    const user = userEvent.setup();
+    renderPage("phone");
+    await screen.findByText("water the plants");
+
+    // The row used to be held instead. A hold is the browser's own "select this
+    // text" gesture, and it put iOS's selection handles over the editor.
+    await user.click(screen.getByRole("button", { name: "Edit this recurrence" }));
 
     await waitFor(() => expect(document.querySelector("[role='dialog']")).not.toBeNull());
   });

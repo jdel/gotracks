@@ -49,20 +49,12 @@ describe("one presentation per viewport", () => {
       const row = page.locator("li").filter({ hasText: "buy paint" }).first();
       await row.waitFor();
 
-      if (width >= 768) {
-        await page.getByLabel("Edit this action").click();
-      } else {
-        // A real touch pointer, held. The row ignores a mouse on purpose, so
-        // desktop drag-and-drop and hover keep working — a mouse press here
-        // would silently exercise nothing.
-        await row.dispatchEvent("pointerdown", {
-          pointerType: "touch",
-          isPrimary: true,
-          clientX: 120,
-          clientY: 200,
-        });
-      }
-      await page.waitForTimeout(700);
+      // The same pencil at both widths. A phone used to hold the row instead,
+      // which the browser reads first as a request to select text: it put its
+      // own selection handles over the editor. What still differs either side
+      // of the breakpoint is the presentation, which is what this asserts.
+      await page.getByLabel("Edit this action").click();
+      await page.waitForTimeout(400);
       return {
         dialogs: await page.locator("[role='dialog']").count(),
         editors: await page.getByLabel("Tags (comma separated)").count(),

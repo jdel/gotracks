@@ -4,7 +4,6 @@ import { useDeleteRecurring, useRecurring, useUpdateRecurring } from "@/hooks/us
 import { useContexts } from "@/hooks/useContexts";
 import { useProjects } from "@/hooks/useProjects";
 import { useIsDesktop } from "@/hooks/useMediaQuery";
-import { useLongPress } from "@/hooks/useLongPress";
 import { RecurringForm } from "@/components/RecurringForm";
 import { weekdayShort } from "@/lib/recurrence";
 import { useUndo } from "@/lib/undo";
@@ -72,13 +71,10 @@ function PatternRow({
   const update = useUpdateRecurring();
   const del = useDeleteRecurring();
   const { schedule } = useUndo();
-  const hold = useLongPress(onEdit);
 
   return (
     <li
-      className="group relative flex flex-col rounded-card bg-card p-3 shadow-card dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none"
-      {...(isDesktop ? {} : hold)}
-    >
+      className="group relative flex flex-col rounded-card bg-card p-3 shadow-card dark:border dark:border-line-dark dark:bg-card-dark dark:shadow-none">
       <div className="flex items-start gap-2.5">
         <Repeat className="mt-0.5 size-4 shrink-0 text-ink-4" />
         <div className="min-w-0 flex-1">
@@ -114,15 +110,15 @@ function PatternRow({
           </p>
         </div>
         <div className={rowActions}>
-          {/* The pencil is a desktop affordance; the phone holds the row. */}
-          {isDesktop && (
-            <IconButton
-              className="size-7"
-              label={t("recurring.editLabel")}
-              onClick={editing ? onCloseEditor : onEdit}>
-              <Pencil className="size-3.5" />
-            </IconButton>
-          )}
+          {/* At every width. Holding the row used to do this on a phone, but
+              the browser reads a hold as "select this text" and put its own
+              selection handles over the editor. */}
+          <IconButton
+            className="size-7"
+            label={t("recurring.editLabel")}
+            onClick={editing ? onCloseEditor : onEdit}>
+            <Pencil className="size-3.5" />
+          </IconButton>
           <IconButton
             className="size-7"
             label={pattern.state === "completed" ? t("recurring.resume") : t("recurring.pause")}
