@@ -15,24 +15,24 @@ A modern reimplementation of the [Tracks](https://github.com/TracksApp/tracks) G
 gotracks is a single binary.
 
 **Prebuilt binary.** Download the archive for your OS/arch (example for linux amd64) from the
-[v0.6.0 release](https://github.com/jdel/gotracks/releases/tag/v0.6.0), extract it,
+[v0.6.1 release](https://github.com/jdel/gotracks/releases/tag/v0.6.1), extract it,
 and run:
 
 ```bash
-curl -sL https://github.com/jdel/gotracks/releases/download/v0.6.0/gotracks-0.6.0-linux-amd64.tar.gz | tar zxfv - gotracks
+curl -sL https://github.com/jdel/gotracks/releases/download/v0.6.1/gotracks-0.6.1-linux-amd64.tar.gz | tar zxfv - gotracks
 ./gotracks serve
 ```
 
 **Go.** If you have the Go toolchain installed, run:
 
 ```bash
-go install github.com/jdel/gotracks@v0.6.0
+go install github.com/jdel/gotracks@v0.6.1
 ```
 
 **Docker.** Pull the image from ghcr.io/jdel/gotracks
 
 ```bash
-docker run -p 8080:8080 -v $(PWD)/gotracks-data:/data ghcr.io/jdel/gotracks:v0.6.0
+docker run -p 8080:8080 -v $(PWD)/gotracks-data:/data ghcr.io/jdel/gotracks:v0.6.1
 ```
 
 **Docker Compose.** The [`examples/home-use`](examples/home-use) stack is a
@@ -126,7 +126,7 @@ Build the production single binary (UI built and embedded):
 make all        # builds the UI, embeds it, builds ./gotracks
 ```
 
-The built SPA is committed, so `go install github.com/jdel/gotracks@v0.6.0` also
+The built SPA is committed, so `go install github.com/jdel/gotracks@v0.6.1` also
 yields a working binary.
 
 ### Testing
