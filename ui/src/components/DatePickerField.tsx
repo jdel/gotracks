@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/primitives";
 import { inputClass } from "@/components/primitive-styles";
@@ -40,15 +40,7 @@ function validDay(value: string, max?: string) {
  * keeps its selection private until Apply; Cancel, the close button and the
  * backdrop all leave the form value alone.
  */
-export function DatePickerField({
-  id,
-  value,
-  onChange,
-  label,
-  max,
-  disabled = false,
-  className,
-}: {
+type DatePickerFieldProps = {
   id?: string;
   value: string;
   onChange: (value: string) => void;
@@ -56,7 +48,21 @@ export function DatePickerField({
   max?: string;
   disabled?: boolean;
   className?: string;
-}) {
+};
+
+export function DatePickerField(props: DatePickerFieldProps) {
+  return <DatePickerFieldValue key={props.value} {...props} />;
+}
+
+function DatePickerFieldValue({
+  id,
+  value,
+  onChange,
+  label,
+  max,
+  disabled = false,
+  className,
+}: DatePickerFieldProps) {
   const t = useT();
   const { locale } = useLocale();
   const fmt = useDateFmt();
@@ -97,8 +103,6 @@ export function DatePickerField({
   const days = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
   const maxMonth = max?.slice(0, 7);
-
-  useEffect(() => setText(value), [value]);
 
   function show(nextYear: number, nextMonth: number) {
     const at = new Date(Date.UTC(nextYear, nextMonth, 1));
