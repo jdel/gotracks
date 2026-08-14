@@ -2,6 +2,40 @@
 
 All notable changes to this project are documented here.
 
+## v0.6.1 - 2026-08-15
+
+### Added
+
+- Contexts and projects can be created directly from their picker, without
+  switching to shorthand entry or leaving the form.
+- The action pencil opens the editor at every viewport width; editing no longer
+  depends on discovering a long press on mobile.
+
+### Fixed
+
+- Action and recurrence add/edit forms now behave consistently on phones:
+  Description receives initial focus and participates in iOS keyboard field
+  navigation, while form controls no longer steal that focus.
+- Optional dates use an explicit floating calendar with Cancel and Apply, so
+  merely opening one cannot commit today's date. Dates remain clearable and can
+  also be typed with hyphen or slash separators.
+- Pinch and double-tap zoom are suppressed consistently, including after a page
+  reload, and the login card and form sheets stay visible above the on-screen
+  keyboard.
+- Browser edge-back gestures take precedence over action-card swipes, date
+  fields shrink beside their clear buttons, and audit details use the standard
+  mobile sheet.
+- The mobile More menu no longer repeats account controls; Sign out now sits at
+  the top of Settings. Filter alignment and project review-period wording were
+  also corrected.
+
+### Internal
+
+- Tagged releases are published immediately instead of being left as drafts.
+- Updated jsdom and npm transitive dependencies, and made the race-test target
+  enable CGO only for the race detector while production builds remain
+  CGO-disabled.
+
 ## v0.6.0 - 2026-08-14
 
 ### Breaking changes
