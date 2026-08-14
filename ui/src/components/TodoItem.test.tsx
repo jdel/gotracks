@@ -922,6 +922,43 @@ describe("taking an action out of a project", () => {
   });
 });
 
+// Naming one while editing, not only while adding. The wire has always taken a
+// name on update too — it was the form that only ever sent ids.
+describe("naming a project while editing", () => {
+  it("files the action under a project the server has yet to make", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.click(screen.getByLabelText("Project"));
+    await user.type(screen.getByLabelText("Filter projects"), "garden");
+    await user.click(screen.getByRole("button", { name: /Create/ }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(puts()[0]?.body).toMatchObject({ projectName: "garden" }));
+  });
+
+  // The trap: a project that does not exist yet has no id, so it reads as null
+  // — which is also how a detach reads. The server drops the name when
+  // clearProject is set, so sending both would file the action nowhere at all.
+  it("does not also tell the server to detach it", async () => {
+    const user = userEvent.setup();
+    setViewport("desktop");
+    todos = [aTodo({ id: 7, projectId: 3 })];
+    renderItem(aTodo({ id: 7, projectId: 3 }));
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    await user.click(screen.getByLabelText("Project"));
+    await user.type(screen.getByLabelText("Filter projects"), "garden");
+    await user.click(screen.getByRole("button", { name: /Create/ }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(puts()[0]?.body).toMatchObject({ projectName: "garden" }));
+    expect(puts()[0]?.body).not.toHaveProperty("clearProject");
+  });
+});
+
 describe("one panel at a time", () => {
   it("replaces the open panel rather than stacking", async () => {
     const user = userEvent.setup();

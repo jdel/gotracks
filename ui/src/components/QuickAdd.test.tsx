@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QuickAdd } from "./QuickAdd";
 import { useContexts } from "@/hooks/useContexts";
 import { useTodos } from "@/hooks/useTodos";
-import { mockApi, reply } from "@/test/api";
+import { mockApi, reply, type MockApi } from "@/test/api";
 import { aContext, aProject, aTodo } from "@/test/fixtures";
 import { renderWithProviders } from "@/test/render";
 import type { Context, Project, Todo } from "@/lib/types";
@@ -43,6 +43,7 @@ let nextId: number;
 let quotaMessage: string | null;
 /** When set, the request never reaches a server at all. */
 let offline: boolean;
+let api: MockApi;
 
 /** Mimics the real API closely enough that an unknown "@name" creates a context. */
 function createTodo(body: Record<string, unknown>): Todo {
@@ -83,7 +84,7 @@ beforeEach(() => {
   quotaMessage = null;
   offline = false;
   localStorage.setItem("gt.access", "test-token");
-  mockApi({
+  api = mockApi({
     "GET /contexts": () => contexts,
     "GET /projects": () => projects,
     "GET /tags": [],
@@ -342,5 +343,68 @@ describe("the compact capture bar", () => {
 
     expect(screen.getByLabelText("Due")).toBeTruthy();
     expect(screen.getByLabelText("Tags (comma separated)")).toBeTruthy();
+  });
+});
+
+/**
+ * Making a context or project from the picker.
+ *
+ * The shorthand — "@errands", "#garden" — could always do this, but the pickers
+ * beside it only chose from what existed. A user who had not learned the
+ * shorthand had to leave the form, make the context, and come back to the
+ * action they were trying to capture.
+ */
+describe("naming a context or project in the picker", () => {
+  it("sends the name for the server to create, without an id", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByText("context:@home");
+    await user.click(screen.getByLabelText(/Add an action/));
+    await user.keyboard("ring the bank");
+
+    await user.click(screen.getByLabelText("Context"));
+    await user.type(screen.getByLabelText("Filter contexts"), "errands");
+    await user.click(screen.getByRole("button", { name: /Create/ }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // A name, and no contextId: there is no id until the server makes one.
+    await waitFor(() => expect(api.lastBody()).toMatchObject({ contextName: "errands" }));
+    expect(api.lastBody()).not.toHaveProperty("contextId");
+  });
+
+  it("shows the staged name in the field, before anything is saved", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByText("context:@home");
+    await user.click(screen.getByLabelText("Context"));
+    await user.type(screen.getByLabelText("Filter contexts"), "errands");
+    await user.click(screen.getByRole("button", { name: /Create/ }));
+
+    expect(screen.getByLabelText("Context")).toHaveProperty("value", "@errands");
+    // Staged, not created: nothing has been written.
+    expect(api.writes()).toEqual([]);
+  });
+
+  it("forgets the staged name once an existing one is chosen instead", async () => {
+    const user = userEvent.setup();
+    contexts = [aContext({ id: 1, name: "@home" }), aContext({ id: 2, name: "@calls", position: 2 })];
+    renderApp();
+
+    await screen.findByText("context:@home");
+    await user.click(screen.getByLabelText(/Add an action/));
+    await user.keyboard("ring the bank");
+
+    await user.click(screen.getByLabelText("Context"));
+    await user.type(screen.getByLabelText("Filter contexts"), "errands");
+    await user.click(screen.getByRole("button", { name: /Create/ }));
+    // Changed their mind: an existing one, which has an id.
+    await user.click(screen.getByLabelText("Context"));
+    await user.click(screen.getByRole("button", { name: "calls" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(api.lastBody()).toMatchObject({ contextId: 2 }));
+    expect(api.lastBody()).not.toHaveProperty("contextName");
   });
 });

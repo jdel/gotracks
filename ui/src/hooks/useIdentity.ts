@@ -18,6 +18,13 @@ export interface Identity {
   effectiveContextId: number | undefined;
   /** null is "no project" — a real choice, distinct from undefined. */
   effectiveProjectId: number | null;
+  /**
+   * A context/project named rather than chosen — typed as "@name" or made in
+   * the picker. The server creates it when the form is saved, so it travels as
+   * a name and there is no id to have yet.
+   */
+  newContextName: string | undefined;
+  newProjectName: string | undefined;
   contextLabel: string | undefined;
   projectLabel: string | undefined;
 }
@@ -41,6 +48,8 @@ export function useIdentity({
   sigils,
   pickedContext,
   pickedProject,
+  pickedContextName,
+  pickedProjectName,
   defaultContextId,
   defaultProjectId,
 }: {
@@ -52,6 +61,9 @@ export function useIdentity({
   sigils: Sigil[];
   pickedContext?: number;
   pickedProject?: number | null;
+  /** Named in the picker: "make me one called this", not yet created. */
+  pickedContextName?: string;
+  pickedProjectName?: string;
   defaultContextId?: number;
   defaultProjectId?: number;
 }): Identity {
@@ -64,10 +76,15 @@ export function useIdentity({
   const remembered = contexts.some((c) => c.id === lastUsed.contextId)
     ? lastUsed.contextId
     : undefined;
-  const effectiveContextId = parsed.contextIsNew
+  // A typed "@name" still wins: it is the more recent statement of intent, and
+  // it is visible in the text while a picker's choice is not.
+  const newContextName = parsed.contextIsNew ? parsed.contextName : pickedContextName;
+  const newProjectName = parsed.projectIsNew ? parsed.projectName : pickedProjectName;
+
+  const effectiveContextId = newContextName
     ? undefined
     : parsed.contextId ?? pickedContext ?? defaultContextId ?? remembered ?? contexts[0]?.id;
-  const effectiveProjectId = parsed.projectIsNew
+  const effectiveProjectId = newProjectName
     ? null
     : parsed.projectId ?? pickedProject ?? defaultProjectId ?? null;
 
@@ -75,8 +92,10 @@ export function useIdentity({
     parsed,
     effectiveContextId,
     effectiveProjectId,
-    contextLabel: parsed.contextName ?? contexts.find((c) => c.id === effectiveContextId)?.name,
-    projectLabel: parsed.projectName ?? projects.find((p) => p.id === effectiveProjectId)?.name,
+    newContextName,
+    newProjectName,
+    contextLabel: newContextName ?? contexts.find((c) => c.id === effectiveContextId)?.name,
+    projectLabel: newProjectName ?? projects.find((p) => p.id === effectiveProjectId)?.name,
   };
 }
 

@@ -65,6 +65,10 @@ export function RecurringForm({
   const [pickedProject, setPickedProject] = useState<number | null | undefined>(
     editing ? pattern.projectId ?? null : undefined,
   );
+  // Named in a picker rather than chosen from it: held as a name, because the
+  // server is what creates it when this is saved.
+  const [newContext, setNewContext] = useState<string>();
+  const [newProject, setNewProject] = useState<string>();
   const [period, setPeriod] = useState<RecurrencePeriod>(pattern?.period ?? "weekly");
   const [everyN, setEveryN] = useState(pattern?.everyN ?? 1);
   const [weekdays, setWeekdays] = useState<number[]>(
@@ -91,6 +95,8 @@ export function RecurringForm({
     sigils: editing ? [] : ALL_SIGILS,
     pickedContext,
     pickedProject,
+    pickedContextName: newContext,
+    pickedProjectName: newProject,
   });
   const { parsed, effectiveContextId, effectiveProjectId } = identity;
 
@@ -132,7 +138,7 @@ export function RecurringForm({
   function submit() {
     const description = parsed.description.trim();
     if (!description) return;
-    if (!effectiveContextId && !parsed.contextIsNew) {
+    if (!effectiveContextId && !identity.newContextName) {
       setError(t("recurring.errorContext"));
       return;
     }
@@ -152,9 +158,17 @@ export function RecurringForm({
           description,
           contextId: effectiveContextId,
           projectId: effectiveProjectId ?? undefined,
+          // Naming one while editing works exactly as it does while adding:
+          // the server creates it and files the pattern under it in the same
+          // request. Editing only ever sent ids before, so a name chosen in
+          // the picker was quietly dropped.
+          contextName: identity.newContextName,
+          projectName: identity.newProjectName,
           // A nil projectId means "leave unchanged" on the wire, so detaching
-          // needs saying out loud.
-          clearProject: effectiveProjectId === null,
+          // needs saying out loud. A project named but not yet made reads as
+          // null too, and the server drops the name when this is set — so it
+          // is only a detach when there is no name waiting to be created.
+          clearProject: effectiveProjectId === null && !identity.newProjectName,
           ...schedule(),
         },
         {
@@ -169,8 +183,8 @@ export function RecurringForm({
       {
         contextId: effectiveContextId,
         projectId: effectiveProjectId ?? undefined,
-        contextName: parsed.contextIsNew ? parsed.contextName : undefined,
-        projectName: parsed.projectIsNew ? parsed.projectName : undefined,
+        contextName: identity.newContextName,
+        projectName: identity.newProjectName,
         description,
         ...schedule(),
       },
@@ -234,8 +248,24 @@ export function RecurringForm({
           identity={identity}
           contexts={activeContexts}
           projects={projects}
-          onContextChange={setPickedContext}
-          onProjectChange={setPickedProject}
+          // Choosing one that exists and naming a new one are the same
+          // decision, so each clears the other.
+          onContextChange={(id) => {
+            setPickedContext(id);
+            setNewContext(undefined);
+          }}
+          onProjectChange={(id) => {
+            setPickedProject(id);
+            setNewProject(undefined);
+          }}
+          onContextCreate={(name) => {
+            setNewContext(name);
+            setPickedContext(undefined);
+          }}
+          onProjectCreate={(name) => {
+            setNewProject(name);
+            setPickedProject(undefined);
+          }}
         />
 
         <div className="grid gap-3 sm:grid-cols-2">

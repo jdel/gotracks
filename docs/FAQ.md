@@ -284,6 +284,14 @@ and the field opens a filtered list, the arrows move through it, Enter picks,
 Escape closes it, and Tab moves to the next field rather than walking the
 options. It is the same picker the time-zone setting uses.
 
+**The picker can also make one.** A name that is not already in the list is
+offered as *Create “name”* at the foot of it — the same thing `@name` and
+`#name` do in the description, for the people who never learned the shorthand,
+and on the editor as well as the add form. It is offered whenever the name is
+not an exact match, not merely when nothing matches: `err` is a name somebody
+may want while `errands` exists. Nothing is created until Save, like everything
+else on the form, and choosing one that exists forgets the name you typed.
+
 The editor takes focus when it opens, so the keyboard reaches it without tabbing
 across the row's icons. **Ctrl+Enter** (or Cmd) saves from any field — the
 editor is deliberately not a form, so there is no implicit submit to lean on —

@@ -67,6 +67,20 @@ export function IdentityPills({
 }
 
 /**
+ * The value of the "not made yet" row. Not "" — that is already a real choice
+ * on the project picker, where it means no project at all.
+ */
+const NEW = "__new";
+
+const contextOptions = (contexts: Context[]) =>
+  contexts.map((c) => ({ value: String(c.id), label: bare(c.name, "@") }));
+
+const projectOptions = (projects: Project[], noProject: string) => [
+  { value: "", label: noProject },
+  ...projects.map((p) => ({ value: String(p.id), label: bare(p.name, "#") })),
+];
+
+/**
  * The context and project controls, typed into rather than scrolled through: a
  * native select is fine for four contexts and useless for forty.
  */
@@ -76,28 +90,46 @@ export function ContextProjectFields({
   projects,
   onContextChange,
   onProjectChange,
+  onContextCreate,
+  onProjectCreate,
 }: {
   identity: Identity;
   contexts: Context[];
   projects: Project[];
   onContextChange: (id: number | undefined) => void;
   onProjectChange: (id: number | null) => void;
+  /** A name to make on save. The "@name" shorthand does the same thing. */
+  onContextCreate: (name: string) => void;
+  onProjectCreate: (name: string) => void;
 }) {
   const t = useT();
-  const { parsed, effectiveContextId, effectiveProjectId } = identity;
+  const { parsed, effectiveContextId, effectiveProjectId, newContextName, newProjectName } =
+    identity;
   return (
     <div className="grid grid-cols-2 gap-3">
       <label className={fieldLabel}>
         {t("todo.context")}
+        {/* A name that does not exist yet has no id to be its value, so it gets
+            one of its own and stands at the top of the list as the current
+            choice. The rest of the list stays reachable underneath it — a name
+            staged here can be changed for one that exists. A name typed as
+            "@token" is the exception: the text is in charge of that one, and a
+            picker that appeared to override it would be lying, so it is shown
+            alone. */}
         <FilterPicker
           className="mt-1"
-          value={parsed.contextIsNew ? "" : String(effectiveContextId ?? "")}
+          value={newContextName ? NEW : String(effectiveContextId ?? "")}
           options={
-            parsed.contextIsNew
-              ? [{ value: "", label: `@${parsed.contextName}` }]
-              : contexts.map((c) => ({ value: String(c.id), label: bare(c.name, "@") }))
+            newContextName
+              ? [
+                  { value: NEW, label: `@${newContextName}` },
+                  ...(parsed.contextIsNew ? [] : contextOptions(contexts)),
+                ]
+              : contextOptions(contexts)
           }
-          onChange={(v) => onContextChange(v ? Number(v) : undefined)}
+          onChange={(v) => v !== NEW && onContextChange(v ? Number(v) : undefined)}
+          onCreate={onContextCreate}
+          createLabel={(name) => t("picker.create", { name })}
           ariaLabel={t("todo.context")}
           filterLabel={t("picker.filterContexts")}
           noMatchLabel={t("picker.noMatch")}
@@ -108,15 +140,18 @@ export function ContextProjectFields({
         {t("todo.project")}
         <FilterPicker
           className="mt-1"
-          value={parsed.projectIsNew ? "" : String(effectiveProjectId ?? "")}
-          options={[
-            {
-              value: "",
-              label: parsed.projectIsNew ? `#${parsed.projectName}` : t("todo.noProject"),
-            },
-            ...projects.map((p) => ({ value: String(p.id), label: bare(p.name, "#") })),
-          ]}
-          onChange={(v) => onProjectChange(v ? Number(v) : null)}
+          value={newProjectName ? NEW : String(effectiveProjectId ?? "")}
+          options={
+            newProjectName
+              ? [
+                  { value: NEW, label: `#${newProjectName}` },
+                  ...(parsed.projectIsNew ? [] : projectOptions(projects, t("todo.noProject"))),
+                ]
+              : projectOptions(projects, t("todo.noProject"))
+          }
+          onChange={(v) => v !== NEW && onProjectChange(v ? Number(v) : null)}
+          onCreate={onProjectCreate}
+          createLabel={(name) => t("picker.create", { name })}
           ariaLabel={t("todo.project")}
           filterLabel={t("picker.filterProjects")}
           noMatchLabel={t("picker.noMatch")}

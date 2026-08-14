@@ -208,3 +208,96 @@ describe("where focus goes when the list closes", () => {
     expect(document.activeElement).toBe(field);
   });
 });
+
+/**
+ * Making one that does not exist yet.
+ *
+ * Everything an action can be filed under could be named in the description
+ * with "#name" and nowhere else: the picker chose from what existed, so a user
+ * who did not know the shorthand had to leave the form, make the project, and
+ * come back.
+ */
+function renderCreatable() {
+  const onChange = vi.fn();
+  const onCreate = vi.fn();
+  render(
+    <FilterPicker
+      value=""
+      options={options}
+      onChange={onChange}
+      onCreate={onCreate}
+      createLabel={(name) => `Create “${name}”`}
+      ariaLabel="Project"
+      filterLabel="Filter projects"
+      noMatchLabel="No match."
+    />,
+  );
+  return { onChange, onCreate };
+}
+
+describe("naming one that does not exist", () => {
+  it("offers to make what was typed", async () => {
+    const user = userEvent.setup();
+    const { onCreate } = renderCreatable();
+
+    await user.click(screen.getByLabelText("Project"));
+    await user.type(screen.getByLabelText("Filter projects"), "garden");
+    await user.click(screen.getByRole("button", { name: "Create “garden”" }));
+
+    expect(onCreate).toHaveBeenCalledWith("garden");
+  });
+
+  // The rule that matters: "err" is a name somebody may want while "errands"
+  // exists. Offering to create only when nothing matches would refuse to make
+  // it at all, because a longer name happens to contain those letters.
+  it("offers to make a name that is the start of an existing one", async () => {
+    const user = userEvent.setup();
+    const { onCreate } = renderCreatable();
+
+    await user.click(screen.getByLabelText("Project"));
+    await user.type(screen.getByLabelText("Filter projects"), "kitchen ex");
+
+    // Both: the match to choose, and the offer to make a different one.
+    expect(screen.getByRole("button", { name: "kitchen extension" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Create “kitchen ex”" }));
+
+    expect(onCreate).toHaveBeenCalledWith("kitchen ex");
+  });
+
+  // Nothing to make: it is already there, whatever case it was typed in.
+  it("does not offer to make one that already exists", async () => {
+    const user = userEvent.setup();
+    renderCreatable();
+
+    await user.click(screen.getByLabelText("Project"));
+    await user.type(screen.getByLabelText("Filter projects"), "Taxes");
+
+    expect(screen.queryByRole("button", { name: /Create/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "taxes" })).toBeTruthy();
+  });
+
+  it("is reachable from the keyboard, after the matches", async () => {
+    const user = userEvent.setup();
+    const { onCreate } = renderCreatable();
+
+    await user.click(screen.getByLabelText("Project"));
+    // Not "kitchen": that is an option already, so there would be nothing to
+    // make and no row to arrow onto.
+    await user.type(screen.getByLabelText("Filter projects"), "kitch");
+    // kitchen, kitchen extension, then the offer.
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+    expect(onCreate).toHaveBeenCalledWith("kitch");
+  });
+
+  it("chooses from the list when no create handler is given", async () => {
+    const user = userEvent.setup();
+    renderPicker();
+
+    await user.click(screen.getByLabelText("Project"));
+    await user.type(screen.getByLabelText("Filter projects"), "garden");
+
+    expect(screen.queryByRole("button", { name: /Create/ })).toBeNull();
+    expect(screen.getByText("No match.")).toBeTruthy();
+  });
+});

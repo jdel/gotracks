@@ -9,6 +9,12 @@ export interface PickerOption {
   label: string;
 }
 
+/** The "make this one" row, told apart from an option by identity. */
+const CREATE = Symbol("create");
+
+/** Names are matched the way people mean them: case and padding aside. */
+const eq = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
 /**
  * A select you can type into.
  *
@@ -23,6 +29,8 @@ export function FilterPicker({
   value,
   options,
   onChange,
+  onCreate,
+  createLabel,
   ariaLabel,
   filterLabel,
   noMatchLabel,
@@ -31,6 +39,13 @@ export function FilterPicker({
   value: string;
   options: PickerOption[];
   onChange: (value: string) => void;
+  /**
+   * Offers to make what was typed. Omit it and the picker only chooses from
+   * what exists — which is what a time zone list wants.
+   */
+  onCreate?: (name: string) => void;
+  /** Already translated, like every other string here: `Create "errands"`. */
+  createLabel?: (name: string) => string;
   ariaLabel: string;
   filterLabel: string;
   noMatchLabel: string;
@@ -44,6 +59,18 @@ export function FilterPicker({
     if (!query) return options;
     return options.filter((o) => o.label.toLowerCase().includes(query));
   }, [filter, options]);
+
+  const typed = filter.trim();
+  /**
+   * Creating is offered whenever the typed name is not already an option,
+   * exactly — not merely when nothing matches. "err" is a name somebody may
+   * want while "errands" exists, and a list that hides the offer because a
+   * longer name contains those letters refuses to make it at all.
+   */
+  const canCreate =
+    Boolean(onCreate) && typed.length > 0 && !options.some((o) => eq(o.label, typed));
+  /** The list the arrows walk: the matches, then the offer to create. */
+  const rows: (PickerOption | typeof CREATE)[] = canCreate ? [...shown, CREATE] : shown;
 
   const selected = options.find((o) => o.value === value);
   // Which option the arrow keys are on. Reset whenever the list changes under
@@ -64,9 +91,10 @@ export function FilterPicker({
     if (restoreFocus) anchor.current?.focus();
   }
 
-  function pick(option: PickerOption | undefined) {
-    if (!option) return;
-    onChange(option.value);
+  function pick(row: (typeof rows)[number] | undefined) {
+    if (!row) return;
+    if (row === CREATE) onCreate?.(typed);
+    else onChange(row.value);
     close();
   }
 
@@ -131,13 +159,13 @@ export function FilterPicker({
           onKeyDown={(e) => {
             if (e.key === "ArrowDown") {
               e.preventDefault();
-              setActive((i) => Math.min(i + 1, shown.length - 1));
+              setActive((i) => Math.min(i + 1, rows.length - 1));
             } else if (e.key === "ArrowUp") {
               e.preventDefault();
               setActive((i) => Math.max(i - 1, 0));
             } else if (e.key === "Enter") {
               e.preventDefault();
-              pick(shown[active]);
+              pick(rows[active]);
             } else if (e.key === "Escape") {
               // Closes the list and stops there: the panel around it also
               // listens for Escape, and one press should undo one thing.
@@ -151,23 +179,27 @@ export function FilterPicker({
           }}
         />
         <div className="mt-1 max-h-56 overflow-y-auto">
-          {shown.map((o, i) => (
+          {rows.map((row, i) => (
             <button
-              key={o.value}
+              key={row === CREATE ? "__create" : row.value}
               type="button"
               // Never a tab stop: arrows move through the list, Tab leaves it.
               tabIndex={-1}
               className={cn(
                 "w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent",
                 i === active && "bg-accent",
+                // The offer to create is not one of the things that exist, and
+                // is set apart from them rather than sitting in the run of
+                // names as if it were another one.
+                row === CREATE && "mt-1 border-t border-line font-semibold dark:border-line-dark",
               )}
               onMouseEnter={() => setActive(i)}
-              onClick={() => pick(o)}
+              onClick={() => pick(row)}
             >
-              {o.label}
+              {row === CREATE ? createLabel?.(typed) : row.label}
             </button>
           ))}
-          {shown.length === 0 && (
+          {rows.length === 0 && (
             <p className="px-2 py-1.5 text-sm text-muted-foreground">{noMatchLabel}</p>
           )}
         </div>

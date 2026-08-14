@@ -87,6 +87,10 @@ export function ActionForm({
   const [pickedProject, setPickedProject] = useState<number | null | undefined>(
     editing ? todo.projectId ?? null : undefined,
   );
+  // Named in a picker rather than chosen from it. Held as a name because there
+  // is nothing to hold an id of yet: the server makes it when this is saved.
+  const [newContext, setNewContext] = useState<string>();
+  const [newProject, setNewProject] = useState<string>();
   const [tags, setTags] = useState(todo ? todo.tags.join(", ") : "");
   const [dates, setDates] = useState({
     due: dayValue(todo?.due, fmt.dayKey),
@@ -116,6 +120,8 @@ export function ActionForm({
     sigils: editing ? [] : sigils,
     pickedContext,
     pickedProject,
+    pickedContextName: newContext,
+    pickedProjectName: newProject,
     defaultContextId,
     defaultProjectId,
   });
@@ -136,12 +142,21 @@ export function ActionForm({
     if (effectiveContextId && effectiveContextId !== todo.contextId) {
       out.contextId = effectiveContextId;
     }
+    // Naming one while editing works exactly as it does while adding: the
+    // server creates it and files the action under it in the same request.
+    if (identity.newContextName) out.contextName = identity.newContextName;
+    if (identity.newProjectName) out.projectName = identity.newProjectName;
     if (effectiveProjectId !== (todo.projectId ?? null)) {
       out.projectId = effectiveProjectId ?? undefined;
       // Taking an action out of a project has to be said out loud: a missing
       // projectId is also what "leave unchanged" looks like on the wire, so
       // sending null alone left the action where it was.
-      if (effectiveProjectId === null) out.clearProject = true;
+      //
+      // Not while a new project is named, though: it has no id yet, so it also
+      // reads as null here — and the server drops the name when clearProject
+      // is set, which would file the action nowhere instead of in the project
+      // it was just told to make.
+      if (effectiveProjectId === null && !identity.newProjectName) out.clearProject = true;
     }
     if (allTags.join(",") !== [...todo.tags].map((s) => s.toLowerCase()).join(",")) {
       out.tags = allTags;
@@ -157,9 +172,9 @@ export function ActionForm({
 
   function submit() {
     if (!parsed.description.trim()) return;
-    // A new @name substitutes for an existing context, so only complain when
-    // there is neither.
-    if (!effectiveContextId && !parsed.contextIsNew) {
+    // A named context substitutes for an existing one, whether it was typed
+    // as "@name" or made in the picker, so only complain when there is neither.
+    if (!effectiveContextId && !identity.newContextName) {
       setError(t("quickadd.errorContext"));
       return;
     }
@@ -175,8 +190,8 @@ export function ActionForm({
       {
         contextId: effectiveContextId,
         projectId: effectiveProjectId ?? undefined,
-        contextName: parsed.contextIsNew ? parsed.contextName : undefined,
-        projectName: parsed.projectIsNew ? parsed.projectName : undefined,
+        contextName: identity.newContextName,
+        projectName: identity.newProjectName,
         description: parsed.description,
         due: dates.due || undefined,
         showFrom: dates.showFrom || undefined,
@@ -191,6 +206,8 @@ export function ActionForm({
           // show-from — so the state it returns is what decides the notice.
           setDeferredUntil(created.state === "deferred" && created.showFrom ? created.showFrom : "");
           setText("");
+          setNewContext(undefined);
+          setNewProject(undefined);
           setDates({ due: "", showFrom: "" });
           setTags("");
           setPickedProject(undefined);
@@ -288,8 +305,24 @@ export function ActionForm({
           identity={identity}
           contexts={activeContexts}
           projects={activeProjects}
-          onContextChange={setPickedContext}
-          onProjectChange={setPickedProject}
+          // Choosing one that exists and naming a new one are the same
+          // decision, so each clears the other.
+          onContextChange={(id) => {
+            setPickedContext(id);
+            setNewContext(undefined);
+          }}
+          onProjectChange={(id) => {
+            setPickedProject(id);
+            setNewProject(undefined);
+          }}
+          onContextCreate={(name) => {
+            setNewContext(name);
+            setPickedContext(undefined);
+          }}
+          onProjectCreate={(name) => {
+            setNewProject(name);
+            setPickedProject(undefined);
+          }}
         />
 
         {/* Leaving Show from blank is what lets the server apply the user's

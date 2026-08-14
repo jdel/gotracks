@@ -203,6 +203,38 @@ describe("editing a pattern", () => {
     await waitFor(() => expect(lastBody()).toMatchObject({ startFrom: "" }));
   });
 
+  it("makes a context named in the picker, rather than only choosing one", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("edit", user);
+
+    await user.click(within(form).getByLabelText("Context"));
+    await user.type(screen.getByLabelText("Filter contexts"), "errands");
+    await user.click(await screen.findByRole("button", { name: /Create/ }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(lastBody()).toMatchObject({ contextName: "errands" }));
+  });
+
+  // Same trap as an action's: a project with no id yet reads as null, which is
+  // also how a detach reads, and the server drops the name when both are sent.
+  it("does not detach the pattern while naming a project for it", async () => {
+    patterns = [pattern({ projectId: 5 })];
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("edit", user);
+
+    await user.click(within(form).getByLabelText("Project"));
+    // Not "garden": that one exists in this fixture, so there is nothing to
+    // make and no offer to click.
+    await user.type(screen.getByLabelText("Filter projects"), "greenhouse");
+    await user.click(await screen.findByRole("button", { name: /Create/ }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(lastBody()).toMatchObject({ projectName: "greenhouse" }));
+    expect(lastBody()).toMatchObject({ clearProject: false });
+  });
+
   it("detaches from a project out loud", async () => {
     patterns = [pattern({ projectId: 5 })];
     const user = userEvent.setup();
