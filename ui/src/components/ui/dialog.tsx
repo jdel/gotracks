@@ -2,6 +2,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { useT } from "@/lib/i18n";
+import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { cn } from "@/lib/utils";
 
 
@@ -66,7 +67,9 @@ const SheetSurface = React.forwardRef<
     /** Tapping the dimmed area behind the sheet. */
     onOverlayClick?: () => void;
   }
->(({ className, children, onOverlayClick, ...props }, ref) => (
+>(({ className, children, onOverlayClick, style, ...props }, ref) => {
+  const keyboard = useKeyboardInset();
+  return (
   <DialogPrimitive.Portal>
     <DialogOverlay onClick={onOverlayClick} />
     <DialogPrimitive.Content
@@ -77,12 +80,23 @@ const SheetSurface = React.forwardRef<
         "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
         className,
       )}
+      // Lifted to sit on top of the keyboard rather than behind it, and capped
+      // to the strip that is left, so a long form scrolls inside what can
+      // actually be seen. `bottom` rather than a transform on purpose: the pull
+      // gesture owns the transform, and two writers of one property is a bug
+      // waiting for the day both are active.
+      style={
+        keyboard > 0
+          ? { bottom: keyboard, maxHeight: `calc(100dvh - ${keyboard}px)`, ...style }
+          : style
+      }
       {...props}
     >
       {children}
     </DialogPrimitive.Content>
   </DialogPrimitive.Portal>
-));
+  );
+});
 SheetSurface.displayName = "SheetSurface";
 
 function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

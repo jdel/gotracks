@@ -12,6 +12,7 @@ import { Dialog, DialogTitle, SheetSurface } from "@/components/ui/dialog";
 import { ArrowLeft, Plus } from "lucide-react";
 import { Slot } from "@radix-ui/react-slot";
 import { inputClass } from "@/components/primitive-styles";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 
 /* gotracks — the shared UI primitives every screen is built from.
@@ -593,6 +594,9 @@ export function Sheet({
   const pull = usePullToDismiss(onClose);
   const { reset } = pull;
   const body = useRef<HTMLDivElement>(null);
+  // The pointer, not the width: a narrow desktop window has a real keyboard and
+  // wants the field focused, a tablet at the same width as a laptop does not.
+  const touch = useMediaQuery("(pointer: coarse)");
 
   useEffect(() => {
     // A sheet that was dragged part-way and then reopened must not come back
@@ -643,6 +647,16 @@ export function Sheet({
           // opening a sheet on its delete button is startling, and it is the
           // field below that the sheet was opened to reach.
           e.preventDefault();
+          // Except on a touch pointer, where focusing a field summons the
+          // keyboard over the sheet that is still animating up, and the browser
+          // scrolls to a field whose position is a frame out of date. Let the
+          // sheet arrive; the tap that follows opens the keyboard with
+          // everything already where it belongs. The sheet itself takes focus
+          // so Tab still enters it and a screen reader announces it.
+          if (touch) {
+            body.current?.parentElement?.focus();
+            return;
+          }
           const first = body.current?.querySelector<HTMLElement>(
             "input,button,select,textarea,[tabindex]:not([tabindex='-1'])",
           );

@@ -33,6 +33,16 @@ describe("the app does not zoom on a phone", () => {
     expect(viewport[1]).toContain("viewport-fit=cover");
   });
 
+  // Not a zoom rule, but it lives in the same tag: it asks Android to resize
+  // the layout viewport when the keyboard opens, which is the half of the
+  // keyboard fix that needs no JavaScript. iOS ignores it, hence
+  // `useKeyboardInset`.
+  it("asks the browser to resize for the keyboard", () => {
+    const viewport = read("index.html").match(/<meta\s+name="viewport"[\s\S]*?content="([^"]+)"/);
+
+    expect(viewport[1]).toContain("interactive-widget=resizes-content");
+  });
+
   it("turns off the double-tap zoom", () => {
     expect(read("src/index.css")).toMatch(/body\s*{[^}]*touch-action:\s*manipulation/);
   });

@@ -365,6 +365,15 @@ spawned yet.
 - **Pull a sheet down** — dismiss it. Sheets can also be closed with the
   backdrop or Escape.
 
+**A sheet rides above the keyboard.** iOS draws the on-screen keyboard over
+the page instead of resizing it, so a sheet pinned to the bottom of the screen
+would sit behind it. Each sheet measures the covered strip and lifts itself by
+it, capping its height to what is left, so a long form scrolls inside what can
+actually be seen. Opening a sheet on a phone deliberately does not focus its
+first field either — that raises the keyboard over a sheet still animating up,
+and the browser then scrolls to where the field was a moment ago. Tap the field
+and everything is where it belongs.
+
 **The page does not zoom.** Pinch and double-tap are turned off, and every
 field is at least 16px at phone widths. The size is not a taste decision: iOS
 zooms to any field under 16px when it takes focus, and no viewport setting
