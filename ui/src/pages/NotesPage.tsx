@@ -302,7 +302,7 @@ function BodyEditor({
       aria-label={t("notes.noteText")}
       className={cn(
         inlineEdit,
-        "resize-none text-sm leading-relaxed font-medium text-ink dark:text-ink-dark",
+        "resize-none text-base leading-relaxed font-medium text-ink md:text-sm dark:text-ink-dark",
       )}
     />
   );
@@ -452,7 +452,7 @@ function ConvertDialog({
             <label className="mt-2 block text-sm font-medium">
               {t("notes.context")}
               <select
-                className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-base md:text-sm"
                 value={contextId}
                 onChange={(e) => setContextId(Number(e.target.value))}
               >

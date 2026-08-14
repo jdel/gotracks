@@ -23,7 +23,11 @@ export const inlineEdit =
 // beside it agree; they did not while half the screens used a 36px shadcn input
 // and the other half this one at 42px.
 export const inputClass =
-  "h-9 w-full rounded-[10px] border border-line-2 bg-surface px-3 text-sm font-medium text-ink " +
+  // 16px up to the desktop breakpoint, 14px above it. Not a taste decision:
+  // iOS Safari zooms the page when a field under 16px takes focus, and no
+  // viewport meta turns that off. The zoom then scrolls the field out of view,
+  // which is how you end up typing somewhere you cannot see.
+  "h-9 w-full rounded-[10px] border border-line-2 bg-surface px-3 text-base md:text-sm font-medium text-ink " +
   "placeholder:text-ink-4 focus:border-2 focus:border-brand focus:outline-none " +
   "dark:border-line-2-dark dark:bg-card-dark dark:text-ink-dark dark:focus:border-brand-dark " +
   "aria-[invalid=true]:border-2 aria-[invalid=true]:border-danger";

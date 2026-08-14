@@ -197,6 +197,13 @@
   html {
     -webkit-text-size-adjust: 100%;
   }
+  /* No double-tap zoom. The app is a list of tap targets; a double tap is
+     never a request to magnify one, and the 300ms the browser waits to find
+     out is felt on every tap. Panning and scrolling are unaffected — the rows
+     set `touch-pan-y` of their own for the swipe. */
+  body {
+    touch-action: manipulation;
+  }
   /* Rows are swiped horizontally, and a horizontal overscroll is what Chrome
      on Android turns into a back/forward navigation — so a swipe that carried
      past the end of its travel used to leave the page. Nothing here scrolls

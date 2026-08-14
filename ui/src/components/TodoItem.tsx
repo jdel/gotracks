@@ -93,7 +93,7 @@ function DescriptionEditor({
       }}
       onBlur={() => finish(true)}
       aria-label={t("todo.actionDescription")}
-      className={cn(inlineEdit, "text-sm leading-[1.3] font-semibold text-ink dark:text-ink-dark")}
+      className={cn(inlineEdit, "text-base leading-[1.3] font-semibold text-ink md:text-sm dark:text-ink-dark")}
     />
   );
 }

@@ -365,6 +365,12 @@ spawned yet.
 - **Pull a sheet down** — dismiss it. Sheets can also be closed with the
   backdrop or Escape.
 
+**The page does not zoom.** Pinch and double-tap are turned off, and every
+field is at least 16px at phone widths. The size is not a taste decision: iOS
+zooms to any field under 16px when it takes focus, and no viewport setting
+turns that off — it then scrolls the field out of view, so you are typing into
+something you cannot see.
+
 Swipes start away from the screen edges: the browser reads an edge swipe as
 back/forward and will not let a page cancel it, so roughly a thumb's width at
 each side is left alone rather than fought over. Horizontal overscroll is
