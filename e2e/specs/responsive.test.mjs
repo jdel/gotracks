@@ -55,9 +55,16 @@ describe("one presentation per viewport", () => {
       // of the breakpoint is the presentation, which is what this asserts.
       await page.getByLabel("Edit this action").click();
       await page.waitForTimeout(400);
+      const dialogs = await page.locator("[role='dialog']").count();
+      // Only measured when there is one: a desktop mounts the inline card and
+      // no dialog at all, and asking for the box of a locator that matches
+      // nothing waits for the full timeout before failing.
+      const panel = dialogs ? await page.locator("[role='dialog']").first().boundingBox() : null;
       return {
-        dialogs: await page.locator("[role='dialog']").count(),
+        dialogs,
         editors: await page.getByLabel("Tags (comma separated)").count(),
+        panelHeight: panel ? panel.height : 0,
+        viewportHeight: page.viewportSize().height,
       };
     } finally {
       await browser.close();
@@ -70,9 +77,15 @@ describe("one presentation per viewport", () => {
     assert.equal(seen.editors, 1, "exactly one editor is mounted");
   });
 
-  it("opens a single sheet at 767px", async () => {
+  it("opens a single full-screen panel at 767px", async () => {
     const seen = await openEditor(767);
-    assert.equal(seen.dialogs, 1, "a phone opens the sheet");
-    assert.equal(seen.editors, 1, "and does not also mount the inline panel");
+    assert.equal(seen.dialogs, 1, "a phone opens the panel");
+    assert.equal(seen.editors, 1, "and does not also mount the inline card");
+    // Full screen, not a bottom sheet: a sheet is anchored to the edge the
+    // keyboard covers, which is what put half this form out of reach.
+    assert.ok(
+      seen.panelHeight >= seen.viewportHeight - 1,
+      `the editor is ${Math.round(seen.panelHeight)}px tall in a ${seen.viewportHeight}px viewport`,
+    );
   });
 });

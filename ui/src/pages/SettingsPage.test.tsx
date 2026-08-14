@@ -4,13 +4,14 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { SettingsPage } from "./SettingsPage";
 
-vi.mock("@/lib/auth", () => ({
-  useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout: vi.fn() }),
-}));
-
-const { requestEmailChange, updatePreferences } = vi.hoisted(() => ({
+const { logout, requestEmailChange, updatePreferences } = vi.hoisted(() => ({
+  logout: vi.fn(),
   requestEmailChange: vi.fn().mockResolvedValue(undefined),
   updatePreferences: vi.fn(),
+}));
+
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => ({ user: { email: "alice@example.com" }, ready: true, logout }),
 }));
 
 vi.mock("@/components/PasswordSection", () => ({ PasswordSection: () => null }));
@@ -60,6 +61,19 @@ vi.mock("@/hooks/useSettings", () => ({
 }));
 
 describe("SettingsPage usage pane", () => {
+  it("puts sign out at the top and uses the current session logout", async () => {
+    const user = userEvent.setup();
+    logout.mockClear();
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+
+    const signOut = screen.getByRole("button", { name: "Sign out" });
+    const settingsPanel = screen.getAllByText("Settings").at(-1)!;
+    expect(signOut.compareDocumentPosition(settingsPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.click(signOut);
+    expect(logout).toHaveBeenCalledOnce();
+  });
+
   it("puts export immediately before account deletion", () => {
     render(<MemoryRouter><SettingsPage /></MemoryRouter>);
 

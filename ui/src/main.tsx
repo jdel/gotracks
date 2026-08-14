@@ -8,7 +8,10 @@ import { UndoProvider } from "@/lib/undoable";
 import { ThemeProvider } from "@/lib/theme";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { App } from "@/App";
+import { installZoomGuard } from "@/lib/zoom";
 import "./index.css";
+
+installZoomGuard();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },

@@ -1,6 +1,6 @@
 import { useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link } from "react-router";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { ActionInput } from "@/components/ActionInput";
 import { DateFields } from "@/components/DateFields";
 import { ContextProjectFields, IdentityPills } from "@/components/IdentityFields";
@@ -9,6 +9,7 @@ import { useIdentity } from "@/hooks/useIdentity";
 import { Button, Input } from "@/components/primitives";
 import { IconButton } from "@/components/IconButton";
 import { useContexts } from "@/hooks/useContexts";
+import { useIsDesktop } from "@/hooks/useMediaQuery";
 import { useProjects, useTags } from "@/hooks/useProjects";
 import { useCreateTodo, useUpdateTodo, type TodoInput } from "@/hooks/useTodos";
 import { apiMessage } from "@/lib/api";
@@ -70,6 +71,7 @@ export function ActionForm({
 }: ActionFormProps) {
   const t = useT();
   const fmt = useDateFmt();
+  const isDesktop = useIsDesktop();
   const uid = useId();
   const fields = useRef<HTMLDivElement>(null);
   const create = useCreateTodo();
@@ -91,6 +93,9 @@ export function ActionForm({
   // is nothing to hold an id of yet: the server makes it when this is saved.
   const [newContext, setNewContext] = useState<string>();
   const [newProject, setNewProject] = useState<string>();
+  // Adding leaves the form open for the next action, so the caret goes back
+  // where the typing starts rather than staying on the button that was pressed.
+  const description = useRef<HTMLInputElement>(null);
   const [tags, setTags] = useState(todo ? todo.tags.join(", ") : "");
   const [dates, setDates] = useState({
     due: dayValue(todo?.due, fmt.dayKey),
@@ -172,6 +177,15 @@ export function ActionForm({
 
   function submit() {
     if (!parsed.description.trim()) return;
+    // Inside the gesture, not only in the success handler: iOS opens the
+    // keyboard for a focus() made while a user gesture is being handled, and
+    // by the time the action exists the gesture is long over — so the caret
+    // arrived back in the field with the keyboard left down.
+    //
+    // Deliberately *not* done by stopping Save from taking focus in the first
+    // place: the date fields commit their value on blur, so a Save that never
+    // blurs them creates the action without the date that was just typed.
+    if (!editing) description.current?.focus();
     // A named context substitutes for an existing one, whether it was typed
     // as "@name" or made in the picker, so only complain when there is neither.
     if (!effectiveContextId && !identity.newContextName) {
@@ -209,6 +223,7 @@ export function ActionForm({
           setNewContext(undefined);
           setNewProject(undefined);
           setDates({ due: "", showFrom: "" });
+          description.current?.focus();
           setTags("");
           setPickedProject(undefined);
           onDone?.();
@@ -218,32 +233,26 @@ export function ActionForm({
     );
   }
 
-  // Editing only: adding mounts with the page, and stealing the caret there
-  // would put the cursor in a form nobody asked for.
-  useFocusFirstField(fields, editing);
+  // The inline desktop panel only. Adding mounts with the page, and stealing
+  // the caret there would put the cursor in a form nobody asked for; on a phone
+  // the sheet focuses its own first field, and this was racing it and winning —
+  // landing on the context picker rather than the description above it.
+  useFocusFirstField(fields, editing && isDesktop);
 
   function onFormSubmit(e: FormEvent) {
     e.preventDefault();
-    submit();
+    // Editing still has one explicit exit: Save. Keeping the editor inside a
+    // real form gives iOS the complete previous/next field group without
+    // letting an implicit browser submit dismiss it.
+    if (!editing) submit();
   }
-
-  // Adding is a form: Enter in the description adds the action, which is the
-  // whole point of a capture box. Editing is not. An edit closes the drawer
-  // when it is saved, so *any* stray submit — a button that forgot its type, a
-  // keystroke a control passed on, a browser deciding a lone field means
-  // implicit submission — would dismiss the drawer under the user's fingers.
-  // With no form there, the only way out is the Save button.
-  const Shell = editing ? "div" : "form";
-  const shellProps = editing ? {} : { onSubmit: onFormSubmit };
 
   const placeholder = sigils.includes("#")
     ? t("quickadd.placeholderFull")
     : t("quickadd.placeholderNoProject");
 
-  // The editor has no <form> — a stray submit used to dismiss it — so the
-  // keyboard needs a way in that does not depend on one. Ctrl/Cmd+Enter saves
-  // from any field; Escape leaves without saving, which is what dismissing the
-  // sheet already does on a phone.
+  // Ctrl/Cmd+Enter deliberately saves from any field; Escape leaves without
+  // saving, which is what dismissing the screen already does on a phone.
   function onPanelKeyDown(e: KeyboardEvent<HTMLElement>) {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
@@ -255,13 +264,16 @@ export function ActionForm({
   }
 
   return (
-    <Shell {...shellProps} className="space-y-2" onKeyDown={onPanelKeyDown}>
-      {/* Adding only. An existing action's description is edited in place by
-          clicking its title in the row, so a second field for it here would be
-          two ways to change one thing — and the one in the row is the one that
-          shows what it will look like afterwards. */}
-      {!editing && (
-        <div className={cn(compact && "flex gap-2")}>
+    <form className="space-y-2" onSubmit={onFormSubmit} onKeyDown={onPanelKeyDown}>
+      {/* Always while adding; while editing, only on a phone. A desktop edits
+          the description by clicking the title in the row, where the result
+          reads exactly as it will afterwards — a second field there would be
+          two ways to change one thing. A phone has no such second way: the
+          editor is where it goes, or the words cannot be changed from the
+          panel that holds every other field. Nothing is re-parsed either way
+          — editing passes no sigils, so "invoice #7741" stays a description. */}
+      {(!editing || !isDesktop) && (
+        <div className={cn("flex gap-2", !compact && "items-center")}>
           <ActionInput
             value={text}
             onChange={setText}
@@ -270,8 +282,26 @@ export function ActionForm({
             projects={activeProjects}
             tags={knownTagList}
             sigils={sigils}
-            placeholder={placeholder}
+            inputRef={description}
+            // The field names itself: "Add an action" is wrong on a panel that
+            // is changing one that exists.
+            placeholder={editing ? t("todo.actionDescription") : placeholder}
           />
+          {/* One tap to empty it. Selecting a line of text on a phone to delete
+              it is four gestures and a magnifying glass. */}
+          {text && (
+            <IconButton
+              type="button"
+              className="size-8 shrink-0"
+              label={t("quickadd.clearText")}
+              onClick={() => {
+                setText("");
+                description.current?.focus();
+              }}
+            >
+              <X className="size-3.5 text-ink-4" />
+            </IconButton>
+          )}
           {compact && (
             <IconButton
               type="button"
@@ -325,19 +355,34 @@ export function ActionForm({
           }}
         />
 
-        {/* Leaving Show from blank is what lets the server apply the user's
-            default when a due date is set. */}
-        <DateFields value={dates} onChange={setDates} idPrefix={uid} />
+        <div className="flex items-end gap-2">
+          <label className={`min-w-0 flex-1 ${fieldLabel}`}>
+            {t("quickadd.tags")}
+            <Input
+              className="mt-1"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder={t("quickadd.tagsPlaceholder")}
+            />
+          </label>
+          {tags && (
+            <IconButton
+              type="button"
+              className="mb-0.5 size-8 shrink-0"
+              label={t("quickadd.clearTags")}
+              onClick={() => setTags("")}
+            >
+              <X className="size-3.5 text-ink-4" />
+            </IconButton>
+          )}
+        </div>
 
-        <label className={fieldLabel}>
-          {t("quickadd.tags")}
-          <Input
-            className="mt-1"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            placeholder={t("quickadd.tagsPlaceholder")}
-          />
-        </label>
+        {/* Last, deliberately. iOS moves between fields with the arrows above
+            its keyboard, and landing on a date input opens the wheel. Keeping
+            dates at the end avoids opening it merely on the way to another
+            text field. Leaving Show from blank is what lets the server apply
+            the user's default when a due date is set. */}
+        <DateFields value={dates} onChange={setDates} idPrefix={uid} />
       </div>
       )}
 
@@ -373,6 +418,6 @@ export function ActionForm({
           </Link>
         </p>
       )}
-    </Shell>
+    </form>
   );
 }

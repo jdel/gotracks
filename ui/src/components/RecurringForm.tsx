@@ -1,12 +1,14 @@
 import { useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { X } from "lucide-react";
 import { ActionInput } from "@/components/ActionInput";
+import { DatePickerField } from "@/components/DatePickerField";
 import { ContextProjectFields, IdentityPills } from "@/components/IdentityFields";
 import { fieldLabel } from "@/components/primitive-styles";
 import { Button, Input } from "@/components/primitives";
 import { IconButton } from "@/components/IconButton";
 import { useCreateRecurring, useUpdateRecurring, type RecurringInput } from "@/hooks/useRecurring";
 import { useFocusFirstField } from "@/hooks/useFocusFirstField";
+import { useIsDesktop } from "@/hooks/useMediaQuery";
 import { useIdentity } from "@/hooks/useIdentity";
 import { useTags } from "@/hooks/useProjects";
 import { apiMessage } from "@/lib/api";
@@ -201,21 +203,15 @@ export function RecurringForm({
     );
   }
 
-  useFocusFirstField(fields, editing);
+  const isDesktop = useIsDesktop();
+  useFocusFirstField(fields, editing && isDesktop);
 
-  // Same contract as the action form: adding is a real form, so Enter in the
-  // description captures the pattern; editing is not, so no stray submit can
-  // dismiss the panel under the user's hands. Ctrl/Cmd+Enter saves from
-  // anywhere, Escape leaves an edit without saving.
-  const Shell = editing ? "div" : "form";
-  const shellProps = editing
-    ? {}
-    : {
-        onSubmit: (e: FormEvent) => {
-          e.preventDefault();
-          submit();
-        },
-      };
+  function onFormSubmit(e: FormEvent) {
+    e.preventDefault();
+    // Editing remains explicit-save only. The form element exists so iOS sees
+    // one stable previous/next field group, not to add another dismissal path.
+    if (!editing) submit();
+  }
 
   function onPanelKeyDown(e: KeyboardEvent<HTMLElement>) {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -228,7 +224,7 @@ export function RecurringForm({
   }
 
   return (
-    <Shell {...shellProps} className="space-y-3" onKeyDown={onPanelKeyDown}>
+    <form className="space-y-3" onSubmit={onFormSubmit} onKeyDown={onPanelKeyDown}>
       <ActionInput
         value={text}
         onChange={setText}
@@ -362,16 +358,20 @@ export function RecurringForm({
         </label>
 
         {/* The window the pattern runs in. The server has always stored both;
-            nothing rendered them, so a pattern could not be given an end. */}
+            nothing rendered them, so a pattern could not be given an end.
+            Last in the form, and it stays last: iOS moves between fields with
+            the arrows above its keyboard, and landing on a date input opens
+            the wheel. There is no ordinary text field after these that the
+            user has to pass through a wheel to reach. */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex items-end gap-2">
             <label className={`min-w-0 flex-1 ${fieldLabel}`}>
               {t("recurring.startFrom")}
-              <Input
-                type="date"
+              <DatePickerField
                 className="mt-1"
                 value={startFrom}
-                onChange={(e) => setStartFrom(e.target.value)}
+                label={t("recurring.startFrom")}
+                onChange={setStartFrom}
               />
             </label>
             {startFrom && (
@@ -387,16 +387,15 @@ export function RecurringForm({
           <div className="flex items-end gap-2">
             <label className={`min-w-0 flex-1 ${fieldLabel}`}>
               {t("recurring.endDate")}
-              <Input
-                type="date"
+              <DatePickerField
                 className="mt-1"
                 // Deliberately no `min`: constraint validation blocks the add
                 // form's submit before any of this component's code runs, and
-                // the editor is not a form, so the two halves would refuse an
-                // inverted window in two different ways — one with a browser
-                // bubble in the browser's language, one with the message below.
+                // native constraint handling would refuse an inverted window
+                // differently from the explicit, translated check below.
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                label={t("recurring.endDate")}
+                onChange={setEndDate}
               />
             </label>
             {endDate && (
@@ -425,6 +424,6 @@ export function RecurringForm({
           {t("common.save")}
         </Button>
       </div>
-    </Shell>
+    </form>
   );
 }

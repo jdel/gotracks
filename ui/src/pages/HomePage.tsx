@@ -7,7 +7,7 @@ import { useDateFmt } from "@/lib/datefmt";
 import { SortableTodoList } from "@/components/SortableTodoList";
 import { TodoItem } from "@/components/TodoItem";
 import { QuickAdd } from "@/components/QuickAdd";
-import { QuickAddSheet } from "@/components/QuickAddSheet";
+import { QuickAddPanel } from "@/components/QuickAddPanel";
 import {
   Screen,
   HeaderBlock,
@@ -206,7 +206,7 @@ export function HomePage() {
         </List>
       )}
 
-      <QuickAddSheet open={adding} onClose={() => setAdding(false)} />
+      <QuickAddPanel open={adding} onClose={() => setAdding(false)} />
     </Screen>
   );
 }

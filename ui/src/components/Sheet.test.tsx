@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen } from "@testing-library/react";
-import { Input, Sheet } from "./primitives";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { FormScreen, Input, Sheet } from "./primitives";
 import { setViewport } from "@/test/viewport";
 
 /**
@@ -38,7 +38,10 @@ function openSheet() {
 
 const panel = () => screen.getByRole("dialog");
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe("a sheet and the on-screen keyboard", () => {
   it("sits on the bottom edge while no keyboard is up", () => {
@@ -72,22 +75,69 @@ describe("a sheet and the on-screen keyboard", () => {
 });
 
 describe("what a sheet focuses when it opens", () => {
-  it("focuses the first field where there is a real keyboard", () => {
+  // Deferred until the sheet has arrived, so `waitFor` rather than a straight
+  // assertion: focusing raises the keyboard, and a keyboard raised mid-flight
+  // leaves the browser scrolling to where the field was.
+  it("focuses the first field where there is a real keyboard", async () => {
     setViewport("desktop");
+    openSheet();
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText("Description")),
+    );
+  });
+
+  // It focuses on a phone too. This used to be skipped there, on the grounds
+  // that the keyboard would cover the sheet — which was true while the sheet
+  // was pinned to the bottom of the screen, and is fixed at the source above.
+  // Skipping it left the add sheet with no focus at all: you tapped +, and then
+  // had to tap again to start typing.
+  it("focuses it on a touch pointer too", async () => {
+    setViewport("phone");
+    openSheet();
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText("Description")),
+    );
+  });
+
+  // Nothing to wait for when the animation is off, so it lands at once.
+  it("focuses immediately when motion is reduced", () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({
+      matches: q.includes("prefers-reduced-motion"),
+      media: q,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
     openSheet();
 
     expect(document.activeElement).toBe(screen.getByLabelText("Description"));
   });
+});
 
-  // Focusing a field on a phone summons the keyboard over a sheet that is still
-  // animating up, and the browser then scrolls to where the field was a frame
-  // ago. The tap that follows opens the keyboard with everything in place.
-  it("leaves the keyboard shut on a touch pointer", () => {
+describe("what a full-screen form focuses when it opens", () => {
+  it("focuses and refreshes the marked description after the complete form mounts", async () => {
     setViewport("phone");
-    openSheet();
+    const userAgent = vi
+      .spyOn(window.navigator, "userAgent", "get")
+      .mockReturnValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)");
+    const focused = vi.fn();
+    const primed = vi.fn();
+    render(
+      <FormScreen open onClose={() => {}} title="Edit action" closeLabel="Close">
+        <form>
+          <Input data-form-primary aria-label="Description" onFocus={focused} />
+          <Input aria-label="Tags" onFocus={primed} />
+        </form>
+      </FormScreen>,
+    );
 
-    expect(document.activeElement).not.toBe(screen.getByLabelText("Description"));
-    // Focus is still inside the sheet, so Tab enters it and it is announced.
-    expect(panel().contains(document.activeElement)).toBe(true);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText("Description")),
+    );
+    await waitFor(() => expect(focused).toHaveBeenCalledTimes(2));
+    expect(primed).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText("Description").closest("form")).not.toBeNull();
+    userAgent.mockRestore();
   });
 });

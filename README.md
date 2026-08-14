@@ -102,8 +102,9 @@ created once its emailed activation link is redeemed.
   and environment variable, S3 attachment storage, sending mail, and DNS/deliverability
   (SPF/DKIM/DMARC).
 - **[docs/FAQ.md](docs/FAQ.md)** — how individual features and deployment topics
-  work: metrics, audit log, usage report, sessions, two-factor, legal pages,
-  running behind a proxy, high availability, and more.
+  work: mobile action and recurring forms, dates and the tickler, metrics, audit
+  log, usage report, sessions, two-factor, legal pages, running behind a proxy,
+  high availability, and more.
 
 ## Development
 

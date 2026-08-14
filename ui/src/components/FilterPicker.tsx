@@ -113,7 +113,17 @@ export function FilterPicker({
           ref={anchor}
           className={className}
           value={selected?.label ?? ""}
-          readOnly
+          // This stays a controlled value, but it must not be read-only. iOS
+          // leaves read-only inputs out of the previous/next arrows above the
+          // keyboard, which made those arrows jump over Context and Project.
+          // If typing arrives here (notably after one of those arrows), move
+          // it into the real filter field and open the list.
+          onChange={(e) => {
+            setFilter(e.target.value);
+            setActive(0);
+            setOpen(true);
+          }}
+          onFocus={(e) => e.currentTarget.select()}
           // Opens on a deliberate act, not on focus. Focus arrives by itself —
           // a sheet moving focus to its first control would otherwise drop a
           // list over the form the moment it opened.

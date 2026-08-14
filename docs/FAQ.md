@@ -235,10 +235,16 @@ Two rules keep this predictable:
   one that has none fills it in from the default, however the due date arrived.
 - **An existing show-from is never recomputed.** Moving a due date carries it
   along, keeping the gap, rather than deriving it again from the setting.
-  Clearing the due date clears the show-from that came with it.
+  Clearing the due date clears the show-from with it — it was derived from the
+  due date or dragged along by it, and leaving it behind parks the action in the
+  tickler with nothing on screen to say why.
 
-An action with no due date can still be parked: give it a show-from on its own
-and nothing constrains how far ahead it goes.
+**A show-from needs a due date.** It says how long *before* its deadline an
+action appears, so there has to be a deadline for it to be before: the field is
+disabled until a due date is set, as its quick-sets already were. Actions stored
+before this rule can still have a show-from and no due date — the field is
+disabled for those too, but the button beside it still clears the value, so
+nothing is stranded in the tickler.
 
 A deferred action always has a show-from — that is what it is waiting for. One
 with no date at all cannot be promoted by the sweep and would sit in the tickler
@@ -251,10 +257,17 @@ The add box on a desktop is one line: a description, a context and a Save
 button, which is the whole of most actions. A chevron opens the rest — project,
 tags, both dates — and it stays open for the actions that follow, so a run of
 detailed entries is not a run of clicks. On a phone there is no toggle: the
-sheet has the room, so it shows the full form.
+panel has the room, so it shows the full form.
 
 Only the context is required. An action belongs to no project unless one is
 chosen, and adding one does not inherit the project you used last.
+
+The description, the project and the tags each clear in one tap, from an **×**
+beside them that appears only when there is something to clear. Selecting a line
+of text on a phone to delete it is four gestures and a magnifying glass, and
+leaving a project meant opening the picker to find "No project" in it. A project
+named in the description has no × of its own — the text decides that one, so
+clearing the description is what removes it.
 
 The actions view groups by context and shows only the contexts that have
 something in them. An empty context is not a heading worth a line; when nothing
@@ -264,14 +277,35 @@ context you own.
 ## Editing an action
 
 An action's context, project, tags and both dates are editable from the same
-editor wherever the action is shown, including the tickler. Its description is
-not in that editor: clicking the title in the row edits it in place, where the
-result reads exactly as it will afterwards.
+editor wherever the action is shown, including the tickler. The description is
+the one field that differs by device. On a desktop it is **not** in the editor:
+clicking the title in the row edits it in place, where the result reads exactly
+as it will afterwards, and a second field in the panel would be two ways to
+change one thing. On a phone it **is** in the editor, and the title in the row
+is plain text — there is no hover, the row is small, and the panel that holds
+every other field is where the words belong too. Neither one re-parses what is
+already stored, so "call about invoice #7741" keeps its `#7741`.
 
 On a desktop the card expands beneath the row; on a phone the same pencil opens
-the same editor as a sheet. Exactly one of the two is ever mounted — a sheet renders
-through a portal, so hiding it with a stylesheet rule does not stop it appearing
-over the desktop layout.
+the same editor as a **full-screen form**. Exactly one of the two is ever mounted
+— it renders through a portal, so hiding it with a stylesheet rule does not stop
+it appearing over the desktop layout.
+
+The form fills the screen rather than rising as a sheet from the bottom, because
+the bottom is where the keyboard is. As a sheet, every field below the one being
+typed into went behind the keyboard, and propping that up took four separate
+fixes — measuring the keyboard, lifting the panel by it, turning the opening
+focus off, then delaying it — before the container was admitted to be the
+problem. Full screen puts the first field at the top and lets the rest scroll
+under the keyboard, which is how an ordinary page behaves. The short panels are
+still sheets: defer, attachments, the filters and the audit details are two or
+three controls, which is what a sheet is for.
+
+**The dates are last in the form, deliberately.** iOS moves between fields with
+the arrows above its keyboard, and landing on a date input opens the wheel and
+commits whatever it happens to be showing — so passing through on the way to
+something else sets a date the user then has to clear. At the end of the form
+there is nothing to pass through to.
 
 Only one panel shows at a time: opening attachments, defer or the editor closes
 whichever was open, and clicking the same control again closes it.
@@ -345,8 +379,8 @@ it will be stored, not against the request alone: moving one end on its own can
 invert a window whose other end it was never sent.
 
 Where the editor opens follows the action rules exactly: expanded inside the
-card on a desktop, a sheet on a phone, opened by the same pencil at either
-width. There are no swipes: left-defer and right-star mean nothing for a
+card on a desktop, a full-screen form on a phone, opened by the same pencil at
+either width. There are no swipes: left-defer and right-star mean nothing for a
 pattern. Nothing is written
 until Save, and dismissing discards.
 
@@ -373,16 +407,17 @@ spawned yet.
 - **Tap the pencil** — the editor. Star and delete sit on its title row, which
   is where deleting an action lives now.
 - **Pull a sheet down** — dismiss it. Sheets can also be closed with the
-  backdrop or Escape.
+  backdrop or Escape. The add and edit forms are not sheets: they fill the
+  screen and close with the button in their own header.
 
-**A sheet rides above the keyboard.** iOS draws the on-screen keyboard over
-the page instead of resizing it, so a sheet pinned to the bottom of the screen
-would sit behind it. Each sheet measures the covered strip and lifts itself by
-it, capping its height to what is left, so a long form scrolls inside what can
-actually be seen. Opening a sheet on a phone deliberately does not focus its
-first field either — that raises the keyboard over a sheet still animating up,
-and the browser then scrolls to where the field was a moment ago. Tap the field
-and everything is where it belongs.
+**A sheet rides above the keyboard.** iOS draws the on-screen keyboard over the
+page instead of resizing it, so a sheet pinned to the bottom of the screen would
+sit behind it. Each sheet measures the covered strip and lifts itself by it,
+capping its height to what is left. This still matters for the short panels —
+the defer sheet holds two date fields — even though the forms that made it
+urgent are full-screen now. A sheet focuses its first field once it has finished
+arriving rather than on the way up: focusing raises the keyboard, and a keyboard
+raised mid-flight leaves the browser scrolling to where the field used to be.
 
 **The page does not zoom.** Pinch and double-tap are turned off, and every
 field is at least 16px at phone widths. The size is not a taste decision: iOS

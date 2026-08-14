@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { X } from "lucide-react";
-import { Input } from "@/components/primitives";
+import { DatePickerField } from "@/components/DatePickerField";
 import { IconButton } from "@/components/IconButton";
 import {
   DUE_PRESETS,
@@ -79,17 +78,16 @@ export function DateFields({
   // The user's lead time: how many days before its due date an action first
   // appears. Zero — the default — means it appears on the due date itself.
   const leadDays = prefs?.showFromDays ?? 0;
-  // What the two inputs are showing while they are being typed into. A date
-  // input fires a change per component as it is filled — "2026" then
-  // "2026-09" — and the year alone is a complete, wildly wrong date. Committing
-  // those would save "2026-01-01" and, worse, could move the action out of the
-  // list being looked at before the day had even been picked. So the inputs
-  // keep their own value and only commit when they are left.
-  const [draft, setDraft] = useState<ActionDates | null>(null);
-  const shown = draft ?? value;
-
   function setDue(due: string) {
-    setDraft(null);
+    // Clearing the due date clears the show-from with it. The show-from was
+    // derived from the due date or moved along with it, so leaving it behind
+    // parks the action in the tickler with nothing on screen explaining why —
+    // and it survived, whatever the documentation claimed. An action can still
+    // be parked on its own: set a show-from without a due date.
+    if (!due) {
+      onChange({ due: "", showFrom: "" });
+      return;
+    }
     // An action with a due date always has a show-from. If it has none yet, the
     // server would derive one from the user's lead time on save — so derive the
     // same date here and show it, rather than filling the field in behind the
@@ -97,12 +95,11 @@ export function DateFields({
     // with the due date instead and is never recomputed.
     const moved = value.showFrom
       ? shiftShowFrom(value.due, due, value.showFrom)
-      : due && addDays(due, -leadDays);
+      : addDays(due, -leadDays);
     onChange({ due, showFrom: clampShowFrom(due, moved || "") });
   }
 
   function setShowFrom(showFrom: string) {
-    setDraft(null);
     onChange({ due: value.due, showFrom: clampShowFrom(value.due, showFrom) });
   }
 
@@ -113,33 +110,21 @@ export function DateFields({
     <div className="flex flex-col gap-3">
       <div>
         <div className="flex items-end gap-2">
-          {/* min-w-0, or the field never shrinks: a flex item's min-width is
-              auto, and a date input's intrinsic width is the whole date plus
-              the picker button. On a narrow screen the label kept that width,
-              overran the row and slid under the clear button beside it. */}
+          {/* min-w-0 keeps the field inside the row beside its clear button. */}
           <label
             htmlFor={dueId}
             className="min-w-0 flex-1 text-xs font-bold text-ink-2 dark:text-ink-2-dark"
           >
             {t("dates.due")}
-            <Input
+            <DatePickerField
               id={dueId}
-              type="date"
               className="mt-1"
-              value={shown.due}
-              onChange={(e) => setDraft({ ...shown, due: e.target.value })}
-              onBlur={(e) => setDue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                // Commit the date, and nothing else: without this the Enter
-                // also submits the form around the field, which saves the whole
-                // action — and, on the add form, empties the dates again.
-                e.preventDefault();
-                setDue((e.target as HTMLInputElement).value);
-              }}
+              value={value.due}
+              label={t("dates.due")}
+              onChange={setDue}
             />
           </label>
-          {shown.due && (
+          {value.due && (
             <IconButton
               className="mb-0.5 size-8 shrink-0"
               label={t("dates.clearDue")}
@@ -167,22 +152,23 @@ export function DateFields({
             className="min-w-0 flex-1 text-xs font-bold text-ink-2 dark:text-ink-2-dark"
           >
             {t("dates.showFrom")}
-            <Input
+            <DatePickerField
               id={showFromId}
-              type="date"
               className="mt-1"
-              max={shown.due || undefined}
-              value={shown.showFrom}
-              onChange={(e) => setDraft({ ...shown, showFrom: e.target.value })}
-              onBlur={(e) => setShowFrom(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                setShowFrom((e.target as HTMLInputElement).value);
-              }}
+              max={value.due || undefined}
+              // A show-from is how long before its deadline an action appears,
+              // so there has to be a deadline for it to be before. Without one
+              // it is disabled, like its quick-sets already were — but only for
+              // setting: a value stored before this rule existed can still be
+              // cleared with the button beside it, or an action would be stuck
+              // in the tickler with no way out of it from here.
+              disabled={!value.due}
+              value={value.showFrom}
+              label={t("dates.showFrom")}
+              onChange={setShowFrom}
             />
           </label>
-          {shown.showFrom && (
+          {value.showFrom && (
             <IconButton
               className="mb-0.5 size-8 shrink-0"
               label={t("dates.clearShowFrom")}
@@ -197,8 +183,8 @@ export function DateFields({
             <Preset
               key={p.key}
               label={t(`dates.${p.key}`)}
-              disabled={!shown.due}
-              onClick={() => setShowFrom(addDays(shown.due, -p.days))}
+              disabled={!value.due}
+              onClick={() => setShowFrom(addDays(value.due, -p.days))}
             />
           ))}
         </div>

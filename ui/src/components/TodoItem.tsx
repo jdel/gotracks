@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import {
   Check,
   Star,
@@ -26,7 +26,7 @@ import {
   useUpdateTodo,
 } from "@/hooks/useTodos";
 import { IconButton } from "@/components/IconButton";
-import { Chip, DueChip, Input, Sheet } from "@/components/primitives";
+import { Chip, DueChip, FormScreen, Input, Sheet } from "@/components/primitives";
 import { rowActions, inlineEdit } from "@/components/primitive-styles";
 import { SwipeRow } from "@/components/SwipeRow";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -331,16 +331,23 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
              the first line stops at the icons and the rest runs under them.
              The button's keyboard behaviour is restored by hand. */
           <span
-            role="button"
-            tabIndex={0}
-            onClick={() => setEditing(true)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setEditing(true);
-              }
-            }}
-            title={t("todo.edit")}
+            // Only a desktop renames from the row. On a phone the description
+            // is a field in the editor instead — one place to change it, the
+            // same panel that holds everything else about the action.
+            {...(isDesktop
+              ? {
+                  role: "button",
+                  tabIndex: 0,
+                  onClick: () => setEditing(true),
+                  onKeyDown: (e: KeyboardEvent<HTMLSpanElement>) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setEditing(true);
+                    }
+                  },
+                  title: t("todo.edit"),
+                }
+              : {})}
             className={cn(
               "cursor-text rounded text-sm leading-[1.3] break-words transition-colors",
               shownDone
@@ -461,10 +468,13 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
 
       {!isDesktop && (
         <>
-          <Sheet
+          {/* Full screen, not a sheet: the editor is a form, and a bottom
+              sheet puts everything below the caret behind the keyboard. */}
+          <FormScreen
             open={editorOpen}
             onClose={closePanel}
             title={todo.description}
+            closeLabel={t("common.close")}
             // Star and delete ride on the title row rather than sitting in the
             // editor's footer: they act on the action as a whole, not on any
             // field, and as icons they cost nothing next to the title.
@@ -493,7 +503,7 @@ export function TodoItem({ todo, showContext, hideContext, lifted, dragHandle }:
             }
           >
             <ActionEditor todo={todo} onClose={closePanel} />
-          </Sheet>
+          </FormScreen>
           <Sheet open={deferOpen} onClose={closePanel} title={t("todo.defer")}>
             <DeferPanel todo={todo} onSaved={closePanel} />
           </Sheet>

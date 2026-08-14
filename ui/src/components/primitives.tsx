@@ -8,11 +8,11 @@ import {
 } from "react";
 import { Link } from "react-router";
 import { usePullToDismiss } from "@/hooks/usePullToDismiss";
-import { Dialog, DialogTitle, SheetSurface } from "@/components/ui/dialog";
-import { ArrowLeft, Plus } from "lucide-react";
+import { SHEET_ENTER_MS, prefersReducedMotion } from "@/lib/motion";
+import { Dialog, DialogTitle, FormScreenSurface, SheetSurface } from "@/components/ui/dialog";
+import { ArrowLeft, Plus, X } from "lucide-react";
 import { Slot } from "@radix-ui/react-slot";
 import { inputClass } from "@/components/primitive-styles";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 
 /* gotracks — the shared UI primitives every screen is built from.
@@ -566,6 +566,136 @@ export function SkeletonList({ rows = 5 }: { rows?: number }) {
   );
 }
 
+/**
+ * A form that takes the whole screen on a phone.
+ *
+ * The add and edit forms outgrew the bottom sheet. A sheet is anchored to the
+ * bottom, which is precisely where a phone puts its keyboard: every field below
+ * the one being typed into goes behind it, the panel has to be measured and
+ * lifted, and focusing anything while it is still sliding up leaves the browser
+ * scrolling to where the field used to be. Four separate fixes went into that
+ * arrangement before it was worth admitting the container was wrong.
+ *
+ * Full screen has none of it. The first field is at the top, the keyboard
+ * covers the bottom of a body that scrolls, and that is the most ordinary
+ * behaviour there is. The short panels — defer, attachments, filters — stay
+ * sheets, because two or three controls is what a sheet is for.
+ */
+export function FormScreen({
+  open,
+  onClose,
+  title,
+  closeLabel,
+  actions,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  /** Already translated, like every other string this file is handed. */
+  closeLabel: string;
+  /** Icon buttons for the title row, to the left of the close button. */
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  const surface = useRef<HTMLDivElement>(null);
+  const focusRefresh = useRef<number | undefined>(undefined);
+  const focusReturn = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  useEffect(
+    () => () => {
+      if (focusRefresh.current !== undefined) clearTimeout(focusRefresh.current);
+      if (focusReturn.current !== undefined) cancelAnimationFrame(focusReturn.current);
+    },
+    [],
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={(next: boolean) => !next && onClose()}>
+      <FormScreenSurface
+        ref={surface}
+        tabIndex={-1}
+        aria-describedby={undefined}
+        // The same reasoning as the sheet's: a portal propagates through the
+        // React tree, not the DOM one, so without this a drag inside the panel
+        // reaches the swipeable row it was opened from.
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerMove={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+        onPointerCancel={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => {
+          // The description is the first field in these forms, regardless of
+          // title-row actions. iOS can build the keyboard toolbar before a
+          // newly portalled form has settled: the caret is right, but Next is
+          // disabled until the user visits another field and returns. Preserve
+          // the immediate focus that raises the keyboard, then reproduce that
+          // proven sequence after the keyboard has arrived. This stays inside
+          // the form (never Star, Delete or Close), prevents scrolling, and is
+          // abandoned if the user has moved or started typing in the meantime.
+          e.preventDefault();
+          const primary = surface.current?.querySelector<HTMLInputElement>("[data-form-primary]");
+          const initialValue = primary?.value;
+          primary?.focus({ preventScroll: true });
+          if (!primary) return;
+
+          const ua = navigator.userAgent;
+          const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+          if (!ios) return;
+
+          focusRefresh.current = window.setTimeout(() => {
+            focusRefresh.current = undefined;
+            if (
+              document.activeElement !== primary ||
+              primary.value !== initialValue ||
+              !surface.current?.contains(primary)
+            ) return;
+            const next = Array.from(primary.form?.elements ?? []).find(
+              (control): control is HTMLInputElement =>
+                control instanceof HTMLInputElement && control !== primary && !control.disabled,
+            );
+            if (!next) return;
+            next.focus({ preventScroll: true });
+            focusReturn.current = requestAnimationFrame(() => {
+              focusReturn.current = undefined;
+              if (document.activeElement === next && surface.current?.contains(primary)) {
+                primary.focus({ preventScroll: true });
+              }
+            });
+          }, 350);
+        }}
+      >
+        {/* Sticky, so the way out is reachable from anywhere in a long form. */}
+        <div className="sticky top-0 z-10 -mx-4 mb-3 flex items-center gap-2 border-b border-line bg-card px-4 pt-1 pb-3 dark:border-line-dark dark:bg-card-dark">
+          <DialogTitle className="min-w-0 flex-1 truncate text-[17px] font-extrabold tracking-[-0.02em] text-ink dark:text-ink-dark">
+            {title}
+          </DialogTitle>
+          {actions && <div className="flex flex-none items-center gap-1">{actions}</div>}
+          <button
+            type="button"
+            aria-label={closeLabel}
+            onClick={onClose}
+            className="flex size-8 shrink-0 items-center justify-center rounded-[10px] text-ink-4 hover:bg-surface dark:hover:bg-line-dark"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <div>{children}</div>
+      </FormScreenSurface>
+    </Dialog>
+  );
+}
+
 /* Bottom sheet used for quick add, row actions and the mobile navigation.
  *
  * Built on the same dialog primitive as the modals, which is what supplies the
@@ -594,9 +724,6 @@ export function Sheet({
   const pull = usePullToDismiss(onClose);
   const { reset } = pull;
   const body = useRef<HTMLDivElement>(null);
-  // The pointer, not the width: a narrow desktop window has a real keyboard and
-  // wants the field focused, a tablet at the same width as a laptop does not.
-  const touch = useMediaQuery("(pointer: coarse)");
 
   useEffect(() => {
     // A sheet that was dragged part-way and then reopened must not come back
@@ -647,20 +774,27 @@ export function Sheet({
           // opening a sheet on its delete button is startling, and it is the
           // field below that the sheet was opened to reach.
           e.preventDefault();
-          // Except on a touch pointer, where focusing a field summons the
-          // keyboard over the sheet that is still animating up, and the browser
-          // scrolls to a field whose position is a frame out of date. Let the
-          // sheet arrive; the tap that follows opens the keyboard with
-          // everything already where it belongs. The sheet itself takes focus
-          // so Tab still enters it and a screen reader announces it.
-          if (touch) {
-            body.current?.parentElement?.focus();
+          // But only once the sheet has arrived. Focusing raises the keyboard,
+          // and a keyboard raised while the sheet is still sliding up leaves
+          // the browser scrolling to where the field was a frame ago — which is
+          // how the description ended up off the top of the screen. Waiting for
+          // the animation costs a quarter of a second and means the keyboard
+          // opens against a sheet that is already where it will stay.
+          const focusFirst = () => {
+            const first = body.current?.querySelector<HTMLElement>(
+              "input,button,select,textarea,[tabindex]:not([tabindex='-1'])",
+            );
+            first?.focus();
+            // And if the browser still scrolled somewhere unhelpful, correct it
+            // to the least it can do — no jump when it was already visible.
+            // Guarded: jsdom implements no layout and so has no scrolling.
+            first?.scrollIntoView?.({ block: "nearest" });
+          };
+          if (prefersReducedMotion()) {
+            focusFirst();
             return;
           }
-          const first = body.current?.querySelector<HTMLElement>(
-            "input,button,select,textarea,[tabindex]:not([tabindex='-1'])",
-          );
-          first?.focus();
+          setTimeout(focusFirst, SHEET_ENTER_MS);
         }}
       >
         {/* The header is the grip: the pull starts here, where the handle

@@ -24,12 +24,12 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { overlayClassName?: string }
+>(({ className, overlayClassName, children, ...props }, ref) => {
   const t = useT();
   return (
     <DialogPrimitive.Portal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
@@ -53,6 +53,38 @@ const DialogContent = React.forwardRef<
   );
 });
 DialogContent.displayName = DialogPrimitive.Content.displayName;
+
+/**
+ * FormScreenSurface is a dialog that fills the screen. The panel the add and
+ * edit forms are drawn on for a phone, where a bottom sheet put half the form
+ * behind the keyboard. Deliberately not keyboard-aware: it does not need to be,
+ * because it is anchored to the top rather than the bottom — the field being
+ * typed into stays where it is and the body scrolls under the keyboard.
+ */
+const FormScreenSurface = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPrimitive.Portal>
+    <DialogOverlay />
+    <DialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed inset-0 z-50 h-dvh w-screen overflow-y-auto bg-card px-4 pt-3.5",
+        // The safe area at the foot, so the last control is not under the home
+        // indicator, and room to scroll the end of the form clear of a keyboard.
+        "pb-[max(2rem,env(safe-area-inset-bottom))]",
+        "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-4",
+        "dark:bg-card-dark",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </DialogPrimitive.Content>
+  </DialogPrimitive.Portal>
+));
+FormScreenSurface.displayName = "FormScreenSurface";
 
 /**
  * SheetSurface is a dialog anchored to the bottom of the screen: the panel a
@@ -133,6 +165,7 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 export {
   Dialog,
+  FormScreenSurface,
   DialogTrigger,
   DialogClose,
   DialogContent,

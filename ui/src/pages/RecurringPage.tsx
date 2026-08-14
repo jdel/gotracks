@@ -14,7 +14,7 @@ import type { Context, Project, RecurringTodo } from "@/lib/types";
 import { SearchInput } from "@/components/SearchInput";
 import { useAuth } from "@/lib/auth";
 import { initials } from "@/lib/initials";
-import { Chip, Screen, HeaderBlock, Fab, Sheet, SkeletonList, EmptyState } from "@/components/primitives";
+import { Chip, Screen, HeaderBlock, Fab, FormScreen, SkeletonList, EmptyState } from "@/components/primitives";
 import { rowActions } from "@/components/primitive-styles";
 import { cn } from "@/lib/utils";
 
@@ -227,21 +227,27 @@ export function RecurringPage() {
         </ul>
       )}
 
-      <Sheet open={adding} onClose={() => setAdding(false)} title={t("recurring.addTitle")}>
+      <FormScreen
+        open={adding}
+        onClose={() => setAdding(false)}
+        title={t("recurring.addTitle")}
+        closeLabel={t("common.close")}
+      >
         <RecurringForm
           contexts={contexts ?? []}
           projects={projects ?? []}
           onDone={() => setAdding(false)}
         />
-      </Sheet>
+      </FormScreen>
 
       {/* Editing on a phone. Keyed on the pattern so the draft belongs to the
           one being edited rather than to whichever was opened first. */}
       {!isDesktop && editingPattern && (
-        <Sheet
+        <FormScreen
           open
           onClose={() => setEditingId(null)}
           title={t("recurring.editTitle")}
+          closeLabel={t("common.close")}
         >
           <RecurringForm
             key={editingPattern.id}
@@ -250,7 +256,7 @@ export function RecurringPage() {
             projects={projects ?? []}
             onDone={() => setEditingId(null)}
           />
-        </Sheet>
+        </FormScreen>
       )}
     </Screen>
   );

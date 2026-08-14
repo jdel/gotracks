@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QuickAdd } from "./QuickAdd";
 import { useContexts } from "@/hooks/useContexts";
@@ -150,6 +150,130 @@ describe("QuickAdd defaults", () => {
   });
 });
 
+// The panel stays open for the next capture, so the caret has to come back to
+// where the typing starts. Pressing Save left it on the button, and the next
+// action needed a tap on the field before a single character could be typed.
+describe("after an action is added", () => {
+  it("puts the caret back in the description", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByText("context:@home");
+    const field = screen.getByLabelText(/Add an action/);
+    await user.click(field);
+    await user.keyboard("buy milk");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(screen.getByText("todo:buy milk")).toBeDefined());
+    expect(document.activeElement).toBe(field);
+    // And it is empty, ready for the next one.
+    expect((field as HTMLInputElement).value).toBe("");
+  });
+
+  // The caret goes back while the tap is still being handled, not once the
+  // action exists. iOS opens the keyboard only for a focus() made inside a user
+  // gesture, and creating the action outlives it — so putting the caret back
+  // afterwards left the field focused with the keyboard down, and the next
+  // capture needed a tap on the field before a character could be typed.
+  it("returns the caret while the tap is still being handled", async () => {
+    const user = userEvent.setup();
+    // A create that never resolves: what matters is where the caret is before
+    // the answer arrives, which is the only part iOS will act on.
+    mockApi({
+      "GET /contexts": () => contexts,
+      "GET /projects": () => projects,
+      "GET /tags": [],
+      "GET /todos": () => todos,
+      "POST /todos": () => new Promise(() => {}),
+    });
+    renderApp();
+
+    await screen.findByText("context:@home");
+    const field = screen.getByLabelText(/Add an action/);
+    await user.click(field);
+    await user.keyboard("buy milk");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(document.activeElement).toBe(field);
+  });
+});
+
+/**
+ * One tap to empty a field. Clearing a line of text on a phone is otherwise
+ * four gestures and a magnifying glass, and leaving a project behind means
+ * opening the picker to find "No project" in it.
+ */
+describe("clearing a field in one tap", () => {
+  it("empties the description and leaves the caret in it", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByText("context:@home");
+    const field = screen.getByLabelText(/Add an action/);
+    await user.click(field);
+    await user.keyboard("buy milk");
+
+    await user.click(screen.getByRole("button", { name: "Clear the description" }));
+
+    expect((field as HTMLInputElement).value).toBe("");
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("empties the tags", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByText("context:@home");
+    const tags = screen.getByLabelText("Tags (comma separated)");
+    await user.type(tags, "errand, urgent");
+
+    await user.click(screen.getByRole("button", { name: "Clear the tags" }));
+
+    expect((tags as HTMLInputElement).value).toBe("");
+  });
+
+  it("takes the action out of the project", async () => {
+    const user = userEvent.setup();
+    projects = [aProject({ id: 5, name: "#kitchen" })];
+    renderApp();
+
+    await screen.findByText("context:@home");
+    await user.click(screen.getByLabelText("Project"));
+    await user.click(await screen.findByRole("button", { name: "kitchen" }));
+    expect(screen.getByLabelText("Project")).toHaveProperty("value", "kitchen");
+
+    await user.click(screen.getByRole("button", { name: "Clear the project" }));
+
+    expect(screen.getByLabelText("Project")).toHaveProperty("value", "No project");
+  });
+
+  // A project named in the description is decided by the text, so the button is
+  // not offered there rather than offered and doing nothing. Clearing the
+  // description takes the token with it.
+  it("offers no project clear for one named in the description", async () => {
+    const user = userEvent.setup();
+    projects = [aProject({ id: 5, name: "#kitchen" })];
+    renderApp();
+
+    await screen.findByText("context:@home");
+    await user.click(screen.getByLabelText(/Add an action/));
+    await user.keyboard("fix the tap #kitchen{Tab}");
+
+    expect(screen.queryByRole("button", { name: "Clear the project" })).toBeNull();
+  });
+
+  // Nothing to clear, nothing to tap: the buttons only exist when they would do
+  // something, so they are not three dead targets on every empty form.
+  it("offers no clear button for an empty field", async () => {
+    renderApp();
+    await screen.findByText("context:@home");
+
+    expect(screen.queryByRole("button", { name: "Clear the description" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear the tags" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear the project" })).toBeNull();
+  });
+});
+
 describe("QuickAdd list refresh", () => {
   it("shows a new action immediately, without a reload", async () => {
     const user = userEvent.setup();
@@ -228,9 +352,12 @@ describe("QuickAdd deferred notice", () => {
     await user.click(screen.getByLabelText(/Add an action/));
     await user.keyboard("renew passport");
     // The dates are always on the form now — no disclosure to open first.
-    await user.type(screen.getByLabelText("Due"), "2027-03-01");
-    // Not Enter: inside a date field that commits the date and goes no
-    // further, so the form is submitted from its own button.
+    await user.click(screen.getByLabelText("Due"));
+    const picker = screen.getByRole("dialog", { name: "Due" });
+    await user.selectOptions(within(picker).getByLabelText("Year"), "2027");
+    await user.selectOptions(within(picker).getByLabelText("Month"), "2");
+    await user.click(within(picker).getByRole("button", { name: "2027-03-01" }));
+    await user.click(within(picker).getByRole("button", { name: "Apply" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await screen.findByText(/waiting in the tickler/);

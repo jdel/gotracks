@@ -104,8 +104,13 @@ func (s *TodoService) showFromDays(ctx context.Context, userID int64) int {
 // clampShowFrom keeps show-from at or before the due date. An action is not
 // allowed to hide past the day it is due, whichever end the user moved: a
 // hand-picked show-from after the due date, or a due date dragged backwards
-// past an existing show-from. Without a due date there is nothing to clamp
-// against — parking an undated action arbitrarily far ahead is legitimate.
+// past an existing show-from.
+//
+// With no due date there is simply nothing to compare against, so this returns.
+// That is not a statement that an undated show-from is a feature: a show-from
+// says how long before its deadline an action appears, which is why the quick
+// sets are disabled without one and why clearing the due date clears it below.
+// Older rows can still hold one, and the form offers a way to clear those.
 func clampShowFrom(t *domain.Todo) {
 	if t.Due == nil || t.ShowFrom == nil {
 		return

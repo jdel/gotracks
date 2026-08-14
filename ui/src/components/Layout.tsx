@@ -322,25 +322,10 @@ export function Layout() {
         <nav className="grid grid-cols-2 gap-1">
           {visibleOverflow.map((item) => link(item, () => setMenuOpen(false)))}
         </nav>
-        <div className="mt-3 border-t border-line-3 pt-3 dark:border-line-dark">
-          <p className="truncate px-3 text-sm text-ink-4">{user?.email}</p>
-          {/* The desktop sidebar carries these; hidden here, a signed-in phone
-              would otherwise have no route to sign out or to the legal pages. */}
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              logout();
-            }}
-            className="mt-1 w-fit px-3 text-left text-xs font-medium text-brand underline underline-offset-2 dark:text-brand-ink-dark"
-          >
-            {t("nav.signOut")}
-          </button>
-          <LegalLinks
-            className="px-3 pt-2 text-[11px] font-medium text-ink-4"
-            onNavigate={() => setMenuOpen(false)}
-          />
-        </div>
+        <LegalLinks
+          className="mt-3 border-t border-line-3 px-3 pt-3 text-[11px] font-medium text-ink-4 dark:border-line-dark"
+          onNavigate={() => setMenuOpen(false)}
+        />
       </Sheet>
     </div>
   );

@@ -2,13 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- maximum-scale/user-scalable stop the double-tap and pinch zoom that made
-         the app unusable on a phone. iOS ignores both for its focus zoom, which
-         it triggers on any field under 16px — the fields are 16px on touch
-         widths for that reason, see `inputClass`. -->
+    <!-- The scale limits are the browser-level fallback; the root touch-action
+         rule controls pinch/double-tap gestures. iOS can still focus-zoom a
+         field under 16px, so fields stay 16px at touch widths (`inputClass`). -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
+      content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <meta name="theme-color" content="#4338CA" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -27,8 +26,8 @@
       crossorigin
     />
     <title>gotracks</title>
-    <script type="module" crossorigin src="/assets/index-BWs-Dtmx.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Bk997kaE.css">
+    <script type="module" crossorigin src="/assets/index-DXrdGcFA.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Ca_hAg2s.css">
   </head>
   <body>
     <div id="root"></div>

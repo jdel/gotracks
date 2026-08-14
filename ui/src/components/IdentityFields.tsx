@@ -1,4 +1,6 @@
+import { X } from "lucide-react";
 import { FilterPicker } from "@/components/FilterPicker";
+import { IconButton } from "@/components/IconButton";
 import { fieldLabel } from "@/components/primitive-styles";
 import { bare } from "@/lib/composer";
 import type { Identity } from "@/hooks/useIdentity";
@@ -136,11 +138,12 @@ export function ContextProjectFields({
         />
       </label>
 
-      <label className={fieldLabel}>
-        {t("todo.project")}
-        <FilterPicker
-          className="mt-1"
-          value={newProjectName ? NEW : String(effectiveProjectId ?? "")}
+      <div className="flex items-end gap-2">
+        <label className={`min-w-0 flex-1 ${fieldLabel}`}>
+          {t("todo.project")}
+          <FilterPicker
+            className="mt-1"
+            value={newProjectName ? NEW : String(effectiveProjectId ?? "")}
           options={
             newProjectName
               ? [
@@ -152,11 +155,27 @@ export function ContextProjectFields({
           onChange={(v) => v !== NEW && onProjectChange(v ? Number(v) : null)}
           onCreate={onProjectCreate}
           createLabel={(name) => t("picker.create", { name })}
-          ariaLabel={t("todo.project")}
-          filterLabel={t("picker.filterProjects")}
-          noMatchLabel={t("picker.noMatch")}
-        />
-      </label>
+            ariaLabel={t("todo.project")}
+            filterLabel={t("picker.filterProjects")}
+            noMatchLabel={t("picker.noMatch")}
+          />
+        </label>
+        {/* One tap out of a project. Choosing "No project" from the list is two,
+            and the list has to be opened to find it.
+            Not offered for a project named in the description: the text is what
+            decides that one, so a button here would appear to do nothing. The
+            description has a clear of its own. */}
+        {!parsed.projectId && !parsed.projectIsNew && (effectiveProjectId !== null || newProjectName) && (
+          <IconButton
+            type="button"
+            className="mb-0.5 size-8 shrink-0"
+            label={t("todo.clearProject")}
+            onClick={() => onProjectChange(null)}
+          >
+            <X className="size-3.5 text-ink-4" />
+          </IconButton>
+        )}
+      </div>
     </div>
   );
 }

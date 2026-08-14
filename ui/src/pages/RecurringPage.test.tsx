@@ -50,12 +50,23 @@ async function openForm(kind: "add" | "edit", user: ReturnType<typeof userEvent.
   // highlight mirror behind the field — so the field is labelled with it.
   if (kind === "add") return document.querySelector<HTMLElement>("form.space-y-3")!;
   await user.click(screen.getByRole("button", { name: "Edit this recurrence" }));
-  // The editor is not a <form> — a stray submit would dismiss it — so the row
-  // it expands inside is the container to scope queries to.
+  // The row remains the broad container for the inline editor.
   return screen.getByRole("listitem");
 }
 
 const lastBody = () => api.lastBody() as Record<string, unknown>;
+
+function chooseDate(form: HTMLElement, label: string, value: string) {
+  const [year, month] = value.split("-");
+  fireEvent.click(within(form).getByLabelText(label));
+  const picker = screen.getByRole("dialog", { name: label });
+  fireEvent.change(within(picker).getByLabelText("Year"), { target: { value: year } });
+  fireEvent.change(within(picker).getByLabelText("Month"), {
+    target: { value: String(Number(month) - 1) },
+  });
+  fireEvent.click(within(picker).getByRole("button", { name: value }));
+  fireEvent.click(within(picker).getByRole("button", { name: "Apply" }));
+}
 
 describe.each(["add", "edit"] as const)("the %s form", (kind) => {
   const creating = kind === "add";
@@ -118,20 +129,42 @@ describe.each(["add", "edit"] as const)("the %s form", (kind) => {
     const form = await openForm(kind, user);
 
     if (creating) await user.type(within(form).getByLabelText(/Recurring action/i), "call the vet");
-    // A date input is filled, not typed into: jsdom takes the value whole.
-    fireEvent.change(within(form).getByLabelText("Starts"), { target: { value: "2026-09-01" } });
-    fireEvent.change(within(form).getByLabelText("Ends"), { target: { value: "2026-08-01" } });
+    chooseDate(form, "Starts", "2026-09-01");
+    chooseDate(form, "Ends", "2026-08-01");
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
     expect(within(form).getByText(/cannot be before/)).toBeTruthy();
     expect(api.writes()).toEqual([]);
 
-    fireEvent.change(within(form).getByLabelText("Ends"), { target: { value: "2026-10-01" } });
+    chooseDate(form, "Ends", "2026-10-01");
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(lastBody()).toMatchObject({ startFrom: "2026-09-01", endDate: "2026-10-01" }),
     );
+  });
+
+  it("does not accept the date wheel's initial value when it was only opened", async () => {
+    const original = creating ? "" : "2026-09-01";
+    patterns = [pattern({ startFrom: original || undefined })];
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm(kind, user);
+
+    if (creating) await user.type(within(form).getByLabelText(/Recurring action/i), "call the vet");
+    const starts = within(form).getByLabelText("Starts");
+    fireEvent.click(starts);
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Starts" })).getByRole("button", {
+        name: "Cancel",
+      }),
+    );
+
+    expect(starts).toHaveProperty("value", original);
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.writes().length).toBeGreaterThan(0));
+    if (creating) expect(lastBody()).not.toHaveProperty("startFrom");
+    else expect(lastBody()).toMatchObject({ startFrom: original });
   });
 });
 
@@ -336,7 +369,7 @@ describe("where the editor opens", () => {
     expect(screen.getByRole("button", { name: "Edit this recurrence" })).toBeTruthy();
   });
 
-  it("opens as a sheet on a phone, from the same pencil", async () => {
+  it("opens as a full-screen form on a phone, from the same pencil", async () => {
     const user = userEvent.setup();
     renderPage("phone");
     await screen.findByText("water the plants");
@@ -346,5 +379,10 @@ describe("where the editor opens", () => {
     await user.click(screen.getByRole("button", { name: "Edit this recurrence" }));
 
     await waitFor(() => expect(document.querySelector("[role='dialog']")).not.toBeNull());
+    const panel = screen.getByRole("dialog");
+    // Full screen, not a bottom sheet: the form is too tall for a panel
+    // anchored to the edge the keyboard covers.
+    expect(panel.querySelector("[data-sheet-grip]")).toBeNull();
+    expect(panel.className).toContain("h-dvh");
   });
 });

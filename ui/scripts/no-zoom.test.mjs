@@ -43,8 +43,11 @@ describe("the app does not zoom on a phone", () => {
     expect(viewport[1]).toContain("interactive-widget=resizes-content");
   });
 
-  it("turns off the double-tap zoom", () => {
-    expect(read("src/index.css")).toMatch(/body\s*{[^}]*touch-action:\s*manipulation/);
+  it("turns off double-tap zoom without trapping a restored scale", () => {
+    expect(read("src/index.css")).toMatch(
+      /html,\s*body,\s*#root\s*{[^}]*touch-action:\s*manipulation/,
+    );
+    expect(read("src/main.tsx")).toContain("installZoomGuard();");
   });
 
   // iOS ignores the viewport meta above for one case: focusing a field whose

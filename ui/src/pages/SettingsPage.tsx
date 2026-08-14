@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Download, Check, Trash2 } from "lucide-react";
+import { Download, Check, LogOut, Trash2 } from "lucide-react";
 import {
   downloadExport,
   useMyUsage,
@@ -38,7 +38,7 @@ const fieldLabel = "text-[11px] font-bold text-ink-3 dark:text-ink-4-dark";
 
 export function SettingsPage() {
   const t = useT();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { setLocale } = useLocale();
   const { data: prefs, isLoading } = usePreferences();
   const { data: usage, isLoading: usageLoading, error: usageError } = useMyUsage();
@@ -100,6 +100,15 @@ export function SettingsPage() {
         />
       }
     >
+      <div className="mt-4 flex justify-end">
+        <Button
+          variant="ghost"
+          className="w-full sm:w-auto"
+          onClick={logout}
+        >
+          <LogOut /> {t("nav.signOut")}
+        </Button>
+      </div>
       <div className="mt-4 flex flex-col gap-4 md:grid md:grid-cols-2 md:gap-4 md:[align-content:start]">
         <Panel className="md:col-span-2">
           <div className="flex items-center justify-between">

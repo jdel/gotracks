@@ -97,6 +97,14 @@ describe("picking from a filtered list", () => {
 // moving to the next field — forty contexts, forty presses. The list is driven
 // from the filter box: arrows move, Enter picks, Tab leaves.
 describe("keyboard navigation", () => {
+  // iOS only includes editable controls in the previous/next arrows above its
+  // keyboard. Context and Project used to be read-only and were skipped.
+  it("keeps the picker field in the native previous/next chain", () => {
+    renderPicker();
+
+    expect(screen.getByLabelText("Project")).toHaveProperty("readOnly", false);
+  });
+
   it("keeps the options out of the tab order", async () => {
     const user = userEvent.setup();
     renderPicker();

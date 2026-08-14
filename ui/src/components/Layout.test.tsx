@@ -40,7 +40,7 @@ const SECTIONS = [
 
 function renderLayout({ isAdmin = false } = {}) {
   vi.mocked(useAuth).mockReturnValue({
-    user: { id: 1, login: "alice", email: "", isAdmin, createdAt: "", updatedAt: "" },
+    user: { id: 1, login: "alice", email: "alice@example.com", isAdmin, createdAt: "", updatedAt: "" },
     ready: true,
     logout: vi.fn(),
   } as unknown as ReturnType<typeof useAuth>);
@@ -111,6 +111,15 @@ describe("mobile navigation", () => {
     await userEvent.click(screen.getByRole("button", { name: /More/i }));
     expect(sheetLinks()).toContain("Settings");
     expect(sheetLinks()).toContain("Statistics");
+  });
+
+  it("keeps account identity and sign out out of the More sheet", async () => {
+    renderLayout();
+
+    await userEvent.click(screen.getByRole("button", { name: /More/i }));
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).queryByText("alice@example.com")).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: "Sign out" })).toBeNull();
   });
 
   it("does not offer Admin to a non-admin", async () => {

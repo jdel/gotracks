@@ -15,7 +15,7 @@ import { downloadAttachment, downloadErrorMessage } from "@/lib/attachments";
 import { formatBytes } from "@/lib/usage";
 import { TodoItem } from "@/components/TodoItem";
 import { QuickAdd } from "@/components/QuickAdd";
-import { QuickAddSheet } from "@/components/QuickAddSheet";
+import { QuickAddPanel } from "@/components/QuickAddPanel";
 import { IconButton } from "@/components/IconButton";
 import { Button, Fab, GroupHeader, HeaderBlock, Input, List, Screen, type Metric } from "@/components/primitives";
 import { rowActions, inlineEdit, inputClass } from "@/components/primitive-styles";
@@ -289,7 +289,7 @@ export function ProjectDetailPage() {
         </div>
       </div>
 
-      <QuickAddSheet
+      <QuickAddPanel
         open={adding}
         onClose={() => setAdding(false)}
         defaultProjectId={projectId}

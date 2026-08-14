@@ -87,6 +87,7 @@ afterEach(() => {
 describe("editing an action inline", () => {
   it("saves an edited description", async () => {
     const user = userEvent.setup();
+    setViewport("desktop");
     renderItem();
 
     await user.click(screen.getByText("buy paint"));
@@ -100,6 +101,7 @@ describe("editing an action inline", () => {
   // The reason the description is not run back through the composer parser.
   it("keeps a # in the description instead of making a project of it", async () => {
     const user = userEvent.setup();
+    setViewport("desktop");
     renderItem();
 
     await user.click(screen.getByText("buy paint"));
@@ -115,6 +117,7 @@ describe("editing an action inline", () => {
 
   it("abandons the edit on Escape", async () => {
     const user = userEvent.setup();
+    setViewport("desktop");
     renderItem();
 
     await user.click(screen.getByText("buy paint"));
@@ -272,6 +275,7 @@ describe("clearing attachments after completing", () => {
 // the whole box drops below the icons instead.
 describe("a long title flowing around the row actions", () => {
   it("keeps the title inline rather than an atomic button box", async () => {
+    setViewport("desktop");
     renderItem();
     const title = await screen.findByText("buy paint");
 
@@ -294,6 +298,7 @@ describe("a long title flowing around the row actions", () => {
 
   it("still opens the editor from the keyboard", async () => {
     const user = userEvent.setup();
+    setViewport("desktop");
     renderItem();
 
     const title = await screen.findByText("buy paint");
@@ -301,6 +306,120 @@ describe("a long title flowing around the row actions", () => {
     await user.keyboard("{Enter}");
 
     expect(screen.getByRole("textbox", { name: "Action description" })).toBeTruthy();
+  });
+});
+
+/**
+ * Where the description is edited, which is the one thing that differs by
+ * viewport. A desktop clicks the title in the row, where the result reads
+ * exactly as it will afterwards. A phone has no such second way in — the
+ * editor is the panel that holds every other field, so it holds this one too.
+ */
+/**
+ * The editor is a full-screen form on a phone, not a bottom sheet.
+ *
+ * A sheet is anchored to the bottom, which is where the keyboard is: every
+ * field below the caret went behind it, and four separate fixes went into
+ * propping that up — measuring the keyboard, lifting the panel, turning
+ * autofocus off, then deferring it — before the container was admitted to be
+ * wrong. Full screen puts the first field at the top and lets the body scroll
+ * under the keyboard, which is the ordinary case.
+ */
+describe("the editor on a phone", () => {
+  it("fills the screen instead of sitting in a sheet", async () => {
+    const user = userEvent.setup();
+    setViewport("phone");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+
+    const panel = screen.getByRole("dialog");
+    // No grip: there is nothing to pull down when it covers the screen.
+    expect(panel.querySelector("[data-sheet-grip]")).toBeNull();
+    expect(panel.className).toContain("inset-0");
+    expect(panel.className).toContain("h-dvh");
+    // And a way out that does not depend on a backdrop, since there is none.
+    expect(within(panel).getByRole("button", { name: "Close" })).toBeTruthy();
+  });
+
+  // iOS walks fields with the arrows above its keyboard, and landing on a date
+  // input opens the wheel. Last in the form means there is no ordinary text
+  // field after it that requires passing through the wheel.
+  it("puts the dates last, after the tags", async () => {
+    const user = userEvent.setup();
+    setViewport("phone");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const panel = screen.getByRole("dialog");
+
+    const order = ["Action description", "Context", "Project", "Tags (comma separated)", "Due"];
+    const positions = order.map((label) => {
+      const field = within(panel).getByLabelText(label);
+      return { label, top: field.compareDocumentPosition(within(panel).getByLabelText("Due")) };
+    });
+    // Everything else precedes Due in document order (2 = DOCUMENT_POSITION_FOLLOWING).
+    for (const { label, top } of positions.slice(0, -1)) {
+      expect(top, `${label} should come before the dates`).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    }
+  });
+});
+
+describe("renaming an action on a phone", () => {
+  it("puts the description in the editor", async () => {
+    const user = userEvent.setup();
+    setViewport("phone");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByLabelText("Action description")).toBeTruthy();
+  });
+
+  it("saves the new description with everything else, on Save", async () => {
+    const user = userEvent.setup();
+    setViewport("phone");
+    renderItem();
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const sheet = screen.getByRole("dialog");
+    const field = within(sheet).getByLabelText("Action description");
+    await user.clear(field);
+    await user.type(field, "buy emulsion");
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(puts()[0]?.body).toMatchObject({ description: "buy emulsion" }));
+  });
+
+  // The row is read-only there: two ways to change one thing is what moving it
+  // into the form was meant to avoid.
+  it("leaves the title in the row alone", () => {
+    setViewport("phone");
+    renderItem();
+
+    const title = screen.getByText("buy paint");
+    expect(title.getAttribute("role")).toBeNull();
+    expect(title.getAttribute("tabindex")).toBeNull();
+  });
+
+  // And a "#" in it still stays a "#": editing parses no sigils, so the
+  // composer's shortcuts cannot turn a stored description into a project.
+  it("does not read a # in the description as a project", async () => {
+    const user = userEvent.setup();
+    setViewport("phone");
+    renderItem({ ...baseTodo, description: "call about invoice #7741" });
+
+    await user.click(screen.getByLabelText("Edit this action"));
+    const sheet = screen.getByRole("dialog");
+    const field = within(sheet).getByLabelText("Action description");
+    await user.type(field, " again");
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(puts()[0]?.body).toMatchObject({ description: "call about invoice #7741 again" }),
+    );
+    expect(puts()[0]?.body).not.toHaveProperty("projectName");
   });
 });
 
@@ -409,8 +528,12 @@ describe("editing an action's dates", () => {
 
     await user.click(screen.getByLabelText("Edit this action"));
     const due = within(screen.getByRole("dialog")).getByLabelText("Due");
-    fireEvent.change(due, { target: { value: "2026-09-24" } });
-    fireEvent.blur(due, { target: { value: "2026-09-24" } });
+    await user.click(due);
+    const picker = screen.getByRole("dialog", { name: "Due" });
+    await user.selectOptions(within(picker).getByLabelText("Year"), "2026");
+    await user.selectOptions(within(picker).getByLabelText("Month"), "8");
+    await user.click(within(picker).getByRole("button", { name: "2026-09-24" }));
+    await user.click(within(picker).getByRole("button", { name: "Apply" }));
     // Nothing is written until Save — a due date is usually half an edit
     // whose other half is the show-from.
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
@@ -481,11 +604,14 @@ describe("attachments on a phone", () => {
 // dragging past a threshold dismisses, and anything shorter springs back
 // rather than leaving the sheet sitting half-open.
 describe("pulling a sheet down", () => {
+  // The defer panel, not the editor: the editor is a full-screen form now, and
+  // a panel that fills the screen has nothing to pull down. Defer is two
+  // controls, which is what a sheet is still for.
   function openSheet() {
     renderItem();
     // fireEvent, not userEvent: these tests run on fake timers for the leave
     // animation, and userEvent's own delay does not interleave with them.
-    fireEvent.click(screen.getByLabelText("Edit this action"));
+    fireEvent.click(screen.getByLabelText("Defer"));
     return screen.getByRole("dialog");
   }
 
@@ -684,6 +810,7 @@ describe("discarding an edit", () => {
 describe("the editor does not edit the description", () => {
   it("has no description field", async () => {
     const user = userEvent.setup();
+    setViewport("desktop");
     renderItem({ ...baseTodo, description: "call about invoice #7741" });
 
     await user.click(screen.getByLabelText("Edit this action"));
@@ -693,6 +820,7 @@ describe("the editor does not edit the description", () => {
 
   it("leaves the description alone when other fields are saved", async () => {
     const user = userEvent.setup();
+    setViewport("desktop");
     renderItem({ ...baseTodo, description: "call about invoice #7741" });
 
     await user.click(screen.getByLabelText("Edit this action"));
@@ -708,19 +836,17 @@ describe("the editor does not edit the description", () => {
   });
 });
 
-// The editor closes when it is saved, so any stray submit dismissed it — a
-// button that forgot its type, a keystroke a control passed on, a browser
-// deciding a lone field meant implicit submission. There is no form around the
-// editor at all now, so no such path exists: only Save closes it.
+// The editor is a real form so iOS can navigate all of its fields, but its form
+// submit is inert while editing: only the explicit Save action closes it.
 describe("nothing but Save closes the editor", () => {
-  it("has no form to submit", async () => {
+  it("keeps Save as an explicit button inside the form", async () => {
     const user = userEvent.setup();
     renderItem();
 
     await user.click(screen.getByLabelText("Edit this action"));
     const sheet = screen.getByRole("dialog");
 
-    expect(sheet.querySelector("form")).toBeNull();
+    expect(sheet.querySelector("form")).not.toBeNull();
     expect(within(sheet).getByRole("button", { name: "Save" }).getAttribute("type")).toBe("button");
   });
 
@@ -747,7 +873,9 @@ describe("what dismisses a sheet", () => {
     const user = userEvent.setup();
     renderItem();
 
-    await user.click(screen.getByLabelText("Edit this action"));
+    // Again the defer sheet: the editor is full-screen and has no backdrop to
+    // reach past.
+    await user.click(screen.getByLabelText("Defer"));
     const overlay = document.querySelector("[data-radix-dialog-overlay], [data-state=open].fixed.inset-0");
     expect(overlay).not.toBeNull();
     await user.click(overlay as Element);

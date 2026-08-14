@@ -197,11 +197,12 @@
   html {
     -webkit-text-size-adjust: 100%;
   }
-  /* No double-tap zoom. The app is a list of tap targets; a double tap is
-     never a request to magnify one, and the 300ms the browser waits to find
-     out is felt on every tap. Panning and scrolling are unaffected — the rows
-     set `touch-pan-y` of their own for the swipe. */
-  body {
+  /* `manipulation` removes double-tap zoom and keeps ordinary panning. Pinch
+     is handled by the document gesture guard: unlike a CSS ban, it can still
+     let somebody Safari restored above 1× pinch back out. */
+  html,
+  body,
+  #root {
     touch-action: manipulation;
   }
   /* Rows are swiped horizontally, and a horizontal overscroll is what Chrome
@@ -227,6 +228,16 @@
      right edge, where the eye looks for a control. */
   input[type="date"] {
     position: relative;
+    /* iOS sizes a date input to its *content* and ignores the width it is
+       given, so an empty field and a filled one are different widths and both
+       can exceed the row they sit in — which is how the field came to be drawn
+       over the button that clears it. Resetting the native appearance makes
+       width authoritative again. The row's `min-w-0` is still needed: that lets
+       the field shrink, this makes it obey. */
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    width: 100%;
   }
   input[type="date"]::-webkit-calendar-picker-indicator {
     position: absolute;

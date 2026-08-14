@@ -43,7 +43,13 @@ export function AuthLayout({
       </div>
 
       <div className="flex flex-1 flex-col md:items-center md:justify-center md:p-6">
-        <div className="-mt-[30px] mx-4 flex flex-col gap-4 rounded-panel bg-card p-5 shadow-elevated md:mx-0 md:mt-0 md:w-[400px] md:p-6 dark:border dark:border-line-dark dark:bg-card-dark">
+        {/* Below the brand panel on a phone, not tucked into it. The card used
+            to be pulled up 30px, which was sized for a panel carrying the
+            marketing line — and that line is empty in every locale, so the
+            panel is a 96px bar and the card covered a third of it, closing to
+            14px under the wordmark. `mt-4` is the gap every other screen puts
+            between its header and its content. */}
+        <div className="mx-4 mt-4 flex flex-col gap-4 rounded-panel bg-card p-5 shadow-elevated md:mx-0 md:mt-0 md:w-[400px] md:p-6 dark:border dark:border-line-dark dark:bg-card-dark">
           <h2
             className={cn(
               "text-[17px] font-extrabold tracking-[-0.02em] md:text-[22px]",
