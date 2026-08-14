@@ -113,7 +113,14 @@ export function DateFields({
     <div className="flex flex-col gap-3">
       <div>
         <div className="flex items-end gap-2">
-          <label htmlFor={dueId} className="flex-1 text-xs font-bold text-ink-2 dark:text-ink-2-dark">
+          {/* min-w-0, or the field never shrinks: a flex item's min-width is
+              auto, and a date input's intrinsic width is the whole date plus
+              the picker button. On a narrow screen the label kept that width,
+              overran the row and slid under the clear button beside it. */}
+          <label
+            htmlFor={dueId}
+            className="min-w-0 flex-1 text-xs font-bold text-ink-2 dark:text-ink-2-dark"
+          >
             {t("dates.due")}
             <Input
               id={dueId}
@@ -134,7 +141,7 @@ export function DateFields({
           </label>
           {shown.due && (
             <IconButton
-              className="mb-0.5 size-8"
+              className="mb-0.5 size-8 shrink-0"
               label={t("dates.clearDue")}
               onClick={() => setDue("")}
             >
@@ -157,7 +164,7 @@ export function DateFields({
         <div className="flex items-end gap-2">
           <label
             htmlFor={showFromId}
-            className="flex-1 text-xs font-bold text-ink-2 dark:text-ink-2-dark"
+            className="min-w-0 flex-1 text-xs font-bold text-ink-2 dark:text-ink-2-dark"
           >
             {t("dates.showFrom")}
             <Input
@@ -177,7 +184,7 @@ export function DateFields({
           </label>
           {shown.showFrom && (
             <IconButton
-              className="mb-0.5 size-8"
+              className="mb-0.5 size-8 shrink-0"
               label={t("dates.clearShowFrom")}
               onClick={() => setShowFrom("")}
             >

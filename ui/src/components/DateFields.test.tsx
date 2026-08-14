@@ -183,3 +183,25 @@ describe("pressing Enter in a date field", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });
+
+// A class assertion, and deliberately so: whether the field overruns the button
+// beside it is a layout question, and jsdom has no layout engine — every test
+// above would pass against a field drawn over its own clear button, which is
+// what a phone showed. The browser suite measures it for real, but it is not
+// installed by default, so the rule that prevents it is pinned here too.
+describe("the date row on a narrow screen", () => {
+  it("lets the field shrink, and keeps the clear button its own size", () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <DateFields value={{ due: "2026-09-24", showFrom: "" }} onChange={() => {}} idPrefix="t" />
+      </QueryClientProvider>,
+    );
+
+    // min-width is auto on a flex item, and a date input's intrinsic width is
+    // the whole date plus the picker button — so without this the label never
+    // shrinks and takes the row with it.
+    expect(screen.getByLabelText("Due").closest("label")!.className).toContain("min-w-0");
+    expect(screen.getByLabelText("Clear the due date").className).toContain("shrink-0");
+  });
+});

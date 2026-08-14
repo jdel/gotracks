@@ -175,6 +175,22 @@ describe("editing a pattern", () => {
     await waitFor(() => expect(lastBody()).toMatchObject({ endDate: "" }));
   });
 
+  // The same layout rule as the action dates, for the same reason: jsdom has no
+  // layout, so only the class can be checked here. See DateFields.test.tsx.
+  it("lets the window fields shrink beside their clear buttons", async () => {
+    patterns = [pattern({ startFrom: "2026-01-01T00:00:00Z", endDate: "2026-12-01T00:00:00Z" })];
+    const user = userEvent.setup();
+    renderPage();
+    const form = await openForm("edit", user);
+
+    for (const name of ["Starts", "Ends"]) {
+      expect(within(form).getByLabelText(name).closest("label")!.className).toContain("min-w-0");
+    }
+    for (const name of ["Clear the start date", "Clear the end date"]) {
+      expect(within(form).getByRole("button", { name }).className).toContain("shrink-0");
+    }
+  });
+
   it("clears the start date the same way, not by omitting it", async () => {
     patterns = [pattern({ startFrom: "2026-01-01T00:00:00Z" })];
     const user = userEvent.setup();

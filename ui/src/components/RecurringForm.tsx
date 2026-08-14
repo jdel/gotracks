@@ -335,7 +335,7 @@ export function RecurringForm({
             nothing rendered them, so a pattern could not be given an end. */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex items-end gap-2">
-            <label className={`flex-1 ${fieldLabel}`}>
+            <label className={`min-w-0 flex-1 ${fieldLabel}`}>
               {t("recurring.startFrom")}
               <Input
                 type="date"
@@ -346,7 +346,7 @@ export function RecurringForm({
             </label>
             {startFrom && (
               <IconButton
-                className="mb-0.5 size-8"
+                className="mb-0.5 size-8 shrink-0"
                 label={t("recurring.clearStartFrom")}
                 onClick={() => setStartFrom("")}
               >
@@ -355,7 +355,7 @@ export function RecurringForm({
             )}
           </div>
           <div className="flex items-end gap-2">
-            <label className={`flex-1 ${fieldLabel}`}>
+            <label className={`min-w-0 flex-1 ${fieldLabel}`}>
               {t("recurring.endDate")}
               <Input
                 type="date"
@@ -371,7 +371,7 @@ export function RecurringForm({
             </label>
             {endDate && (
               <IconButton
-                className="mb-0.5 size-8"
+                className="mb-0.5 size-8 shrink-0"
                 label={t("recurring.clearEndDate")}
                 onClick={() => setEndDate("")}
               >
