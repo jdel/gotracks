@@ -214,7 +214,10 @@ export function Segmented<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap gap-1.5", className)}>
+    // Right-aligned, including the second line once the pills wrap: `ml-auto`
+    // on the caller only moves the box, and a box that fills the row leaves its
+    // wrapped pills hanging on the left.
+    <div className={cn("flex flex-wrap justify-end gap-1.5", className)}>
       {options.map((o) => {
         const on = o.value === value;
         return (

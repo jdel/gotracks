@@ -154,7 +154,9 @@ export function HomePage() {
           value={filter}
           onChange={setFilter}
           options={[
-            { value: "contexts", label: t("nav.contexts") },
+            // "All", not "Contexts": it is the unfiltered view, and the word
+            // has to earn its width on a phone where five pills share the row.
+            { value: "contexts", label: t("home.filterAll") },
             { value: "today", label: t("home.filterToday") },
             { value: "starred", label: t("nav.starred") },
             { value: "overdue", label: t("home.filterOverdue") },

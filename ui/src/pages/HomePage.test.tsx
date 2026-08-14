@@ -221,6 +221,28 @@ describe("contexts with nothing in them", () => {
     expect(await screen.findByText("Nothing to do. Add an action above.")).toBeTruthy();
   });
 
+  // Five pills share a phone's row, so the widest word has to earn its width:
+  // this one is the unfiltered view, not a view of contexts.
+  it("names the unfiltered pill All", async () => {
+    renderPage();
+    await screen.findByText("paint the fence");
+
+    expect(screen.getByRole("button", { name: "All" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Contexts" })).toBeNull();
+  });
+
+  // A class assertion, because the contract is visual and jsdom has no layout:
+  // the pills are specified as right-aligned, and on a phone they wrap onto a
+  // second line that `ml-auto` on the container does not move.
+  it("right-aligns the filter pills, including the wrapped line", async () => {
+    renderPage();
+    await screen.findByText("paint the fence");
+
+    const pills = screen.getByRole("button", { name: "All" }).parentElement!;
+    expect(pills.className).toContain("justify-end");
+    expect(pills.className).toContain("flex-wrap");
+  });
+
   // A filter that matches nothing is a different situation and reads that way.
   it("keeps the no-match wording when filtering", async () => {
     const user = userEvent.setup();
