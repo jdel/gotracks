@@ -139,13 +139,10 @@ export const en = {
   "settings.tzNoMatch": "No matching time zone.",
   "settings.dateFormat": "Date format",
   "settings.weekStart": "Week starts on",
-  "settings.reviewPeriod": "Review period (days)",
+  "settings.reviewPeriod": "Project review period (days)",
   "settings.showFromDays": "Show actions this many days before they are due",
-  "settings.showFromDaysHelp":
-    "Applies when you create an action with a due date and no “show from” date of its own. 0 shows it on the day it is due; until then it waits in the tickler. Changing a due date later never changes “show from”.",
   "settings.autoDeleteAttachments": "Auto-delete attachments when done",
-  "settings.autoDeleteAttachmentsHelp":
-    "When on, completing an action deletes its attachments instead of asking first. This will not delete attachments from currently done actions.",
+  "settings.autoDeleteAttachmentsHelp": "Done actions are unaffected.",
   "settings.saved": "Saved.",
   "settings.export": "Export your data",
 
@@ -814,13 +811,10 @@ export const fr: Partial<Dict> = {
   "settings.tzNoMatch": "Aucun fuseau horaire correspondant.",
   "settings.dateFormat": "Format de date",
   "settings.weekStart": "La semaine commence le",
-  "settings.reviewPeriod": "Période de revue (jours)",
+  "settings.reviewPeriod": "Période de revue des projets (jours)",
   "settings.showFromDays": "Afficher les actions ce nombre de jours avant leur échéance",
-  "settings.showFromDaysHelp":
-    "S'applique à la création d'une action ayant une échéance mais pas de date « afficher à partir de ». 0 l'affiche le jour de son échéance ; jusque-là elle attend dans les rappels. Modifier une échéance ensuite ne change jamais « afficher à partir de ».",
   "settings.autoDeleteAttachments": "Supprimer les pièces jointes une fois terminé",
-  "settings.autoDeleteAttachmentsHelp":
-    "Si activé, terminer une action supprime ses pièces jointes sans demander. Ne supprime pas les pièces jointes des actions déjà terminées.",
+  "settings.autoDeleteAttachmentsHelp": "Les actions déjà terminées ne sont pas affectées.",
   "settings.saved": "Enregistré.",
   "settings.export": "Exporter vos données",
 
@@ -1482,12 +1476,10 @@ export const it: Partial<Dict> = {
   "settings.tzNoMatch": "Nessun fuso orario corrispondente.",
   "settings.dateFormat": "Formato data",
   "settings.weekStart": "La settimana inizia di",
-  "settings.reviewPeriod": "Periodo di revisione (giorni)",
+  "settings.reviewPeriod": "Periodo di revisione dei progetti (giorni)",
   "settings.showFromDays": "Mostra le azioni questo numero di giorni prima della scadenza",
-  "settings.showFromDaysHelp":
-    "Si applica quando crei un'azione con una scadenza ma senza una data \"mostra dal\" propria. 0 la mostra il giorno della scadenza; fino ad allora attende nello scadenzario. Modificare in seguito la scadenza non cambia mai \"mostra dal\".",
   "settings.autoDeleteAttachments": "Elimina automaticamente gli allegati al completamento",
-  "settings.autoDeleteAttachmentsHelp": "Se attivo, completare un'azione ne elimina gli allegati invece di chiedere prima. Non elimina gli allegati delle azioni già completate.",
+  "settings.autoDeleteAttachmentsHelp": "Le azioni già completate non sono interessate.",
   "settings.saved": "Salvato.",
   "settings.export": "Esporta i tuoi dati",
   "accountDeletion.settingsTitle": "Elimina il tuo account",
@@ -2140,12 +2132,10 @@ export const de: Partial<Dict> = {
   "settings.tzNoMatch": "Keine passende Zeitzone.",
   "settings.dateFormat": "Datumsformat",
   "settings.weekStart": "Woche beginnt am",
-  "settings.reviewPeriod": "Durchsichtsintervall (Tage)",
+  "settings.reviewPeriod": "Durchsichtsintervall für Projekte (Tage)",
   "settings.showFromDays": "Aktionen so viele Tage vor ihrer Fälligkeit anzeigen",
-  "settings.showFromDaysHelp":
-    "Gilt beim Anlegen einer Aktion mit Fälligkeitsdatum und ohne eigenes „Anzeigen ab“-Datum. 0 zeigt sie am Fälligkeitstag; bis dahin wartet sie in der Wiedervorlage. Ein späteres Ändern der Fälligkeit ändert „Anzeigen ab“ nie.",
   "settings.autoDeleteAttachments": "Anhänge beim Erledigen automatisch löschen",
-  "settings.autoDeleteAttachmentsHelp": "Wenn aktiv, löscht das Abschließen einer Aktion ihre Anhänge, statt vorher zu fragen. Anhänge bereits abgeschlossener Aktionen werden nicht gelöscht.",
+  "settings.autoDeleteAttachmentsHelp": "Bereits erledigte Aktionen bleiben unberührt.",
   "settings.saved": "Gespeichert.",
   "settings.export": "Ihre Daten exportieren",
   "accountDeletion.settingsTitle": "Konto löschen",

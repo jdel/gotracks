@@ -111,4 +111,29 @@ describe("SettingsPage show-from default", () => {
     // The second argument is the mutation's own callbacks, which this is not about.
     expect(updatePreferences.mock.calls[0][0]).toEqual({ showFromDays: 3 });
   });
+
+  // The paragraph that used to sit under it explained the tickler in four
+  // sentences, in a pane of one-line settings. The FAQ is where that belongs.
+  it("explains itself in its label, with no paragraph under the field", () => {
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+
+    expect(screen.queryByText(/waits in the tickler/)).toBeNull();
+    expect(screen.getByLabelText("Show actions this many days before they are due")).toBeTruthy();
+  });
+});
+
+describe("SettingsPage wording", () => {
+  it("says which review period this is", () => {
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+
+    // "Review period" alone reads as an account-wide setting; it is the
+    // per-project one the project cards count against.
+    expect(screen.getByLabelText("Project review period (days)")).toBeTruthy();
+  });
+
+  it("says only what auto-delete does not touch", () => {
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+
+    expect(screen.getByText("Done actions are unaffected.")).toBeTruthy();
+  });
 });

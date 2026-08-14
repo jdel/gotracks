@@ -187,23 +187,16 @@ export function SettingsPage() {
               />
             </label>
 
-            {/* The help text sits outside the label: inside it, a screen
-                reader would read the whole paragraph as the field's name. */}
-            <div>
-              <label className={fieldLabel}>
-                {t("settings.showFromDays")}
-                <Input
-                  type="number"
-                  min={0}
-                  className={cn("mt-1", inputClass)}
-                  value={prefs.showFromDays}
-                  onChange={(e) => set({ showFromDays: Math.max(0, Number(e.target.value)) })}
-                />
-              </label>
-              <p className="mt-1 text-xs font-medium text-ink-3 dark:text-ink-4-dark">
-                {t("settings.showFromDaysHelp")}
-              </p>
-            </div>
+            <label className={fieldLabel}>
+              {t("settings.showFromDays")}
+              <Input
+                type="number"
+                min={0}
+                className={cn("mt-1", inputClass)}
+                value={prefs.showFromDays}
+                onChange={(e) => set({ showFromDays: Math.max(0, Number(e.target.value)) })}
+              />
+            </label>
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-line-3 pt-4 dark:border-line-dark">
             <div>
