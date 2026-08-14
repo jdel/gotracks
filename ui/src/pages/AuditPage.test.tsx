@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nProvider } from "@/lib/I18nProvider";
 import { AuditPage } from "./AuditPage";
+import { setViewport } from "@/test/viewport";
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { email: "a@b.co" }, ready: true, logout: vi.fn() }) }));
 import { useAuditActions, useAuditLog } from "@/hooks/useAudit";
 import type { AuditEvent } from "@/lib/types";
@@ -150,3 +151,46 @@ describe("audit filter", () => {
     expect(lastQueryFilter).toMatchObject({ actor: "victim@example.com" });
   });
 })
+
+
+/**
+ * The details panel follows the same rule as every other panel in the app: one
+ * presentation per viewport. It was the last centred dialog a phone could get,
+ * on a page whose own filters already open as a sheet there.
+ */
+describe("where the details open", () => {
+  const open = async () =>
+    userEvent.click(screen.getAllByRole("button", { name: "Show details" })[0]);
+
+  it("arrives as a sheet on a phone", async () => {
+    setViewport("phone");
+    renderPage();
+
+    await open();
+
+    // The grip is what makes it a sheet: it is what the pull-to-dismiss holds,
+    // and a centred dialog has none.
+    expect(screen.getByRole("dialog").querySelector("[data-sheet-grip]")).not.toBeNull();
+  });
+
+  it("stays a centred dialog on a desktop", async () => {
+    setViewport("desktop");
+    renderPage();
+
+    await open();
+
+    const panel = screen.getByRole("dialog");
+    expect(panel.querySelector("[data-sheet-grip]")).toBeNull();
+    // The dialog's own close button, which a sheet does not have.
+    expect(within(panel).getByRole("button", { name: "Close" })).toBeTruthy();
+  });
+
+  it("shows the same rows either way", async () => {
+    setViewport("phone");
+    renderPage();
+
+    await open();
+
+    expect(screen.getByText("Mozilla/5.0 (Probe)")).toBeTruthy();
+  });
+});

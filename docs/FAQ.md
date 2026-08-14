@@ -101,7 +101,9 @@ administrator*. **It never holds a secret** — no password, hash, token, recove
 code or session id.
 
 The table shows four columns so it reads without scrolling sideways; the address,
-browser and note sit behind the details button. Filter by date range, person
+browser and note sit behind the details button, which opens them as a sheet on a
+phone and a centred panel on a desktop — the same rule every other panel in the
+app follows. Filter by date range, person
 (matched against both sides of an action), action and outcome, then export
 exactly what the filter matched as CSV or JSON — the whole match, not the visible
 page.

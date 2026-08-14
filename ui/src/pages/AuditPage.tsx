@@ -17,6 +17,7 @@ import {
   SkeletonList,
 } from "@/components/primitives";
 import { inputClass } from "@/components/primitive-styles";
+import { useIsDesktop } from "@/hooks/useMediaQuery";
 import { apiMessage } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { useDateFmt } from "@/lib/datefmt";
@@ -282,6 +283,7 @@ export function AuditPage() {
 function AuditDetails({ event, onClose }: { event: AuditEvent | null; onClose: () => void }) {
   const t = useT();
   const { dateTime } = useDateFmt();
+  const isDesktop = useIsDesktop();
   if (!event) return null;
 
   const rows: Array<[string, string]> = [
@@ -295,25 +297,42 @@ function AuditDetails({ event, onClose }: { event: AuditEvent | null; onClose: (
     [t("audit.detail"), event.detail || "—"],
   ];
 
+  const body = (
+    <dl className="space-y-2 text-sm">
+      {rows.map(([label, value]) => (
+        <div key={label} className="grid grid-cols-3 gap-2">
+          <dt className="text-muted-foreground">{label}</dt>
+          {/* break-all so a long user agent wraps instead of widening the
+              panel past the viewport. */}
+          <dd className="col-span-2 break-all">{value}</dd>
+        </div>
+      ))}
+      {/* Only export events carry a fingerprint. It ties this entry to the
+          exact file that left the service: re-hash a copy and compare. */}
+      {event.hash && <Fingerprint hash={event.hash} />}
+    </dl>
+  );
+
+  // One presentation per viewport, the same rule the rest of the app follows —
+  // and the same rule the filters on this page already follow. This was the
+  // last centred dialog left on a phone, where a panel that arrives in the
+  // middle of the screen with a small close target is the odd one out, and
+  // where a user agent string has no room to wrap.
+  if (!isDesktop) {
+    return (
+      <Sheet open onClose={onClose} title={t("audit.details")}>
+        {body}
+      </Sheet>
+    );
+  }
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t("audit.details")}</DialogTitle>
         </DialogHeader>
-        <dl className="space-y-2 text-sm">
-          {rows.map(([label, value]) => (
-            <div key={label} className="grid grid-cols-3 gap-2">
-              <dt className="text-muted-foreground">{label}</dt>
-              {/* break-all so a long user agent wraps instead of widening the
-                  dialog past the viewport. */}
-              <dd className="col-span-2 break-all">{value}</dd>
-            </div>
-          ))}
-          {/* Only export events carry a fingerprint. It ties this entry to the
-              exact file that left the service: re-hash a copy and compare. */}
-          {event.hash && <Fingerprint hash={event.hash} />}
-        </dl>
+        {body}
       </DialogContent>
     </Dialog>
   );
