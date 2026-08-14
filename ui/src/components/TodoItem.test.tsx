@@ -414,39 +414,33 @@ describe("editing an action's dates", () => {
 // sometimes, the row concedes them: the browser owns a thumb's width at each
 // side, the row owns the middle.
 describe("the screen edges belong to the browser", () => {
-  it("ignores a gesture that starts at the edge", () => {
-    vi.useFakeTimers();
-    try {
-      const { container } = renderItem();
-      const row = container.querySelector("li")!;
+  function swipeLeftFrom(row: Element, x: number) {
+    fireEvent.pointerDown(row, { pointerType: "touch", clientX: x, clientY: 10 });
+    fireEvent.pointerMove(row, { pointerType: "touch", clientX: x - 20, clientY: 10 });
+    fireEvent.pointerMove(row, { pointerType: "touch", clientX: x - 140, clientY: 10 });
+    fireEvent.pointerUp(row, { pointerType: "touch", clientX: x - 140, clientY: 10 });
+  }
 
-      fireEvent.pointerDown(row, { pointerType: "touch", clientX: 4, clientY: 10 });
-      act(() => {
-        vi.advanceTimersByTime(600);
-      });
+  // Swiped, not held. The rule is about swipes — Safari reads an edge swipe as
+  // back/forward and will not let the page cancel it — but the only test for it
+  // pressed and waited, which the edge check happened to refuse for its own
+  // reasons. It passed while an edge swipe still deferred the action.
+  it("ignores a swipe that starts at the edge", () => {
+    const { container } = renderItemWithUndo();
+    const row = container.querySelector("li")!;
 
-      // No editor: the press was never ours to act on.
-      expect(screen.queryByRole("dialog")).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
+    swipeLeftFrom(row, 4);
+
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("acts on a gesture that starts away from the edge", () => {
-    vi.useFakeTimers();
-    try {
-      const { container } = renderItem();
-      const row = container.querySelector("li")!;
+  it("acts on a swipe that starts away from the edge", async () => {
+    const { container } = renderItemWithUndo();
+    const row = container.querySelector("li")!;
 
-      fireEvent.pointerDown(row, { pointerType: "touch", clientX: 300, clientY: 10 });
-      act(() => {
-        vi.advanceTimersByTime(600);
-      });
+    swipeLeftFrom(row, 300);
 
-      expect(screen.getByRole("dialog")).toBeTruthy();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(await screen.findByRole("dialog", { name: "Defer" })).toBeTruthy();
   });
 });
 

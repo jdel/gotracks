@@ -49,6 +49,12 @@ export function SwipeRow({
   // Set once a gesture (swipe or long-press) has happened, so the tap-through
   // click that follows is swallowed instead of, say, opening the title editor.
   const gestured = useRef(false);
+  // Set when the gesture was refused as it started — a drag handle, or a screen
+  // edge. Without it only the pointerdown was refused: the moves that followed
+  // measured from a stale origin and became a swipe anyway, which is how an
+  // edge swipe still deferred an action while the comment above promised the
+  // edges to the browser.
+  const declined = useRef(false);
   const start = useRef({ x: 0, y: 0 });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -61,10 +67,12 @@ export function SwipeRow({
 
   function onPointerDown(e: PointerEvent) {
     if (e.pointerType !== "touch") return;
+    declined.current = true;
     if ((e.target as HTMLElement).closest("[data-drag-handle]")) return;
     // Started at a screen edge: the browser's navigation gesture, not ours.
     // Long-press is skipped too, since the finger is already on its way out.
     if (e.clientX < EDGE_ZONE || window.innerWidth - e.clientX < EDGE_ZONE) return;
+    declined.current = false;
     swiping.current = false;
     setDragging(false);
     gestured.current = false;
@@ -79,7 +87,7 @@ export function SwipeRow({
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (e.pointerType !== "touch") return;
+    if (e.pointerType !== "touch" || declined.current) return;
     const dxNow = e.clientX - start.current.x;
     const dyNow = e.clientY - start.current.y;
     if (!swiping.current) {
@@ -103,7 +111,7 @@ export function SwipeRow({
   }
 
   function finish(e: PointerEvent) {
-    if (e.pointerType !== "touch") return;
+    if (e.pointerType !== "touch" || declined.current) return;
     clearTimer();
     if (swiping.current) {
       swiping.current = false;
