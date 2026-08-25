@@ -7,7 +7,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/johannesboyne/gofakes3 v1.2.0
-	github.com/minio/minio-go/v7 v7.2.1
+	github.com/minio/minio-go/v7 v7.3.0
 	github.com/muesli/go-app-paths v0.2.2
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.24.1
@@ -25,7 +25,6 @@ require (
 	github.com/uptrace/bun/driver/sqliteshim v1.2.18
 	golang.org/x/crypto v0.55.0
 	golang.org/x/time v0.15.0
-	modernc.org/sqlite v1.56.0
 )
 
 require (
@@ -101,6 +100,7 @@ require (
 	modernc.org/libc v1.75.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.0 // indirect
+	modernc.org/sqlite v1.57.0 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
