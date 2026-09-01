@@ -3,11 +3,11 @@ module github.com/jdel/gotracks
 go 1.26.6
 
 require (
-	github.com/go-webauthn/webauthn v0.17.4
+	github.com/go-webauthn/webauthn v0.18.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/johannesboyne/gofakes3 v1.2.0
-	github.com/minio/minio-go/v7 v7.2.1
+	github.com/minio/minio-go/v7 v7.3.0
 	github.com/muesli/go-app-paths v0.2.2
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.24.1
@@ -25,7 +25,6 @@ require (
 	github.com/uptrace/bun/driver/sqliteshim v1.2.18
 	golang.org/x/crypto v0.55.0
 	golang.org/x/time v0.15.0
-	modernc.org/sqlite v1.56.0
 )
 
 require (
@@ -36,7 +35,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
-	github.com/fxamacker/cbor/v2 v2.9.2 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.3 // indirect
 	github.com/go-openapi/jsonpointer v1.0.0 // indirect
 	github.com/go-openapi/jsonreference v1.0.0 // indirect
 	github.com/go-openapi/spec v0.22.9 // indirect
@@ -48,7 +47,7 @@ require (
 	github.com/go-openapi/swag/typeutils v0.28.0 // indirect
 	github.com/go-openapi/swag/yamlutils v0.28.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/go-webauthn/x v0.2.8 // indirect
+	github.com/go-webauthn/x v0.3.0 // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -101,6 +100,7 @@ require (
 	modernc.org/libc v1.75.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.0 // indirect
+	modernc.org/sqlite v1.57.0 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
